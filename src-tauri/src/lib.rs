@@ -10,7 +10,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let db_path = if cfg!(debug_assertions) {
+            let db_path = if cfg!(debug_assertions) && !cfg!(any(target_os = "android", target_os = "ios")) {
                 // In development, save the DB to the project's root `database/database`
                 let current_dir = std::env::current_dir().unwrap();
                 let root_dir = if current_dir.ends_with("src-tauri") {
