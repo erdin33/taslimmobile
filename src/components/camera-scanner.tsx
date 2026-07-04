@@ -1,12 +1,10 @@
 import * as React from "react"
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode"
-import { Camera, Zap, ZapOff, RefreshCw, CheckCircle2, AlertCircle, X, Boxes, Image } from "lucide-react"
+import { Camera, Zap, ZapOff, RefreshCw, CheckCircle2, AlertCircle, X, Image } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
   DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
 import { toast } from "sonner"
@@ -253,7 +251,7 @@ export function CameraScanner({
         try {
           const imageUrl = URL.createObjectURL(file)
           try {
-            const img = new Image()
+            const img = new window.Image()
             img.src = imageUrl
             await img.decode()
             const detector = new (window as any).BarcodeDetector()

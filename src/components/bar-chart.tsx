@@ -1,13 +1,12 @@
 "use client"
 
-import { SquareArrowOutUpRight, TrendingUp } from "lucide-react"
+import { SquareArrowOutUpRight } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
 
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"

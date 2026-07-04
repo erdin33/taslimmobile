@@ -26,7 +26,6 @@ import {
     type ChartConfig,
 } from "@/components/ui/chart"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import type { InventoryStats, SafetyStockAlert } from "@/types/dashboard"
 import { ChartBarMixed } from "./bar-chart"
 
@@ -60,7 +59,7 @@ export function SectionCharts({
     isMitra = false,
     displayName,
     stats,
-    safetyStockAlerts,
+    safetyStockAlerts: _safetyStockAlerts,
 }: {
     isMitra?: boolean
     displayName?: string

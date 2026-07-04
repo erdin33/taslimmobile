@@ -11,7 +11,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom"
 import { Notifications } from "@/components/notifications"
 import { useAuth } from "@/lib/auth"
-import { LogOut, Settings, Zap } from "lucide-react"
+import { LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
     DropdownMenu,
