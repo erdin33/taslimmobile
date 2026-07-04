@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { InventoryStats, SafetyStockAlert } from "@/types/dashboard"
+import { ChartBarMixed } from "./bar-chart"
 
 const getBaseUrl = () => {
     const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
@@ -124,8 +125,11 @@ export function SectionCharts({
     }, [isMitra])
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 lg:px-6">
-            {/* Card 1 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 lg:px-6">
+            {/* Card 1: ChartBarMixed (takes 2 columns on desktop) */}
+            <ChartBarMixed className="md:col-span-2 h-full pb-0" />
+
+            {/* Card 2: Kapasitas Penyimpanan (RadialBarChart) */}
             <Card className="flex flex-col">
                 <CardHeader className="items-center pb-0">
                     <CardTitle>
@@ -215,13 +219,13 @@ export function SectionCharts({
                 </CardFooter>
             </Card>
 
-            {/* Card 2 */}
-            <Card className="flex flex-col">
+            {/* Card 3: Aktivitas Cepat (takes full width on desktop underneath) */}
+            <Card className="flex flex-col md:col-span-2 lg:col-span-3">
                 <CardHeader className="pb-2">
                     <CardTitle>Aktivitas Cepat</CardTitle>
                     <CardDescription>Pintasan ke fitur utama</CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col flex-1 justify-top gap-2">
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Button asChild size="lg" variant="secondary" className="w-full gap-2 text-md h-12 cursor-pointer">
                         <Link to="/barang-masuk">
                             <PackagePlus className="size-5" />

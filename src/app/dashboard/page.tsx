@@ -50,6 +50,8 @@ export default function DashboardPage() {
     const { user } = useAuth()
     const [transactions, setTransactions] = useState<DashboardTransaction[]>([])
     const [chartTransactions, setChartTransactions] = useState<Transaction[]>([])
+    const [mitraOptions, setMitraOptions] = useState<string[]>([])
+    const [selectedMitra, setSelectedMitra] = useState("all")
     const [safetyStockAlerts, setSafetyStockAlerts] = useState<SafetyStockAlert[]>([])
     const [inventoryStats, setInventoryStats] = useState<InventoryStats>({
         totalItems: 0,
@@ -59,6 +61,8 @@ export default function DashboardPage() {
         hilang: 0,
     })
     const isFetchingRef = useRef(false)
+
+    const normalizeOwner = (owner?: string | null) => (owner || "").trim().toLowerCase()
 
     /**
      * Memanggil API untuk menarik data transaksi, item, dan kategori.
@@ -117,6 +121,16 @@ export default function DashboardPage() {
                     keterangan: transaction.keterangan || "-",
                 }))
             setTransactions(flattened)
+            setMitraOptions([
+                "all",
+                ...Array.from(
+                    new Set(
+                        visibleTransactions
+                            .map((trx) => trx.mitra || "-")
+                            .filter(Boolean)
+                    )
+                ).sort((a, b) => a.localeCompare(b)),
+            ])
             setChartTransactions(visibleTransactions)
             setInventoryStats({
                 totalItems: visibleItems.length,
@@ -237,12 +251,30 @@ export default function DashboardPage() {
                 safetyStockAlerts={safetyStockAlerts}
             />
             <div className="px-4 lg:px-6">
-                <ChartAreaInteractive transactions={chartTransactions} />
+                <ChartAreaInteractive
+                    transactions={
+                        selectedMitra === "all"
+                            ? chartTransactions
+                            : chartTransactions.filter((transaction) =>
+                                  normalizeOwner(transaction.mitra) === normalizeOwner(selectedMitra)
+                              )
+                    }
+                    showMitraFilter={user?.role === "admin"}
+                    mitraOptions={mitraOptions}
+                    selectedMitra={selectedMitra}
+                    onMitraChange={setSelectedMitra}
+                />
             </div>
             {/* Desktop View: Data Table */}
             <div className="hidden md:block px-4 lg:px-6">
                 <DataTable
-                    data={transactions}
+                    data={
+                        selectedMitra === "all"
+                            ? transactions
+                            : transactions.filter((transaction) =>
+                                  normalizeOwner(transaction.mitra) === normalizeOwner(selectedMitra)
+                              )
+                    }
                     showSelection={false}
                     showActions={false}
                     showPagination={false}
