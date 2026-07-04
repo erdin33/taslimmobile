@@ -25,6 +25,17 @@ type NotificationItem = {
 export function Notifications() {
   const [open, setOpen] = React.useState(false)
   const [items, setItems] = React.useState<NotificationItem[]>([])
+  const [filter, setFilter] = React.useState<"all" | "unread" | "read">("all")
+  const [isMobile, setIsMobile] = React.useState(false)
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
   
   const fetchNotifications = React.useCallback(async () => {
     try {
@@ -43,6 +54,12 @@ export function Notifications() {
   }, [fetchNotifications])
 
   const unreadCount = items.filter((n) => !n.isRead).length
+
+  const filteredItems = React.useMemo(() => {
+    if (filter === "unread") return items.filter((item) => !item.isRead)
+    if (filter === "read") return items.filter((item) => item.isRead)
+    return items
+  }, [items, filter])
 
   const markAllAsRead = async () => {
     try {
@@ -98,7 +115,7 @@ export function Notifications() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0 md:w-[380px]" align="end" sideOffset={8}>
+      <PopoverContent className="w-[320px] p-0 md:w-[380px]" align={isMobile ? "center" : "end"} sideOffset={8} collisionPadding={16}>
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-sm">Notifikasi</p>
@@ -109,21 +126,57 @@ export function Notifications() {
             )}
           </div>
         </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1 border-b px-4 py-2 bg-muted/20">
+          <button
+            onClick={() => setFilter("all")}
+            className={cn(
+              "px-2.5 py-1 text-xs rounded-full font-medium transition-colors cursor-pointer outline-none select-none",
+              filter === "all" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            Semua
+          </button>
+          <button
+            onClick={() => setFilter("unread")}
+            className={cn(
+              "px-2.5 py-1 text-xs rounded-full font-medium transition-colors cursor-pointer outline-none select-none",
+              filter === "unread" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            Belum Dibaca {unreadCount > 0 && `(${unreadCount})`}
+          </button>
+          <button
+            onClick={() => setFilter("read")}
+            className={cn(
+              "px-2.5 py-1 text-xs rounded-full font-medium transition-colors cursor-pointer outline-none select-none",
+              filter === "read" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            Dibaca
+          </button>
+        </div>
+
         <ScrollArea className="h-[400px]">
           <div className="flex flex-col gap-1 p-2">
-            {items.length === 0 ? (
-              <div className="text-center p-4 text-sm text-muted-foreground">
-                Tidak ada notifikasi
+            {filteredItems.length === 0 ? (
+              <div className="text-center py-10 px-4 text-sm text-muted-foreground select-none">
+                {filter === "unread" 
+                  ? "Tidak ada notifikasi belum dibaca" 
+                  : filter === "read" 
+                    ? "Tidak ada notifikasi dibaca" 
+                    : "Tidak ada notifikasi"}
               </div>
             ) : (
-              items.map((notification) => {
+              filteredItems.map((notification) => {
                 const { icon: Icon, color, bg } = getIconProps(notification.type)
                 return (
                   <button
                     key={notification.id}
                     onClick={() => markAsRead(notification.id)}
                     className={cn(
-                      "flex items-start gap-3 rounded-lg p-3 text-left transition-all hover:bg-accent focus:bg-accent outline-none",
+                      "flex items-start gap-3 rounded-lg p-3 text-left transition-all hover:bg-accent focus:bg-accent outline-none cursor-pointer",
                       !notification.isRead && "bg-muted/40"
                     )}
                   >

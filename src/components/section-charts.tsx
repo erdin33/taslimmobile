@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { invoke } from "@tauri-apps/api/core"
-import { ArrowRight, BadgeCheck, Check, Info, AlertTriangle, PackagePlus, PackageMinus, Lightbulb, X } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom"
+import { PackagePlus, PackageMinus, Lightbulb } from "lucide-react"
+import { Link } from "react-router-dom"
 
 import {
     Label,
@@ -26,10 +25,9 @@ import {
     ChartContainer,
     type ChartConfig,
 } from "@/components/ui/chart"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { InventoryStats, NotificationItem, SafetyStockAlert } from "@/types/dashboard"
+import type { InventoryStats, SafetyStockAlert } from "@/types/dashboard"
 
 const getBaseUrl = () => {
     const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
@@ -68,97 +66,6 @@ export function SectionCharts({
     stats: InventoryStats
     safetyStockAlerts: SafetyStockAlert[]
 }) {
-    const navigate = useNavigate()
-    const [items, setItems] = React.useState<NotificationItem[]>([])
-
-    const fetchNotifications = React.useCallback(async () => {
-        if (isMitra) return
-
-        try {
-            const data = await invoke<NotificationItem[]>("get_notifications")
-            setItems(data)
-        } catch (error) {
-            console.error("Failed to fetch notifications:", error)
-        }
-    }, [isMitra])
-
-    React.useEffect(() => {
-        if (isMitra) return
-
-        fetchNotifications()
-        const interval = setInterval(fetchNotifications, 10000)
-        return () => clearInterval(interval)
-    }, [fetchNotifications, isMitra])
-
-    const mitraNotifications = React.useMemo<NotificationItem[]>(
-        () => [
-            {
-                id: "mitra-tersedia",
-                title: "Barang tersedia",
-                message: `${stats.tersedia} unit milik ${displayName || "mitra"} saat ini berstatus Tersedia.`,
-                type: "success",
-                date: "",
-                isRead: true,
-                generated: true,
-            },
-            {
-                id: "mitra-diluar",
-                title: "Barang diluar",
-                message: `${stats.diluar} unit tercatat berstatus Diluar.`,
-                type: "info",
-                date: "",
-                isRead: true,
-                generated: true,
-            },
-            ...(stats.rusak > 0
-                ? [{
-                    id: "mitra-rusak",
-                    title: "Perhatian barang rusak",
-                    message: `${stats.rusak} unit tercatat berstatus Rusak.`,
-                    type: "warning",
-                    date: "",
-                    isRead: true,
-                    generated: true,
-                }]
-                : []),
-            ...(stats.hilang > 0
-                ? [{
-                    id: "mitra-hilang",
-                    title: "Perhatian barang hilang",
-                    message: `${stats.hilang} unit tercatat berstatus Hilang.`,
-                    type: "error",
-                    date: "",
-                    isRead: true,
-                    generated: true,
-                }]
-                : []),
-        ],
-        [displayName, stats]
-    )
-    const safetyStockNotifications = React.useMemo<NotificationItem[]>(
-        () =>
-            safetyStockAlerts.map((alert) => ({
-                id: `safety-stock-${alert.category}`,
-                title: `Safety stock ${alert.status.toLowerCase()}`,
-                message:
-                    alert.status === "Habis"
-                        ? `${alert.category} tidak memiliki stok tersedia. Batas minimum ${alert.safetyStock} unit.`
-                        : `${alert.category} tersisa ${alert.available} unit dari batas minimum ${alert.safetyStock} unit.`,
-                type: alert.status === "Habis" ? "error" : "warning",
-                date: "",
-                isRead: true,
-                generated: true,
-                targetUrl: "/data-barang",
-            })),
-        [safetyStockAlerts]
-    )
-    const displayedNotifications = isMitra
-        ? [...safetyStockNotifications, ...mitraNotifications]
-        : [...safetyStockNotifications, ...items]
-    const unreadCount = isMitra
-        ? 0
-        : displayedNotifications.filter((n) => !n.isRead).length
-
     // Storage capacity from DB
     const [totalCapacity, setTotalCapacity] = React.useState(0)
     const [usedCapacity, setUsedCapacity] = React.useState(0)
@@ -216,67 +123,8 @@ export function SectionCharts({
         fetchCapacity()
     }, [isMitra])
 
-    const markAsRead = async (id: string) => {
-        if (isMitra) return
-
-        try {
-            await invoke("mark_notification_read", { id })
-            fetchNotifications()
-        } catch (error) {
-            console.error("Failed to mark as read:", error)
-        }
-    }
-
-    const markAllAsRead = async (e: React.MouseEvent) => {
-        e.preventDefault()
-        if (isMitra) return
-
-        try {
-            await invoke("mark_all_notifications_read")
-            fetchNotifications()
-        } catch (error) {
-            console.error("Failed to mark all as read:", error)
-        }
-    }
-
-    const deleteNotification = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation()
-        if (isMitra) return
-
-        try {
-            await invoke("delete_notification", { id })
-            fetchNotifications()
-        } catch (error) {
-            console.error("Failed to delete notification:", error)
-        }
-    }
-
-    const getIconProps = (type: string) => {
-        switch (type) {
-            case "warning":
-                return { icon: AlertTriangle, color: "text-red-500", bg: "bg-red-500/10" }
-            case "success":
-                return { icon: Check, color: "text-emerald-500", bg: "bg-emerald-500/10" }
-            case "error":
-                return { icon: X, color: "text-red-600", bg: "bg-red-600/10" }
-            case "info":
-            default:
-                return { icon: Info, color: "text-blue-500", bg: "bg-blue-500/10" }
-        }
-    }
-
-    const formatTime = (dateStr: string) => {
-        const date = new Date(dateStr)
-        return date.toLocaleString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        })
-    }
-
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 lg:px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 lg:px-6">
             {/* Card 1 */}
             <Card className="flex flex-col">
                 <CardHeader className="items-center pb-0">
@@ -368,118 +216,6 @@ export function SectionCharts({
             </Card>
 
             {/* Card 2 */}
-            <Card className="flex flex-col">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <div className="space-y-1">
-                        <CardTitle>{isMitra ? "Ringkasan Mitra" : "Notifikasi"}</CardTitle>
-                        <CardDescription>
-                            {safetyStockAlerts.length > 0
-                                ? `${safetyStockAlerts.length} kategori perlu perhatian`
-                                : isMitra
-                                    ? "Informasi inventori akun Anda"
-                                    : "Pembaruan sistem & stok"}
-                        </CardDescription>
-                    </div>
-                    {unreadCount > 0 && (
-                        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                            {unreadCount} baru
-                        </span>
-                    )}
-                </CardHeader>
-                <CardContent className="flex flex-col flex-1 pb-0 px-0">
-                    <ScrollArea className="h-[260px] w-full px-4">
-                        <div className="flex flex-col gap-1 py-2 h-full">
-                            {displayedNotifications.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-full pt-16 text-center gap-2">
-                                    <BadgeCheck strokeWidth={1.5} className="text-muted-foreground/40 h-10 w-10 mx-auto" />
-                                    <p className="text-muted-foreground/60 text-sm">Tidak ada notifikasi baru.</p>
-                                </div>
-                            ) : displayedNotifications.map((notification) => {
-                                const { icon: Icon, color, bg } = getIconProps(notification.type)
-                                return (
-                                    <button
-                                        key={notification.id}
-                                        onClick={() => {
-                                            if (notification.targetUrl) {
-                                                navigate(notification.targetUrl)
-                                            } else if (!notification.generated) {
-                                                markAsRead(notification.id)
-                                            }
-                                        }}
-                                        className={cn(
-                                            "group flex items-start gap-3 rounded-lg p-3 text-left transition-all hover:bg-accent focus:bg-accent outline-none relative",
-                                            !notification.isRead && "bg-muted/40"
-                                        )}
-                                    >
-                                        <div
-                                            className={cn(
-                                                "flex size-9 shrink-0 items-center justify-center rounded-full mt-0.5",
-                                                bg,
-                                                color
-                                            )}
-                                        >
-                                            <Icon className="size-4" />
-                                        </div>
-                                        <div className="flex flex-col gap-1 pr-6">
-                                            <p
-                                                className={cn(
-                                                    "text-sm leading-tight text-foreground",
-                                                    !notification.isRead ? "font-semibold" : "font-medium"
-                                                )}
-                                            >
-                                                {notification.title}
-                                            </p>
-                                            <p className="line-clamp-2 text-xs text-muted-foreground leading-relaxed">
-                                                {notification.message}
-                                            </p>
-                                            {notification.date && (
-                                                <p className="text-[10px] font-medium text-muted-foreground/60 mt-0.5">
-                                                    {formatTime(notification.date)}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="absolute right-3 top-3 flex flex-col items-end gap-2 h-full justify-between pb-4">
-                                            {!notification.isRead ? (
-                                                <div className="flex size-2 shrink-0 rounded-full bg-primary" />
-                                            ) : (
-                                                <div className="flex size-2 shrink-0 opacity-0" />
-                                            )}
-                                            {!isMitra && !notification.generated && (
-                                                <div
-                                                    onClick={(e) => deleteNotification(e, notification.id)}
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-muted-foreground/20 rounded-md text-muted-foreground hover:text-foreground cursor-pointer -mr-1"
-                                                    title="Hapus notifikasi"
-                                                >
-                                                    <X className="size-3.5" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </ScrollArea>
-                </CardContent>
-                <CardFooter className="flex-col gap-2 text-sm border-t-0 bg-card items-end mt-auto pt-4">
-                    {isMitra ? (
-                        <Button asChild variant="ghost" className="w-full justify-between">
-                            <Link to="/riwayat">
-                                Lihat riwayat lengkap
-                                <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                    ) : (
-                        <div className="flex items-center gap-2 leading-none font-medium w-full justify-between">
-                            <button onClick={markAllAsRead} className="text-muted-foreground hover:text-foreground transition-colors px-2">
-                                Tandai semua dibaca
-                            </button>
-                            <a className="flex items-center gap-2 px-2" href="#">Lihat Semua <ArrowRight className="h-4 w-4" /></a>
-                        </div>
-                    )}
-                </CardFooter>
-            </Card>
-
-            {/* Card 3 */}
             <Card className="flex flex-col">
                 <CardHeader className="pb-2">
                     <CardTitle>Aktivitas Cepat</CardTitle>

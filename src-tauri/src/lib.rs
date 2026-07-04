@@ -10,8 +10,16 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let db_path = if cfg!(debug_assertions) && !cfg!(any(target_os = "android", target_os = "ios")) {
-                // In development, save the DB to the project's root `database/database`
+            let db_path = if cfg!(any(target_os = "android", target_os = "ios")) {
+                // On mobile devices, always use the app data directory
+                let app_data_dir = app
+                    .path()
+                    .app_data_dir()
+                    .expect("Failed to get app data dir");
+                std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
+                app_data_dir.join("inventory.db")
+            } else if cfg!(debug_assertions) {
+                // In development on desktop, save the DB to the project's root `database/database`
                 let current_dir = std::env::current_dir().unwrap();
                 let root_dir = if current_dir.ends_with("src-tauri") {
                     current_dir.parent().unwrap().to_path_buf()
@@ -23,7 +31,7 @@ pub fn run() {
                     .expect("Failed to create dev database directory");
                 dev_db_dir.join("database")
             } else {
-                // In production, save the DB to the standard OS App Data directory
+                // In production on desktop, save the DB to the standard OS App Data directory
                 let app_data_dir = app
                     .path()
                     .app_data_dir()

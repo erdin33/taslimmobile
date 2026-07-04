@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CameraScanner } from "@/components/camera-scanner";
 import {
   Table,
   TableBody,
@@ -32,7 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
-import type { LokasiOption, InventoryItem, KodeBarangUpdate } from "@/types/inventory";
+import type { LokasiOption, InventoryItem, KodeBarangUpdate, BrandDefinition, BrandOption } from "@/types/inventory";
 import type { Partner } from "@/types/partner";
 import type { BarangKeluarItem } from "@/types/transaction";
 
@@ -71,6 +72,29 @@ const isTextInputTarget = (target: EventTarget | null) => {
   return Boolean(target.closest("input, textarea, [contenteditable='true']"));
 };
 
+/**
+ * Mendeteksi merek barang secara otomatis berdasarkan awalan (prefix) kode serial number.
+ */
+const detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOption => {
+  if (!code) return "";
+  const normalizedCode = code.trim().toUpperCase();
+
+  const sortedBrands = [...brands]
+    .filter((brand) => brand.identifier && brand.identifier.trim() !== "")
+    .sort((a, b) => b.identifier.trim().length - a.identifier.trim().length);
+
+  const matchedByIdentifier = sortedBrands.find((brand) => {
+    const normalizedIdentifier = brand.identifier.trim().toUpperCase();
+    return normalizedCode.includes(normalizedIdentifier);
+  });
+
+  if (matchedByIdentifier) return matchedByIdentifier.name;
+
+  const prefix = normalizedCode.substring(0, 3);
+  const matchedByName = brands.find((brand) => brand.name.toUpperCase().startsWith(prefix));
+  return matchedByName?.name || "";
+};
+
 const ADMIN_LOCATION = "KP Tasikmalaya";
 
 const normalizeKodeBarang = (code?: string | null) => (code || "").trim().toUpperCase();
@@ -79,7 +103,7 @@ const normalizeText = (text?: string | null) => (text || "").trim().toLocaleLowe
 const normalizeOwner = (owner?: string | null) => normalizeText(owner || ADMIN_LOCATION);
 const isOutsideStatus = (status: string) => {
   const normalizedStatus = normalizeStatus(status);
-  return normalizedStatus === "keluar";
+  return normalizedStatus === "keluar" || normalizedStatus === "diluar";
 };
 
 const getEntryDateTime = (item: InventoryItem) => {
@@ -174,13 +198,24 @@ export default function BarangKeluarPage() {
   const kodeBarangRef = useRef("");
   const [dbItems, setDbItems] = useState<InventoryItem[]>([]);
   const [dbPartners, setDbPartners] = useState<Partner[]>([]);
+  const [dbBrands, setDbBrands] = useState<BrandDefinition[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+
   useEffect(() => {
     const fetchItemsAndLocations = async () => {
       try {
+        const resBrands = await fetch(`${getBaseUrl()}/brands`, { method: "GET", headers: getHeaders() });
+        const rawBrands = await resBrands.json();
+        const brands = rawBrands.data || rawBrands;
+        const brandDefinitions = (Array.isArray(brands) ? brands : []).map((brand: any) => ({
+          name: brand.name || brand.nama || "",
+          identifier: brand.identifier || "",
+        }));
+        setDbBrands(brandDefinitions);
+
         const resItems = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() });
         const rawItems = await resItems.json();
         const items: InventoryItem[] = Array.isArray(rawItems.data || rawItems) ? (rawItems.data || rawItems) : [];
@@ -291,7 +326,7 @@ export default function BarangKeluarPage() {
    */
   const handleSubmit = useCallback((kodeOverride = kodeBarang) => {
     const trimmedKode = kodeOverride.trim();
-    if (!trimmedKode) return;
+    if (!trimmedKode) return { success: false, message: "Serial number kosong" };
 
     const selectedPartner =
       user?.role === "mitra"
@@ -301,15 +336,17 @@ export default function BarangKeluarPage() {
       user?.role === "mitra" ? user.displayName : selectedPartner?.name;
 
     if (!targetMitraName) {
+      const msg = "Pilih mitra tujuan terlebih dahulu.";
       toast.error("Pilih mitra tujuan sebelum menambahkan barang keluar.");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     if (user?.role === "mitra" && !keterangan.trim()) {
+      const msg = "PA / keterangan wajib diisi.";
       toast.error("PA / keterangan wajib diisi sebelum menambahkan barang keluar.");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     const isDuplicate = barangKeluar.some(
@@ -317,12 +354,13 @@ export default function BarangKeluarPage() {
     );
 
     if (isDuplicate) {
-      toast.error("Serial number sudah ada di sesi ini.", {
+      const msg = "Serial number sudah ada di sesi ini.";
+      toast.error(msg, {
         description: trimmedKode,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     // Periksa apakah kode yang discan ada di data master (SQLite)
@@ -331,33 +369,43 @@ export default function BarangKeluarPage() {
     );
 
     if (!matchedItem) {
-      toast.error("Data serial number tidak ditemukan.", {
+      const detectedBrand = detectBrandFromCode(trimmedKode, dbBrands);
+      if (!detectedBrand) {
+        updateKodeBarang("");
+        focusKodeBarangInput();
+        return { success: false, ignored: true, message: "Serial number tidak sesuai dengan identifier merek apa pun." };
+      }
+
+      const msg = "Data serial number tidak ditemukan.";
+      toast.error(msg, {
         description: trimmedKode,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     if (isOutsideStatus(matchedItem.status)) {
+      const msg = "Barang ini sudah berada di luar.";
       toast.error("Barang ini sudah berada di luar dan tidak dapat dikeluarkan kembali.", {
         description: `Status saat ini: ${matchedItem.status}`,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     const queuedSerialNumbers = getQueuedSerialNumbers(barangKeluar);
     const olderFifoItem = findOlderFifoItem(dbItems, matchedItem, queuedSerialNumbers);
 
     if (olderFifoItem) {
-      toast.error("FIFO aktif: keluarkan barang yang lebih lama terlebih dahulu.", {
+      const msg = "FIFO aktif: keluarkan barang yang lebih lama terlebih dahulu.";
+      toast.error(msg, {
         description: getFifoToastDescription(olderFifoItem),
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     const originalLoc = matchedItem.lokasiPenyimpanan || "-";
@@ -384,6 +432,7 @@ export default function BarangKeluarPage() {
 
     // Auto-focus kembali ke input setelah submit
     focusKodeBarangInput();
+    return { success: true };
   }, [
     barangKeluar,
     dbItems,
@@ -395,6 +444,7 @@ export default function BarangKeluarPage() {
     selectedPartnerId,
     updateKodeBarang,
     user,
+    dbBrands,
   ]);
 
   /**
@@ -634,7 +684,7 @@ export default function BarangKeluarPage() {
   };
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="@container/main flex min-h-full select-none flex-col gap-4 py-4 md:gap-6 md:pt-10 md:pb-8">
       <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
         <Card className="@container/card relative">
           <div className="flex flex-row items-center">
@@ -797,13 +847,18 @@ export default function BarangKeluarPage() {
                   <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <ScanLine className="size-8 animate-pulse" />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 flex flex-col items-center">
                     <p className="text-base font-semibold text-foreground">
                       Silakan scan menggunakan scanner
                     </p>
                     <p className="text-sm leading-relaxed text-muted-foreground">
                       Sistem akan menangkap kode secara otomatis dan menambahkannya ke daftar barang keluar.
                     </p>
+                    <CameraScanner
+                      onScan={(code) => handleSubmit(code)}
+                      className="mt-4 w-full max-w-[200px]"
+                      buttonText="Scan / Upload Foto"
+                    />
                   </div>
                 </div>
               </TabsContent>

@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/navigation/app-sidebar"
+import { MobileBottomNav } from "@/components/navigation/mobile-bottom-nav"
 import { SiteHeader } from "@/components/site-header"
 import {
     SidebarInset,
@@ -22,9 +23,10 @@ export default function Layout() {
             <AppSidebar />
             <SidebarInset className="h-svh overflow-hidden flex flex-col">
                 <SiteHeader />
-                <div className="flex-1 overflow-y-auto overscroll-none">
+                <div className="flex-1 overflow-y-auto overscroll-none pb-16 md:pb-0">
                     <Outlet />
                 </div>
+                <MobileBottomNav />
             </SidebarInset>
         </SidebarProvider>
     )

@@ -487,7 +487,7 @@ export default function MitraPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4 p-4 md:p-6 lg:p-8">
+    <div className="flex min-h-full flex-col gap-4 p-4 md:p-6 md:pt-10 md:pb-8 lg:p-8 lg:pt-10 lg:pb-8">
       {/* Toolbar */}
       <Card className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

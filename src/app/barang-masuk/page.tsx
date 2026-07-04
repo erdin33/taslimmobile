@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CameraScanner } from "@/components/camera-scanner";
 import {
   Table,
   TableBody,
@@ -75,9 +76,15 @@ const ADMIN_LOCATION = "KP Tasikmalaya";
 const detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOption => {
   if (!code) return "";
   const normalizedCode = code.trim().toUpperCase();
-  const matchedByIdentifier = brands.find((brand) => {
+
+  // Sort brands by identifier length descending to avoid short prefixes overriding longer ones
+  const sortedBrands = [...brands]
+    .filter((brand) => brand.identifier && brand.identifier.trim() !== "")
+    .sort((a, b) => b.identifier.trim().length - a.identifier.trim().length);
+
+  const matchedByIdentifier = sortedBrands.find((brand) => {
     const normalizedIdentifier = brand.identifier.trim().toUpperCase();
-    return normalizedIdentifier && normalizedCode.startsWith(normalizedIdentifier);
+    return normalizedCode.includes(normalizedIdentifier);
   });
 
   if (matchedByIdentifier) return matchedByIdentifier.name;
@@ -402,7 +409,7 @@ export default function BarangMasukPage() {
 
   const handleSubmit = useCallback(async (kodeOverride = kodeBarang) => {
     const trimmedKode = kodeOverride.trim();
-    if (!trimmedKode) return;
+    if (!trimmedKode) return { success: false, message: "Serial number kosong" };
 
     // Validasi duplikasi pada sesi saat ini
     const isDuplicate = barangMasuk.some(
@@ -410,12 +417,13 @@ export default function BarangMasukPage() {
     );
 
     if (isDuplicate) {
-      toast.error("Serial number sudah ada di sesi ini.", {
+      const msg = "Serial number sudah ada di sesi ini.";
+      toast.error(msg, {
         description: trimmedKode,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     const latestItems = await refreshInventoryItems();
@@ -424,12 +432,13 @@ export default function BarangMasukPage() {
     );
 
     if (user?.role === "mitra" && !existingItem) {
-      toast.error("Barang belum terdaftar di KP.", {
+      const msg = "Barang belum terdaftar di KP.";
+      toast.error(msg, {
         description: `${trimmedKode} harus didaftarkan oleh Admin terlebih dahulu.`,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     if (
@@ -443,21 +452,25 @@ export default function BarangMasukPage() {
         isValid: isValidMitraInboundSource(existingItem, user.displayName),
       });
 
-      toast.error("Barang tidak dapat diterima oleh Mitra.", {
-        description: `${trimmedKode} harus sudah di-scan keluar dari KP terlebih dahulu sebelum diterima kembali oleh Mitra. (Cek console untuk detail)`,
+      const msg = "Barang tidak dapat diterima oleh Mitra.";
+      toast.error(msg, {
+        description: `${trimmedKode} harus sudah di-scan keluar dari KP terlebih dahulu sebelum diterima kembali oleh Mitra.`,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
-    // Tentukan Merek untuk rekomendasi lokasi
-    const itemBrand =
-      existingItem?.merek ||
-      detectBrandFromCode(trimmedKode, dbBrands) ||
-      merekFallback;
+    const detectedBrand = detectBrandFromCode(trimmedKode, dbBrands);
 
-    // Rekomendasi Lokasi Otomatis (Smart Routing)
+    if (!detectedBrand && !existingItem) {
+      const msg = "Serial number tidak sesuai dengan identifier merek apa pun.";
+      updateKodeBarang("");
+      focusKodeBarangInput();
+      return { success: false, ignored: true, message: msg };
+    }
+
+    const itemBrand = existingItem?.merek || detectedBrand || merekFallback;
     let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
     const isMitraUser = user?.role === "mitra";
 
@@ -478,24 +491,28 @@ export default function BarangMasukPage() {
         if (alternativeLocation) {
           recommendedLocation = alternativeLocation.name;
         } else {
+          const msg = "Barang sudah berada di lokasi tersebut.";
           toast.error("Barang sudah berada di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan.", {
             description: `Lokasi saat ini: ${existingItem.lokasiPenyimpanan}`,
           });
           updateKodeBarang("");
           focusKodeBarangInput();
-          return;
+          return { success: false, message: msg };
         }
       }
     }
 
     if (!recommendedLocation) {
+      const msg = dbLocations.length === 0
+        ? "Tidak ada lokasi penyimpanan aktif."
+        : "Semua lokasi penyimpanan sudah penuh.";
       toast.error(
         dbLocations.length === 0
           ? "Tidak ada lokasi penyimpanan aktif yang tersedia."
           : "Semua lokasi penyimpanan sudah penuh."
       );
       focusKodeBarangInput();
-      return;
+      return { success: false, message: msg };
     }
 
     const newItem: BarangMasukItem = {
@@ -530,6 +547,7 @@ export default function BarangMasukPage() {
 
     // Auto-focus kembali ke input setelah submit
     focusKodeBarangInput();
+    return { success: true };
   }, [
     barangMasuk,
     dbBrands,
@@ -810,7 +828,7 @@ export default function BarangMasukPage() {
   };
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="@container/main flex min-h-full select-none flex-col gap-4 py-4 md:gap-6 md:pt-10 md:pb-8">
       <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
         <Card className="@container/card relative">
           <div className="flex flex-row items-center">
@@ -970,13 +988,18 @@ export default function BarangMasukPage() {
                   <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <ScanLine className="size-8 animate-pulse" />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 flex flex-col items-center">
                     <p className="text-base font-semibold text-foreground">
                       Silakan scan menggunakan scanner
                     </p>
                     <p className="text-sm leading-relaxed text-muted-foreground">
                       Sistem akan menangkap kode secara otomatis dan menambahkannya ke daftar barang masuk.
                     </p>
+                    <CameraScanner
+                      onScan={(code) => handleSubmit(code)}
+                      className="mt-4 w-full max-w-[200px]"
+                      buttonText="Scan / Upload Foto"
+                    />
                   </div>
                 </div>
               </TabsContent>

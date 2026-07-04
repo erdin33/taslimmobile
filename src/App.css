@@ -164,3 +164,42 @@
 .recharts-wrapper {
   contain: layout style;
 }
+
+@utility animate-scan-line {
+  animation: scan-line-move 3s infinite ease-in-out;
+}
+
+@keyframes scan-line-move {
+  0% {
+    top: 0%;
+    opacity: 0.3;
+  }
+  50% {
+    top: 100%;
+    opacity: 1;
+  }
+  100% {
+    top: 0%;
+    opacity: 0.3;
+  }
+}
+
+@utility animate-scan-line-horizontal {
+  animation: scan-line-horizontal-move 3s infinite ease-in-out;
+}
+
+@keyframes scan-line-horizontal-move {
+  0% {
+    left: 0%;
+    opacity: 0.3;
+  }
+  50% {
+    left: 100%;
+    opacity: 1;
+  }
+  100% {
+    left: 0%;
+    opacity: 0.3;
+  }
+}
+

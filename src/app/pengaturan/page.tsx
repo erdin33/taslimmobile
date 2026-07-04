@@ -222,7 +222,7 @@ export default function PengaturanPage() {
   };
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-6 py-6 w-full mx-auto">
+    <div className="@container/main flex min-h-full select-none flex-col gap-6 py-6 md:pt-10 md:pb-8 w-full mx-auto">
       {/* Page Header */}
       <div className="flex flex-col gap-1.5 px-4 lg:px-6">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pengaturan</h1>
