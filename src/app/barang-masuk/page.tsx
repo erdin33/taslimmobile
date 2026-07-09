@@ -281,7 +281,7 @@ export default function BarangMasukPage() {
         const brands = rawBrands.data || rawBrands;
         const brandDefinitions = (Array.isArray(brands) ? brands : []).map((brand: any) => ({
           name: brand.name || brand.nama || "",
-          identifier: brand.identifier || "",
+          identifier: brand.identifier || brand.kode || "",
         }));
         setDbBrands(brandDefinitions);
 

@@ -63,7 +63,7 @@ export function MobileBottomNav() {
         const data = rawBrands.data || rawBrands
         const brandDefinitions = (Array.isArray(data) ? data : []).map((brand: any) => ({
           name: brand.name || brand.nama || "",
-          identifier: brand.identifier || "",
+          identifier: brand.identifier || brand.kode || "",
         }))
         setBrands(brandDefinitions)
         return brandDefinitions
