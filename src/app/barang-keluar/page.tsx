@@ -196,6 +196,7 @@ export default function BarangKeluarPage() {
   const [barangKeluar, setBarangKeluar] = useState<BarangKeluarItem[]>([]);
   const [kuota, setKuota] = useState<Record<string, number>>({});
   const inputRef = useRef<HTMLInputElement>(null);
+  const processedCodesRef = useRef<Set<string>>(new Set());
   const kodeBarangRef = useRef("");
   const [dbItems, setDbItems] = useState<InventoryItem[]>([]);
   const [dbPartners, setDbPartners] = useState<Partner[]>([]);
@@ -447,7 +448,8 @@ export default function BarangKeluarPage() {
   // Handle auto-submit if code is passed via URL query param
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code) {
+    if (code && !processedCodesRef.current.has(code)) {
+      processedCodesRef.current.add(code);
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("code");
@@ -456,7 +458,7 @@ export default function BarangKeluarPage() {
       
       void handleSubmit(code);
     }
-  }, [searchParams, setSearchParams, handleSubmit]);
+  }, [searchParams, setSearchParams]);
 
   /**
    * Mengarahkan input keyboard atau barcode scanner ke field Kode/SN secara otomatis.

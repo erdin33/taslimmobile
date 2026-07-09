@@ -158,6 +158,11 @@ export function CameraScanner({
               ...prev.slice(0, 19),
             ])
             toast.success(`SN Discan: ${decodedText}`)
+
+            // Auto-close scanner after 800ms so user can see main form page
+            setTimeout(() => {
+              setOpen(false)
+            }, 800)
           } catch (err: any) {
             if (navigator.vibrate) navigator.vibrate([100, 50, 100])
             playScannerBeep("error")
@@ -299,6 +304,7 @@ export function CameraScanner({
       toast.success(`${detectedTexts.length} barcode terdeteksi di gambar. Memproses...`)
 
       // Process each detected code
+      let hasSuccess = false
       for (const decodedText of detectedTexts) {
         // Simple delay to prevent simultaneous toast collisions
         await new Promise((resolve) => setTimeout(resolve, 300))
@@ -319,6 +325,7 @@ export function CameraScanner({
             ...prev.slice(0, 19),
           ])
           toast.success(`SN Terdeteksi: ${decodedText}`)
+          hasSuccess = true
         } catch (err: any) {
           playScannerBeep("error")
           setScanFlash("error")
@@ -329,6 +336,12 @@ export function CameraScanner({
           ])
           toast.error(errMsg, { description: decodedText })
         }
+      }
+
+      if (hasSuccess) {
+        setTimeout(() => {
+          setOpen(false)
+        }, 800)
       }
     } catch (err) {
       console.error("Gagal mendeteksi barcode dari gambar", err)
