@@ -1,20 +1,12 @@
 import { useState, useEffect } from "react"
 import { DataTable } from "@/features/transactions/components/transaction-table"
-import { Card } from "@/components/ui/card"
-import { Download, Plus, Search, Trash2, Loader2, AreaChart, Filter, EllipsisVertical, FileUp, FileDown, ListFilter } from "lucide-react"
+import { Search, Loader2, EllipsisVertical, FileUp, FileDown, ListFilter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Link, useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
@@ -32,11 +24,8 @@ import type { DeleteDialogState } from "@/types/ui"
 import requestsData from "@/data/request.json"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { IconLayoutColumns, IconChevronDown } from "@tabler/icons-react"
 import {
   Table,
   TableBody,
@@ -64,16 +53,6 @@ const getHeaders = () => {
   return headers;
 };
 
-const KATEGORI_OPTIONS = ["Masuk", "Keluar", "Rusak"]
-
-/**
- * Komponen DataTransaksiPage
- * 
- * Halaman untuk melihat log riwayat seluruh transaksi barang (Masuk, Keluar, Rusak, Hilang).
- * Menyediakan fungsi filtering canggih, bulk delete, dan eksport data ke Excel.
- *
- * @returns {JSX.Element} Antarmuka halaman riwayat transaksi.
- */
 export default function DataTransaksiPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -87,8 +66,8 @@ export default function DataTransaksiPage() {
   }
 
   const [searchTerm, setSearchTerm] = useState("")
-  const [filterKategori, setFilterKategori] = useState("all")
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [filterKategori, _setFilterKategori] = useState("all")
+  // const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -165,7 +144,8 @@ export default function DataTransaksiPage() {
     fetchTransactions();
   }, [user])
 
-  const handleBulkDelete = async () => {
+  /*
+  const _handleBulkDelete = async () => {
     if (selectedIds.length === 0) return
     setDeleteDialog({
       type: "bulk",
@@ -173,7 +153,7 @@ export default function DataTransaksiPage() {
     })
   }
 
-  const handleDeleteRow = async (id: string) => {
+  const _handleDeleteRow = async (id: string) => {
     const transaction = transactions.find((item) => item.id === id);
     if (!transaction) return;
     setDeleteDialog({
@@ -182,6 +162,7 @@ export default function DataTransaksiPage() {
       transactionNumber: transaction.nomor,
     })
   };
+  */
 
   const confirmDelete = async () => {
     if (!deleteDialog || isDeleting) return
@@ -199,7 +180,7 @@ export default function DataTransaksiPage() {
         }
       }
       toast.success(deleteDialog.type === "single" ? "Transaksi berhasil dihapus." : `${idsToDelete.length} transaksi berhasil dihapus.`)
-      setSelectedIds((current) => current.filter((id) => !idsToDelete.includes(id)))
+      // setSelectedIds((current) => current.filter((id) => !idsToDelete.includes(id)))
       setDeleteDialog(null)
       await fetchTransactions();
     } catch (error) {
@@ -243,7 +224,7 @@ export default function DataTransaksiPage() {
     // Fallback sort jika tanggal presisi sama persis
     return b.id.toString().localeCompare(a.id.toString());
   });
-  const hasActiveFilter = searchTerm.length > 0 || filterKategori !== "all";
+  // const _hasActiveFilter = searchTerm.length > 0 || filterKategori !== "all";
 
   const handleExportExcel = async () => {
     if (filteredData.length === 0) {
@@ -468,7 +449,7 @@ function RequestDetailDrawer({
   item,
   open,
   onClose,
-  isMobile,
+  isMobile: _isMobile,
 }: {
   item: DashboardRequest | null
   open: boolean
@@ -476,19 +457,6 @@ function RequestDetailDrawer({
   isMobile: boolean
 }) {
   if (!item) return null
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "menunggu": return "bg-amber-500/10 text-amber-600 border-amber-500/20"
-      case "disetujui": return "bg-blue-500/10 text-blue-600 border-blue-500/20"
-      case "siap": return "bg-purple-500/10 text-purple-600 border-purple-500/20"
-      case "diterima":
-      case "selesai": return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-      case "ditolak":
-      case "dibatalkan": return "bg-rose-500/10 text-rose-600 border-rose-500/20"
-      default: return "bg-muted text-muted-foreground"
-    }
-  }
 
   return (
     <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>

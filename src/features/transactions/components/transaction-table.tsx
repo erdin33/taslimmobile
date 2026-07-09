@@ -24,7 +24,6 @@ import {
     IconCircleCheck,
     IconX,
     IconBan,
-    IconGripVertical,
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -36,7 +35,6 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { useNavigate } from "react-router-dom"
-import { useSortable } from "@dnd-kit/sortable"
 import type { DashboardRequest } from "@/types/transaction"
 
 /** Meta yang dapat diakses oleh kolom tabel. Bukan `any` — fully typed. */
@@ -82,22 +80,6 @@ const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
 // ─────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────
-
-function DragHandle({ id }: { id: string }) {
-    const { attributes, listeners } = useSortable({ id })
-    return (
-        <Button
-            {...attributes}
-            {...listeners}
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground hover:bg-transparent"
-        >
-            <IconGripVertical className="size-3 text-muted-foreground" />
-            <span className="sr-only">Drag to reorder</span>
-        </Button>
-    )
-}
 
 function StatusBadge({ status }: { status: string }) {
     const key = status?.trim() as StatusKey
@@ -198,7 +180,7 @@ function ActionMenu({
 // Column Definitions (factory function agar columns tidak berisi closure meta)
 // ─────────────────────────────────────────────
 
-function createColumns(meta?: TableMeta): ColumnDef<DashboardRequest>[] {
+function createColumns(_meta?: TableMeta): ColumnDef<DashboardRequest>[] {
     return [
         {
             id: "nomor",

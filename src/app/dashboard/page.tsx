@@ -10,10 +10,6 @@ export default function DashboardPage() {
     const {
         user,
         transactions,
-        chartTransactions,
-        mitraOptions,
-        selectedMitra,
-        setSelectedMitra,
         inventoryStats,
         mitraDistribution,
         transactionSeries,
