@@ -190,7 +190,7 @@ function EmptyScanTableState() {
  */
 export default function BarangKeluarPage() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [kodeBarang, setKodeBarang] = useState("");
   const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
   const [barangKeluar, setBarangKeluar] = useState<BarangKeluarItem[]>([]);
@@ -203,6 +203,18 @@ export default function BarangKeluarPage() {
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const selectedPartner = dbPartners.find((p) => p.id === selectedPartnerId);
+    const targetMitraName = user?.role === "mitra" ? user.displayName : selectedPartner?.name || "";
+    setBarangKeluar((current) =>
+      current.map((item) => ({
+        ...item,
+        mitra: targetMitraName,
+        keterangan: user?.role === "mitra" ? keterangan.trim() : "",
+      }))
+    );
+  }, [selectedPartnerId, dbPartners, user, keterangan]);
 
 
   useEffect(() => {
@@ -341,20 +353,6 @@ export default function BarangKeluarPage() {
     const targetMitraName =
       user?.role === "mitra" ? user.displayName : selectedPartner?.name;
 
-    if (!targetMitraName) {
-      const msg = "Pilih mitra tujuan terlebih dahulu.";
-      toast.error("Pilih mitra tujuan sebelum menambahkan barang keluar.");
-      focusKodeBarangInput();
-      return { success: false, message: msg };
-    }
-
-    if (user?.role === "mitra" && !keterangan.trim()) {
-      const msg = "PA / keterangan wajib diisi.";
-      toast.error("PA / keterangan wajib diisi sebelum menambahkan barang keluar.");
-      focusKodeBarangInput();
-      return { success: false, message: msg };
-    }
-
     const isDuplicate = barangKeluar.some(
       (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
     );
@@ -415,7 +413,7 @@ export default function BarangKeluarPage() {
       merek: matchedItem.merek || "-",
       kategori: matchedItem.kategori || "-",
       lokasi: originalLoc as LokasiOption,
-      mitra: targetMitraName,
+      mitra: targetMitraName || "",
       keterangan: user?.role === "mitra" ? keterangan.trim() : "",
       status: "Valid",
     };
@@ -450,14 +448,15 @@ export default function BarangKeluarPage() {
   useEffect(() => {
     const code = searchParams.get("code");
     if (code) {
-      // Clear parameter to avoid infinite loop or repeating submit on re-render/re-mount
-      const url = new URL(window.location.href);
-      url.searchParams.delete("code");
-      window.history.replaceState({}, "", url.pathname + url.hash);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("code");
+        return next;
+      }, { replace: true });
       
       void handleSubmit(code);
     }
-  }, [searchParams, handleSubmit]);
+  }, [searchParams, setSearchParams, handleSubmit]);
 
   /**
    * Mengarahkan input keyboard atau barcode scanner ke field Kode/SN secara otomatis.
@@ -522,6 +521,19 @@ export default function BarangKeluarPage() {
    */
   const handleValidateAll = async () => {
     if (isSaving) return;
+
+    const selectedPartner =
+      user?.role === "mitra"
+        ? null
+        : dbPartners.find((partner) => partner.id === selectedPartnerId);
+    const targetMitraName =
+      user?.role === "mitra" ? user.displayName : selectedPartner?.name;
+
+    if (!targetMitraName) {
+      toast.error("Pilih mitra tujuan terlebih dahulu sebelum menyimpan transaksi.");
+      return;
+    }
+
     if (user?.role === "mitra" && !keterangan.trim()) {
       toast.error("PA / keterangan wajib diisi sebelum transaksi disimpan.");
       return;

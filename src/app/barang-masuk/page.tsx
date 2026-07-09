@@ -220,7 +220,7 @@ function EmptyScanTableState() {
  */
 export default function BarangMasukPage() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [kodeBarang, setKodeBarang] = useState("");
   const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
   const [merekFallback, setMerekFallback] = useState<BrandOption>("");
@@ -479,86 +479,88 @@ export default function BarangMasukPage() {
     }
 
     const detectedBrand = detectBrandFromCode(trimmedKode, dbBrands);
-    const isBarcodeValid = !!detectedBrand || !!existingItem;
 
-    const itemBrand = isBarcodeValid ? (existingItem?.merek || detectedBrand || merekFallback) : "";
-    let recommendedLocation = "";
+    if (!detectedBrand && !existingItem) {
+      const msg = "Serial number tidak sesuai dengan identifier merek apa pun.";
+      toast.error(msg, {
+        description: trimmedKode,
+      });
+      updateKodeBarang("");
+      focusKodeBarangInput();
+      return { success: false, message: msg };
+    }
 
-    if (isBarcodeValid) {
-      recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
-      const isMitraUser = user?.role === "mitra";
+    const itemBrand = existingItem?.merek || detectedBrand || merekFallback;
+    let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
+    const isMitraUser = user?.role === "mitra";
 
-      if (isMitraUser && !recommendedLocation && existingItem) {
-        recommendedLocation = getMitraDefaultLocation(user.displayName);
-      }
+    if (isMitraUser && !recommendedLocation && existingItem) {
+      recommendedLocation = getMitraDefaultLocation(user.displayName);
+    }
 
-      if (
-        !isMitraUser &&
-        existingItem &&
-        normalizeStatus(existingItem.status) !== "keluar" &&
-        normalizeStatus(existingItem.status) !== "diluar"
-      ) {
-        if (recommendedLocation && recommendedLocation.trim().toLowerCase() === (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()) {
-          const alternativeLocation = dbLocations.find(
-            (loc) => (kuota[loc.name] ?? 0) > 0 && loc.name.trim().toLowerCase() !== (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()
-          );
-          if (alternativeLocation) {
-            recommendedLocation = alternativeLocation.name;
-          } else {
-            const msg = "Barang sudah berada di lokasi tersebut.";
-            toast.error("Barang sudah berada di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan.", {
-              description: `Lokasi saat ini: ${existingItem.lokasiPenyimpanan}`,
-            });
-            updateKodeBarang("");
-            focusKodeBarangInput();
-            return { success: false, message: msg };
-          }
+    if (
+      !isMitraUser &&
+      existingItem &&
+      normalizeStatus(existingItem.status) !== "keluar" &&
+      normalizeStatus(existingItem.status) !== "diluar"
+    ) {
+      if (recommendedLocation && recommendedLocation.trim().toLowerCase() === (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()) {
+        const alternativeLocation = dbLocations.find(
+          (loc) => (kuota[loc.name] ?? 0) > 0 && loc.name.trim().toLowerCase() !== (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()
+        );
+        if (alternativeLocation) {
+          recommendedLocation = alternativeLocation.name;
+        } else {
+          const msg = "Barang sudah berada di lokasi tersebut.";
+          toast.error("Barang sudah berada di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan.", {
+            description: `Lokasi saat ini: ${existingItem.lokasiPenyimpanan}`,
+          });
+          updateKodeBarang("");
+          focusKodeBarangInput();
+          return { success: false, message: msg };
         }
       }
+    }
 
-      if (!recommendedLocation) {
-        const msg = dbLocations.length === 0
-          ? "Tidak ada lokasi penyimpanan aktif."
-          : "Semua lokasi penyimpanan sudah penuh.";
-        toast.error(
-          dbLocations.length === 0
-            ? "Tidak ada lokasi penyimpanan aktif yang tersedia."
-            : "Semua lokasi penyimpanan sudah penuh."
-        );
-        focusKodeBarangInput();
-        return { success: false, message: msg };
-      }
+    if (!recommendedLocation) {
+      const msg = dbLocations.length === 0
+        ? "Tidak ada lokasi penyimpanan aktif."
+        : "Semua lokasi penyimpanan sudah penuh.";
+      toast.error(
+        dbLocations.length === 0
+          ? "Tidak ada lokasi penyimpanan aktif yang tersedia."
+          : "Semua lokasi penyimpanan sudah penuh."
+      );
+      focusKodeBarangInput();
+      return { success: false, message: msg };
     }
 
     const newItem: BarangMasukItem = {
       id: Date.now(),
       nomor: trimmedKode,
-      merek: itemBrand,
-      kategori: isBarcodeValid ? (existingItem?.kategori || kategoriBarang) : "",
+      merek: itemBrand || "(otomatis)",
+      kategori: existingItem?.kategori || kategoriBarang,
       lokasi: recommendedLocation,
-      status: isBarcodeValid ? "Valid" : "Invalid",
+      status: "Valid",
       existingItemId: existingItem?.id,
-      source: isBarcodeValid
-        ? (user?.role === "mitra" && existingItem && isValidMitraInboundSource(existingItem, user.displayName)
+      source:
+        user?.role === "mitra" && existingItem && isValidMitraInboundSource(existingItem, user.displayName)
           ? "KP"
           : normalizeOwner(existingItem?.mitra) === normalizeOwner(ADMIN_LOCATION) || normalizeOwner(existingItem?.mitra) === normalizeOwner("KP Tasikmalaya")
             ? "KP"
             : existingItem
               ? "Mitra"
-              : "Baru")
-        : "Baru",
-      asal: isBarcodeValid ? asalBarang : "",
-      kondisi: isBarcodeValid ? kondisiBarang : "",
+              : "Baru",
+      asal: asalBarang,
+      kondisi: kondisiBarang,
       replacementFor: "",
     };
 
     setBarangMasuk((current) => [newItem, ...current]);
-    if (recommendedLocation) {
-      setKuota((current) => ({
-        ...current,
-        [recommendedLocation]: current[recommendedLocation] - 1,
-      }));
-    }
+    setKuota((current) => ({
+      ...current,
+      [recommendedLocation]: current[recommendedLocation] - 1,
+    }));
 
     updateKodeBarang("");
     setMerekFallback("");
@@ -588,14 +590,15 @@ export default function BarangMasukPage() {
   useEffect(() => {
     const code = searchParams.get("code");
     if (code) {
-      // Clear parameter to avoid infinite loop or repeating submit on re-render/re-mount
-      const url = new URL(window.location.href);
-      url.searchParams.delete("code");
-      window.history.replaceState({}, "", url.pathname + url.hash);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("code");
+        return next;
+      }, { replace: true });
       
       void handleSubmit(code);
     }
-  }, [searchParams, handleSubmit]);
+  }, [searchParams, setSearchParams, handleSubmit]);
 
   /**
    * Mengarahkan input keyboard atau barcode scanner ke field Kode/SN secara otomatis.
