@@ -5,6 +5,7 @@ import { Camera, Zap, ZapOff, RefreshCw, CheckCircle2, AlertCircle, X, Image } f
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { useLocation } from "react-router-dom"
 
 const SCAN_FORMATS = [
   Html5QrcodeSupportedFormats.QR_CODE,
@@ -79,6 +80,11 @@ export function CameraScanner({
   const [hasTorch, setHasTorch] = React.useState(false)
   const [cameraActive, setCameraActive] = React.useState(false)
   const [scanFlash, setScanFlash] = React.useState<"success" | "error" | null>(null)
+
+  const location = useLocation()
+  React.useEffect(() => {
+    setOpen(false)
+  }, [location.pathname])
 
   const onScanRef = React.useRef(onScan)
   React.useEffect(() => {
@@ -488,10 +494,20 @@ export function CameraScanner({
       {/* Recently Scanned List (Solid background at the bottom) */}
       <div className="absolute bottom-0 left-0 right-0 z-20 h-[calc(24vh+env(safe-area-inset-bottom,0px))] bg-zinc-950 border-t border-zinc-800/80 flex flex-col pointer-events-none pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
         <div className="px-6 py-2 flex justify-between items-center border-b border-white/5 pointer-events-auto">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider select-none">Hasil Scan Sesi Ini</span>
-          <span className="text-[10px] bg-primary/20 text-primary font-bold px-2 py-0.5 rounded-full select-none">
-            {scannedCodes.filter(c => c.status === "success").length} Berhasil
-          </span>
+          <div className="flex items-center gap-2 select-none">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Hasil Scan Sesi Ini</span>
+            <span className="text-[10px] bg-primary/20 text-primary font-bold px-2 py-0.5 rounded-full">
+              {scannedCodes.filter(c => c.status === "success").length} Berhasil
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-full px-3.5 cursor-pointer shadow-md active:scale-95 transition-all pointer-events-auto"
+            onClick={() => setOpen(false)}
+          >
+            Selesai
+          </Button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 px-6 flex flex-col gap-2 pointer-events-auto">
           {scannedCodes.length === 0 ? (
