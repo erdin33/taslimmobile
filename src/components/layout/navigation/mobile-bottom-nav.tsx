@@ -180,7 +180,8 @@ export function MobileBottomNav() {
                 currentBrands = await fetchBrands()
               }
 
-              // Validasi kode harus sesuai dengan salah satu identifier merek
+              // Skip pattern matching check to allow any scanned barcode
+              /*
               const normalizedCode = code.trim().toUpperCase()
               const hasMatchingBrand = currentBrands.some((b) => {
                 const ident = b.identifier?.trim().toUpperCase()
@@ -193,6 +194,7 @@ export function MobileBottomNav() {
                   message: "Barcode tidak sesuai dengan identifier merek apa pun." 
                 }
               }
+              */
 
               if (mode === "masuk") {
                 navigate(`/barang-masuk?code=${encodeURIComponent(code)}`)

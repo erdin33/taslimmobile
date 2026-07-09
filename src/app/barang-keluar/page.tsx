@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
-import type { LokasiOption, InventoryItem, KodeBarangUpdate, BrandDefinition, BrandOption } from "@/types/inventory";
+import type { LokasiOption, InventoryItem, KodeBarangUpdate, BrandDefinition } from "@/types/inventory";
 import type { Partner } from "@/types/partner";
 import type { BarangKeluarItem } from "@/types/transaction";
 
@@ -73,10 +73,8 @@ const isTextInputTarget = (target: EventTarget | null) => {
   return Boolean(target.closest("input, textarea, [contenteditable='true']"));
 };
 
-/**
- * Mendeteksi merek barang secara otomatis berdasarkan awalan (prefix) kode serial number.
- */
-const detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOption => {
+/*
+const _detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOption => {
   if (!code) return "";
   const normalizedCode = code.trim().toUpperCase();
 
@@ -95,6 +93,7 @@ const detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOpti
   const matchedByName = brands.find((brand) => brand.name.toUpperCase().startsWith(prefix));
   return matchedByName?.name || "";
 };
+*/
 
 const ADMIN_LOCATION = "KP Tasikmalaya";
 
@@ -376,13 +375,6 @@ export default function BarangKeluarPage() {
     );
 
     if (!matchedItem) {
-      const detectedBrand = detectBrandFromCode(trimmedKode, dbBrands);
-      if (!detectedBrand) {
-        updateKodeBarang("");
-        focusKodeBarangInput();
-        return { success: false, ignored: true, message: "Serial number tidak sesuai dengan identifier merek apa pun." };
-      }
-
       const msg = "Data serial number tidak ditemukan.";
       toast.error(msg, {
         description: trimmedKode,

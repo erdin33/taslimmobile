@@ -480,12 +480,15 @@ export default function BarangMasukPage() {
 
     const detectedBrand = detectBrandFromCode(trimmedKode, dbBrands);
 
+    // Skip pattern matching check to allow any scanned barcode
+    /*
     if (!detectedBrand && !existingItem) {
       const msg = "Serial number tidak sesuai dengan identifier merek apa pun.";
       updateKodeBarang("");
       focusKodeBarangInput();
       return { success: false, ignored: true, message: msg };
     }
+    */
 
     const itemBrand = existingItem?.merek || detectedBrand || merekFallback;
     let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
