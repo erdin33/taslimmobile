@@ -15,7 +15,6 @@ import {
   ChevronRight,
   ScanBarcode
 } from "lucide-react"
-import { CameraScanner } from "@/components/camera-scanner"
 import {
   Drawer,
   DrawerContent,
@@ -23,6 +22,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import { CameraScanner } from "@/components/camera-scanner"
 
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
@@ -72,8 +72,6 @@ export function MobileBottomNav() {
   React.useEffect(() => {
     fetchBrands()
   }, [fetchBrands])
-
-
 
 
 
