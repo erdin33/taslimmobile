@@ -1,12 +1,9 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode"
 import { Camera, Zap, ZapOff, RefreshCw, CheckCircle2, AlertCircle, X, Image } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerTrigger,
-} from "@/components/ui/drawer"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 const SCAN_FORMATS = [
@@ -59,17 +56,24 @@ const playScannerBeep = (type: "success" | "error" | "info" = "success") => {
 }
 
 interface CameraScannerProps {
-  onScan: (code: string) => Promise<any> | any
+  onScan: (code: string, mode?: "masuk" | "keluar" | "cari") => Promise<any> | any
   buttonText?: string
   className?: string
+  children?: React.ReactNode
+  showModeTabs?: boolean
+  defaultMode?: "masuk" | "keluar" | "cari"
 }
 
 export function CameraScanner({
   onScan,
   buttonText = "Scan via Kamera",
   className,
+  children,
+  showModeTabs = false,
+  defaultMode = "cari",
 }: CameraScannerProps) {
   const [open, setOpen] = React.useState(false)
+  const [activeMode, setActiveMode] = React.useState<"masuk" | "keluar" | "cari">(defaultMode)
   const [scannedCodes, setScannedCodes] = React.useState<{ code: string; status: "success" | "error"; message?: string; timestamp: Date }[]>([])
   const [isTorchOn, setIsTorchOn] = React.useState(false)
   const [hasTorch, setHasTorch] = React.useState(false)
@@ -132,7 +136,7 @@ export function CameraScanner({
           lastScannedCodeRef.current = { code: decodedText, time: now }
 
           try {
-            const result = await onScanRef.current(decodedText)
+            const result = await onScanRef.current(decodedText, activeMode)
             if (result && result.success === false) {
               if (result.ignored) {
                 lastScannedCodeRef.current = null
@@ -294,7 +298,7 @@ export function CameraScanner({
         await new Promise((resolve) => setTimeout(resolve, 300))
 
         try {
-          const result = await onScanRef.current(decodedText)
+          const result = await onScanRef.current(decodedText, activeMode)
           if (result && result.success === false) {
             if (result.ignored) {
               continue
@@ -332,160 +336,213 @@ export function CameraScanner({
     }
   }
 
-  return (
-    <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
-        <Button className={className} variant="outline">
-          <Camera className="mr-2 size-4" />
-          {buttonText}
-        </Button>
-      </DrawerTrigger>
+  const scannerOverlay = open ? (
+    <div className="fixed inset-0 h-screen w-screen flex flex-col bg-zinc-950 text-white overflow-hidden p-0 z-[9999] select-none">
+      {/* Full-Screen Camera Viewfinder */}
+      <div className="absolute inset-0 w-full h-full bg-zinc-950 z-0 flex items-center justify-center">
+        <div
+          id={readerId}
+          className="w-full h-full [&_video]:object-cover [&_video]:w-full! [&_video]:h-full! [&_video]:min-h-full!"
+        />
+      </div>
 
-      <DrawerContent className="fixed inset-0! h-full! max-h-none! w-full! max-w-none! flex flex-col bg-zinc-950 text-white overflow-hidden rounded-none! border-none! p-0 z-50">
+      {/* Semi-transparent dark overlay overlayed with header/controls */}
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-between pointer-events-none p-6">
         
-        {/* Full-Screen Camera Viewfinder */}
-        <div className="absolute inset-0 w-full h-full bg-zinc-950 z-0 flex items-center justify-center">
-          <div
-            id={readerId}
-            className="w-full h-full [&_video]:object-cover [&_video]:w-full! [&_video]:h-full! [&_video]:min-h-full!"
-          />
+        {/* Header Area */}
+        <div className="w-full flex items-center justify-between pointer-events-auto pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-4 bg-gradient-to-b from-black/85 via-black/50 to-transparent absolute top-0 left-0 right-0 px-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full size-10 bg-black/40 hover:bg-black/60 text-white border border-white/10 cursor-pointer"
+            onClick={() => setOpen(false)}
+          >
+            <X className="size-5" />
+          </Button>
+          
+          <span className="text-zinc-100 font-semibold text-base select-none">
+            {showModeTabs 
+              ? (activeMode === "masuk" ? "Scan Barang Masuk" : activeMode === "keluar" ? "Scan Barang Keluar" : "Cari Info Barang")
+              : (buttonText === "Scan via Kamera" ? "Scan Barang" : buttonText)
+            }
+          </span>
+          
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              id="file-scanner-input"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 border-zinc-800 text-zinc-300 bg-zinc-900/80 hover:bg-zinc-800 hover:text-white cursor-pointer px-3.5 rounded-full backdrop-blur-md gap-1.5"
+              onClick={() => document.getElementById("file-scanner-input")?.click()}
+            >
+              <Image className="size-4 text-blue-400" />
+              Upload Foto
+            </Button>
+          </div>
         </div>
 
-        {/* Semi-transparent dark overlay overlayed with header/controls */}
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-between pointer-events-none p-6">
-          
-          {/* Header Area */}
-          <div className="w-full flex items-center justify-between pointer-events-auto pt-6 pb-4 bg-gradient-to-b from-black/85 via-black/50 to-transparent absolute top-0 left-0 right-0 px-6">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full size-10 bg-black/40 hover:bg-black/60 text-white border border-white/10 cursor-pointer"
-              onClick={() => setOpen(false)}
-            >
-              <X className="size-5" />
-            </Button>
-            
-            <span className="text-zinc-100 font-semibold text-base select-none">
-              {buttonText === "Scan via Kamera" ? "Scan Barang" : buttonText}
-            </span>
-            
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                id="file-scanner-input"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 border-zinc-800 text-zinc-300 bg-zinc-900/80 hover:bg-zinc-800 hover:text-white cursor-pointer px-3.5 rounded-full backdrop-blur-md gap-1.5"
-                onClick={() => document.getElementById("file-scanner-input")?.click()}
+        {/* Mode Selector Tabs (Top center overlay) */}
+        {showModeTabs && (
+          <div className="absolute top-[calc(5rem+env(safe-area-inset-top,0px))] left-6 right-6 flex justify-center pointer-events-auto z-20">
+            <div className="flex bg-black/65 backdrop-blur-md p-1 rounded-full border border-white/10 shadow-lg w-full max-w-[320px]">
+              <button
+                type="button"
+                onClick={() => setActiveMode("masuk")}
+                className={cn(
+                  "flex-1 text-[11px] font-bold py-2 px-3 rounded-full transition-all text-center cursor-pointer select-none",
+                  activeMode === "masuk" 
+                    ? "bg-emerald-500 text-white shadow-sm" 
+                    : "text-zinc-400 hover:text-zinc-200"
+                )}
               >
-                <Image className="size-4 text-blue-400" />
-                Upload Foto
-              </Button>
+                Barang Masuk
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMode("keluar")}
+                className={cn(
+                  "flex-1 text-[11px] font-bold py-2 px-3 rounded-full transition-all text-center cursor-pointer select-none",
+                  activeMode === "keluar" 
+                    ? "bg-sky-500 text-white shadow-sm" 
+                    : "text-zinc-400 hover:text-zinc-200"
+                )}
+              >
+                Barang Keluar
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMode("cari")}
+                className={cn(
+                  "flex-1 text-[11px] font-bold py-2 px-3 rounded-full transition-all text-center cursor-pointer select-none",
+                  activeMode === "cari" 
+                    ? "bg-violet-500 text-white shadow-sm" 
+                    : "text-zinc-400 hover:text-zinc-200"
+                )}
+              >
+                Cari Detail
+              </button>
             </div>
           </div>
+        )}
 
-          {/* Floating Instructions Banner (At the bottom, above scanned list) */}
-          <div className="absolute bottom-[26%] left-0 right-0 flex justify-center pointer-events-none select-none px-6">
-            <span className="text-xs font-semibold text-zinc-100 bg-black/60 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md shadow-md text-center max-w-[85%]">
-              Posisikan barcode di depan kamera untuk memindai otomatis
-            </span>
-          </div>
+        {/* Floating Instructions Banner (At the bottom, above scanned list) */}
+        <div className="absolute bottom-[26%] left-0 right-0 flex justify-center pointer-events-none select-none px-6">
+          <span className="text-xs font-semibold text-zinc-100 bg-black/60 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md shadow-md text-center max-w-[85%]">
+            Posisikan barcode di depan kamera untuk memindai otomatis
+          </span>
+        </div>
 
-          {/* Flashlight and camera reload floating controls */}
-          {cameraActive && (
-            <div className="absolute bottom-[34%] right-6 flex flex-col gap-3 pointer-events-auto z-20">
-              {hasTorch && (
-                <Button
-                  onClick={toggleTorch}
-                  variant="secondary"
-                  size="icon"
-                  className="rounded-full size-11 bg-black/60 border border-zinc-800 text-white hover:bg-black/85 cursor-pointer backdrop-blur-md shadow-lg"
-                  title="Flashlight"
-                >
-                  {isTorchOn ? <ZapOff className="size-5" /> : <Zap className="size-5 text-amber-400" />}
-                </Button>
-              )}
+        {/* Flashlight and camera reload floating controls */}
+        {cameraActive && (
+          <div className="absolute bottom-[34%] right-6 flex flex-col gap-3 pointer-events-auto z-20">
+            {hasTorch && (
               <Button
-                onClick={async () => {
-                  await stopScanner()
-                  await startScanner()
-                }}
+                onClick={toggleTorch}
                 variant="secondary"
                 size="icon"
                 className="rounded-full size-11 bg-black/60 border border-zinc-800 text-white hover:bg-black/85 cursor-pointer backdrop-blur-md shadow-lg"
-                title="Restart Camera"
+                title="Flashlight"
               >
-                <RefreshCw className="size-5" />
+                {isTorchOn ? <ZapOff className="size-5" /> : <Zap className="size-5 text-amber-400" />}
               </Button>
-            </div>
-          )}
-
-          {/* Scan Flash Feedback Screen Overlay */}
-          {scanFlash && (
-            <div
-              className={`absolute inset-0 pointer-events-none transition-opacity duration-200 flex items-center justify-center backdrop-blur-xs z-30 ${
-                scanFlash === "success" ? "bg-emerald-500/20" : "bg-rose-500/20"
-              }`}
-            >
-              <div className={`p-4 rounded-full ${scanFlash === "success" ? "bg-emerald-500/90 text-white" : "bg-rose-500/90 text-white"} shadow-2xl`}>
-                {scanFlash === "success" ? (
-                  <CheckCircle2 className="size-12 animate-[ping_1.5s_infinite_ease-out]" />
-                ) : (
-                  <AlertCircle className="size-12 animate-[bounce_0.5s_infinite_ease-in-out]" />
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Recently Scanned List (Overlayed at the bottom) */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 h-[24vh] bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col pointer-events-none pb-6">
-          <div className="px-6 py-2 flex justify-between items-center border-b border-white/5 pointer-events-auto">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider select-none">Hasil Scan Sesi Ini</span>
-            <span className="text-[10px] bg-primary/20 text-primary font-bold px-2 py-0.5 rounded-full select-none">
-              {scannedCodes.filter(c => c.status === "success").length} Berhasil
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 px-6 flex flex-col gap-2 pointer-events-auto">
-            {scannedCodes.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-zinc-500 py-4 text-center gap-1.5 select-none">
-                <Camera className="size-5 opacity-40 animate-pulse" />
-                <span className="text-xs">Pindai barcode untuk melihat hasil di sini</span>
-              </div>
-            ) : (
-              scannedCodes.map((item, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-start justify-between p-2.5 rounded-xl border text-xs backdrop-blur-md ${
-                    item.status === "success"
-                      ? "border-emerald-500/25 bg-emerald-500/10 text-zinc-100 shadow-[0_2px_8px_rgba(16,185,129,0.1)]"
-                      : "border-rose-500/25 bg-rose-500/10 text-zinc-100 shadow-[0_2px_8px_rgba(239,68,68,0.1)]"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1 pr-3">
-                    <p className="font-mono font-semibold truncate text-[13px]">{item.code}</p>
-                    {item.message && (
-                      <p className="text-[10px] text-rose-400 font-medium mt-0.5">{item.message}</p>
-                    )}
-                  </div>
-                  <div className="shrink-0 flex items-center h-full">
-                    {item.status === "success" ? (
-                      <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded-md">Valid</span>
-                    ) : (
-                      <span className="text-[9px] bg-rose-500/20 text-rose-400 font-bold px-1.5 py-0.5 rounded-md">Gagal</span>
-                    )}
-                  </div>
-                </div>
-              ))
             )}
+            <Button
+              onClick={async () => {
+                await stopScanner()
+                await startScanner()
+              }}
+              variant="secondary"
+              size="icon"
+              className="rounded-full size-11 bg-black/60 border border-zinc-800 text-white hover:bg-black/85 cursor-pointer backdrop-blur-md shadow-lg"
+              title="Restart Camera"
+            >
+              <RefreshCw className="size-5" />
+            </Button>
           </div>
+        )}
+
+        {/* Scan Flash Feedback Screen Overlay */}
+        {scanFlash && (
+          <div
+            className={`absolute inset-0 pointer-events-none transition-opacity duration-200 flex items-center justify-center backdrop-blur-xs z-30 ${
+              scanFlash === "success" ? "bg-emerald-500/20" : "bg-rose-500/20"
+            }`}
+          >
+            <div className={`p-4 rounded-full ${scanFlash === "success" ? "bg-emerald-500/90 text-white" : "bg-rose-500/90 text-white"} shadow-2xl`}>
+              {scanFlash === "success" ? (
+                <CheckCircle2 className="size-12 animate-[ping_1.5s_infinite_ease-out]" />
+              ) : (
+                <AlertCircle className="size-12 animate-[bounce_0.5s_infinite_ease-in-out]" />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recently Scanned List (Solid background at the bottom) */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 h-[calc(24vh+env(safe-area-inset-bottom,0px))] bg-zinc-950 border-t border-zinc-800/80 flex flex-col pointer-events-none pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+        <div className="px-6 py-2 flex justify-between items-center border-b border-white/5 pointer-events-auto">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider select-none">Hasil Scan Sesi Ini</span>
+          <span className="text-[10px] bg-primary/20 text-primary font-bold px-2 py-0.5 rounded-full select-none">
+            {scannedCodes.filter(c => c.status === "success").length} Berhasil
+          </span>
         </div>
-      </DrawerContent>
-    </Drawer>
+        <div className="flex-1 overflow-y-auto p-4 px-6 flex flex-col gap-2 pointer-events-auto">
+          {scannedCodes.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-zinc-500 py-4 text-center gap-1.5 select-none">
+              <Camera className="size-5 opacity-40 animate-pulse" />
+              <span className="text-xs">Pindai barcode untuk melihat hasil di sini</span>
+            </div>
+          ) : (
+            scannedCodes.map((item, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start justify-between p-2.5 rounded-xl border text-xs backdrop-blur-md ${
+                  item.status === "success"
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-zinc-100 shadow-[0_2px_8px_rgba(16,185,129,0.1)]"
+                    : "border-rose-500/25 bg-rose-500/10 text-zinc-100 shadow-[0_2px_8px_rgba(239,68,68,0.1)]"
+                }`}
+              >
+                <div className="min-w-0 flex-1 pr-3">
+                  <p className="font-mono font-semibold truncate text-[13px]">{item.code}</p>
+                  {item.message && (
+                    <p className="text-[10px] text-rose-400 font-medium mt-0.5">{item.message}</p>
+                  )}
+                </div>
+                <div className="shrink-0 flex items-center h-full">
+                  {item.status === "success" ? (
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded-md">Valid</span>
+                  ) : (
+                    <span className="text-[9px] bg-rose-500/20 text-rose-400 font-bold px-1.5 py-0.5 rounded-md">Gagal</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <>
+      {children ? (
+        <div onClick={() => setOpen(true)} className="cursor-pointer">
+          {children}
+        </div>
+      ) : (
+        <Button className={className} variant="outline" onClick={() => setOpen(true)}>
+          <Camera className="mr-2 size-4" />
+          {buttonText}
+        </Button>
+      )}
+      {open && typeof document !== "undefined" && createPortal(scannerOverlay, document.body)}
+    </>
   )
 }

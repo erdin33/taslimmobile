@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Archive, BadgeCheck, Boxes, PackageMinus, ScanLine, X, Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -190,6 +191,7 @@ function EmptyScanTableState() {
  */
 export default function BarangKeluarPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [kodeBarang, setKodeBarang] = useState("");
   const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
   const [barangKeluar, setBarangKeluar] = useState<BarangKeluarItem[]>([]);
@@ -446,6 +448,19 @@ export default function BarangKeluarPage() {
     user,
     dbBrands,
   ]);
+
+  // Handle auto-submit if code is passed via URL query param
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code) {
+      // Clear parameter to avoid infinite loop or repeating submit on re-render/re-mount
+      const url = new URL(window.location.href);
+      url.searchParams.delete("code");
+      window.history.replaceState({}, "", url.pathname + url.hash);
+      
+      void handleSubmit(code);
+    }
+  }, [searchParams, handleSubmit]);
 
   /**
    * Mengarahkan input keyboard atau barcode scanner ke field Kode/SN secara otomatis.

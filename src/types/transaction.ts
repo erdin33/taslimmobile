@@ -28,6 +28,7 @@ export type BarangMasukItem = {
   source: "KP" | "Mitra" | "Baru";
   asal?: string;
   kondisi?: string;
+  replacementFor?: string;
 };
 
 export type BarangKeluarItem = {

@@ -4,7 +4,6 @@ import { useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import {
   LayoutGrid,
-  Package,
   Database,
   Shapes,
   PackagePlus,
@@ -15,7 +14,9 @@ import {
   Handshake,
   Settings,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  ScanBarcode
 } from "lucide-react"
 import {
   Drawer,
@@ -24,6 +25,25 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import { CameraScanner } from "@/components/camera-scanner"
+import { toast } from "sonner"
+import type { BarangUnit } from "@/types/inventory"
+
+const getBaseUrl = () => {
+  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
+  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+};
+
+const getHeaders = () => {
+  const token = localStorage.getItem("arxiva-auth-token");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `${token}`;
+  }
+  return headers;
+};
 
 export function MobileBottomNav() {
   const location = useLocation()
@@ -32,12 +52,75 @@ export function MobileBottomNav() {
   const { user, logout } = useAuth()
   const isAdmin = user?.role === "admin"
 
-  const [operasionalOpen, setOperasionalOpen] = React.useState(false)
   const [manajemenOpen, setManajemenOpen] = React.useState(false)
+  const [brands, setBrands] = React.useState<{ name: string; identifier: string }[]>([])
+
+  const fetchBrands = React.useCallback(async () => {
+    try {
+      const res = await fetch(`${getBaseUrl()}/brands`, { method: "GET", headers: getHeaders() })
+      if (res.ok) {
+        const rawBrands = await res.json()
+        const data = rawBrands.data || rawBrands
+        const brandDefinitions = (Array.isArray(data) ? data : []).map((brand: any) => ({
+          name: brand.name || brand.nama || "",
+          identifier: brand.identifier || "",
+        }))
+        setBrands(brandDefinitions)
+        return brandDefinitions
+      }
+    } catch (err) {
+      console.error("Gagal memuat daftar merek:", err)
+    }
+    return []
+  }, [])
+
+  React.useEffect(() => {
+    fetchBrands()
+  }, [fetchBrands])
+
+  const [scannedItem, setScannedItem] = React.useState<(BarangUnit & { notFound?: boolean }) | null>(null)
+  const [detailOpen, setDetailOpen] = React.useState(false)
+  const [scanLoading, setScanLoading] = React.useState(false)
+
+  const handleGlobalScan = async (code: string) => {
+    setScanLoading(true)
+    try {
+      const res = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() })
+      if (!res.ok) throw new Error("Gagal mengambil data barang")
+      const rawItems = await res.json()
+      const data: BarangUnit[] = rawItems.data || rawItems
+
+      const item = data.find(
+        (i) => i.serialNumber?.trim().toUpperCase() === code.trim().toUpperCase()
+      )
+
+      if (item) {
+        setScannedItem(item)
+      } else {
+        setScannedItem({
+          id: "",
+          serialNumber: code,
+          kategori: "",
+          merek: "",
+          status: "Tersedia",
+          lokasiPenyimpanan: "",
+          tanggalMasuk: "",
+          notFound: true
+        })
+      }
+      setDetailOpen(true)
+      return { success: true }
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Gagal melakukan pencarian barang")
+      return { success: false, message: err.message }
+    } finally {
+      setScanLoading(false)
+    }
+  }
 
   // Close drawers on navigate
   React.useEffect(() => {
-    setOperasionalOpen(false)
     setManajemenOpen(false)
   }, [currentPath])
 
@@ -48,12 +131,10 @@ export function MobileBottomNav() {
   }
 
   // Active check helper
-  const isTabActive = (tab: "dashboard" | "operasional" | "inventory" | "manajemen") => {
+  const isTabActive = (tab: "dashboard" | "riwayat" | "inventory" | "manajemen") => {
     if (tab === "dashboard") return currentPath === "/"
     if (tab === "inventory") return currentPath === "/data-barang"
-    if (tab === "operasional") {
-      return ["/barang-masuk", "/barang-keluar", "/riwayat"].includes(currentPath)
-    }
+    if (tab === "riwayat") return currentPath === "/riwayat"
     if (tab === "manajemen") {
       return ["/lokasi-barang", "/kategori-barang", "/merek-barang", "/mitra", "/pengaturan"].includes(currentPath)
     }
@@ -61,8 +142,8 @@ export function MobileBottomNav() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t bg-background/80 backdrop-blur-lg md:hidden">
-      <div className="grid h-full items-center justify-around px-2 min-w-0" style={{ gridTemplateColumns: isAdmin ? "repeat(4, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))" }}>
+    <div className="fixed bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom,0px)] border-t bg-background/80 backdrop-blur-lg md:hidden">
+      <div className="grid h-16 items-center justify-around px-2 min-w-0" style={{ gridTemplateColumns: isAdmin ? "repeat(5, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))" }}>
         
         {/* Dashboard */}
         <Link
@@ -76,72 +157,62 @@ export function MobileBottomNav() {
           <span className="text-[10px] tracking-wide">Dashboard</span>
         </Link>
 
-        {/* Operasional */}
-        <Drawer open={operasionalOpen} onOpenChange={setOperasionalOpen}>
-          <DrawerTrigger asChild>
+        {/* Riwayat */}
+        <Link
+          to="/riwayat"
+          className={cn(
+            "flex flex-col items-center justify-center gap-1 h-full text-muted-foreground transition-all active:scale-95",
+            isTabActive("riwayat") && "text-primary font-medium"
+          )}
+        >
+          <History className="size-5" />
+          <span className="text-[10px] tracking-wide">Riwayat</span>
+        </Link>
+
+        {/* Scan Barcode (Floating in the center) */}
+        <div className="flex justify-center items-center h-full relative">
+          <CameraScanner 
+            showModeTabs={true}
+            defaultMode="cari"
+            onScan={async (code, mode) => {
+              let currentBrands = brands
+              if (currentBrands.length === 0) {
+                currentBrands = await fetchBrands()
+              }
+
+              // Validasi kode harus sesuai dengan salah satu identifier merek
+              const normalizedCode = code.trim().toUpperCase()
+              const hasMatchingBrand = currentBrands.some((b) => {
+                const ident = b.identifier?.trim().toUpperCase()
+                return ident && normalizedCode.includes(ident)
+              })
+
+              if (!hasMatchingBrand) {
+                return { 
+                  success: false, 
+                  message: "Barcode tidak sesuai dengan identifier merek apa pun." 
+                }
+              }
+
+              if (mode === "masuk") {
+                navigate(`/barang-masuk?code=${encodeURIComponent(code)}`)
+              } else if (mode === "keluar") {
+                navigate(`/barang-keluar?code=${encodeURIComponent(code)}`)
+              } else {
+                // mode === "cari"
+                await handleGlobalScan(code)
+              }
+              return { success: true }
+            }}
+          >
             <button
-              className={cn(
-                "flex flex-col items-center justify-center gap-1 h-full text-muted-foreground transition-all active:scale-95",
-                isTabActive("operasional") && "text-primary font-medium"
-              )}
+              type="button"
+              className="flex flex-col items-center justify-center -mt-8 bg-primary hover:bg-primary/95 text-primary-foreground size-14 rounded-full shadow-lg border-4 border-background active:scale-90 transition-all cursor-pointer z-20"
             >
-              <Package className="size-5" />
-              <span className="text-[10px] tracking-wide">Operasional</span>
+              <ScanBarcode className="size-6 text-primary-foreground" />
             </button>
-          </DrawerTrigger>
-          <DrawerContent>
-            <DrawerHeader className="text-left pb-2">
-              <DrawerTitle className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Operasional</DrawerTitle>
-            </DrawerHeader>
-            <div className="flex flex-col gap-1.5 p-4 pt-0 pb-6">
-              <Link
-                to="/barang-masuk"
-                className={cn(
-                  "flex items-center justify-between p-3.5 rounded-xl border bg-card/50 hover:bg-accent text-foreground text-sm font-medium",
-                  currentPath === "/barang-masuk" && "border-primary bg-primary/5"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
-                    <PackagePlus className="size-5" />
-                  </div>
-                  <span>Barang Masuk</span>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground/60" />
-              </Link>
-              <Link
-                to="/barang-keluar"
-                className={cn(
-                  "flex items-center justify-between p-3.5 rounded-xl border bg-card/50 hover:bg-accent text-foreground text-sm font-medium",
-                  currentPath === "/barang-keluar" && "border-primary bg-primary/5"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-sky-500/10 rounded-lg text-sky-500">
-                    <PackageMinus className="size-5" />
-                  </div>
-                  <span>Barang Keluar</span>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground/60" />
-              </Link>
-              <Link
-                to="/riwayat"
-                className={cn(
-                  "flex items-center justify-between p-3.5 rounded-xl border bg-card/50 hover:bg-accent text-foreground text-sm font-medium",
-                  currentPath === "/riwayat" && "border-primary bg-primary/5"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
-                    <History className="size-5" />
-                  </div>
-                  <span>Riwayat Transaksi</span>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground/60" />
-              </Link>
-            </div>
-          </DrawerContent>
-        </Drawer>
+          </CameraScanner>
+        </div>
 
         {/* Inventory */}
         <Link
@@ -156,7 +227,7 @@ export function MobileBottomNav() {
         </Link>
 
         {/* Manajemen Data (Hanya Admin) */}
-        {isAdmin && (
+        {isAdmin ? (
           <Drawer open={manajemenOpen} onOpenChange={setManajemenOpen}>
             <DrawerTrigger asChild>
               <button
@@ -173,7 +244,7 @@ export function MobileBottomNav() {
               <DrawerHeader className="text-left pb-2">
                 <DrawerTitle className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Manajemen Data</DrawerTitle>
               </DrawerHeader>
-              <div className="flex flex-col gap-1.5 p-4 pt-0 pb-6 overflow-y-auto max-h-[60vh]">
+              <div className="flex flex-col gap-1.5 p-4 pt-0 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto max-h-[60vh]">
                 <Link
                   to="/lokasi-barang"
                   className={cn(
@@ -267,9 +338,148 @@ export function MobileBottomNav() {
               </div>
             </DrawerContent>
           </Drawer>
+        ) : (
+          <div className="hidden" />
         )}
 
       </div>
+
+      {/* Global Scanned Item Details Drawer */}
+      <Drawer open={detailOpen} onOpenChange={setDetailOpen}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="text-left pb-2">
+            <DrawerTitle className="text-base font-bold flex items-center gap-2">
+              <ScanBarcode className="size-5 text-primary" />
+              Hasil Pindai Barcode
+            </DrawerTitle>
+          </DrawerHeader>
+          
+          {scanLoading ? (
+            <div className="flex flex-col items-center justify-center p-8 text-center gap-2">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+              <span className="text-xs text-muted-foreground">Mencari informasi barang...</span>
+            </div>
+          ) : scannedItem ? (
+            <div className="p-5 pt-2 flex flex-col gap-4 overflow-y-auto max-h-[60vh] pb-8">
+              
+              {scannedItem.notFound ? (
+                // NOT FOUND UI
+                <div className="flex flex-col items-center justify-center py-6 text-center gap-3">
+                  <div className="p-3 bg-yellow-500/10 rounded-full text-yellow-500">
+                    <ScanBarcode className="size-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">Barang Tidak Ditemukan</p>
+                    <p className="text-xs text-muted-foreground">
+                      Kode/Serial Number <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-foreground font-bold">{scannedItem.serialNumber}</span> belum terdaftar di database.
+                    </p>
+                  </div>
+                  
+                  {isAdmin ? (
+                    <button
+                      onClick={() => {
+                        setDetailOpen(false)
+                        navigate(`/data-barang?action=new&code=${encodeURIComponent(scannedItem.serialNumber)}`)
+                      }}
+                      className="mt-2 w-full max-w-[240px] flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-md active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Plus className="size-4" />
+                      Daftarkan Barang Baru
+                    </button>
+                  ) : (
+                    <p className="text-[11px] text-amber-500 font-medium bg-amber-500/5 border border-amber-500/10 p-2 rounded-lg max-w-[280px]">
+                      Hanya Admin yang dapat mendaftarkan barang baru ke dalam sistem.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                // FOUND ITEM UI
+                <div className="flex flex-col gap-4">
+                  {/* Status Badge & Code */}
+                  <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Serial Number / Kode</p>
+                      <p className="text-sm font-mono font-bold text-foreground">{scannedItem.serialNumber}</p>
+                    </div>
+                    <div>
+                      <span className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                        scannedItem.status === "Tersedia" && "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
+                        scannedItem.status === "Diluar" && "bg-blue-500/10 text-blue-500 border border-blue-500/20",
+                        scannedItem.status === "Rusak" && "bg-rose-500/10 text-rose-500 border border-rose-500/20",
+                        scannedItem.status === "Hilang" && "bg-zinc-500/10 text-zinc-500 border border-zinc-500/20"
+                      )}>
+                        {scannedItem.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Product Metadata */}
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 bg-card border rounded-xl">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Kategori</p>
+                      <p className="font-semibold text-foreground mt-0.5">{scannedItem.kategori || "-"}</p>
+                    </div>
+                    <div className="p-3 bg-card border rounded-xl">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Merek</p>
+                      <p className="font-semibold text-foreground mt-0.5">{scannedItem.merek || "-"}</p>
+                    </div>
+                    <div className="p-3 bg-card border rounded-xl">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Lokasi</p>
+                      <p className="font-semibold text-foreground mt-0.5">{scannedItem.lokasiPenyimpanan || "-"}</p>
+                    </div>
+                    <div className="p-3 bg-card border rounded-xl">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Mitra</p>
+                      <p className="font-semibold text-foreground mt-0.5">{scannedItem.mitra || "-"}</p>
+                    </div>
+                  </div>
+
+                  {/* Dates */}
+                  <div className="p-3 bg-card border rounded-xl text-xs space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tanggal Masuk:</span>
+                      <span className="font-medium">{scannedItem.tanggalMasuk || "-"}</span>
+                    </div>
+                    {scannedItem.tanggalKeluar && (
+                      <div className="flex justify-between border-t pt-2 mt-1">
+                        <span className="text-muted-foreground">Tanggal Keluar:</span>
+                        <span className="font-medium text-rose-500">{scannedItem.tanggalKeluar}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Shortcuts */}
+                  <div className="flex flex-col gap-2 mt-2">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Pintasan Cepat Transaksi</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setDetailOpen(false)
+                          navigate(`/barang-masuk?code=${encodeURIComponent(scannedItem.serialNumber)}`)
+                        }}
+                        className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 text-xs font-semibold active:scale-95 transition-all cursor-pointer"
+                      >
+                        <PackagePlus className="size-4" />
+                        Catat Masuk
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDetailOpen(false)
+                          navigate(`/barang-keluar?code=${encodeURIComponent(scannedItem.serialNumber)}`)
+                        }}
+                        className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 text-xs font-semibold active:scale-95 transition-all cursor-pointer"
+                      >
+                        <PackageMinus className="size-4" />
+                        Catat Keluar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </DrawerContent>
+      </Drawer>
     </div>
   )
 }

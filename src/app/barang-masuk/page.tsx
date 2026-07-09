@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { BadgeCheck, Boxes, PackagePlus, ScanLine, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -208,6 +209,7 @@ function EmptyScanTableState() {
  */
 export default function BarangMasukPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [kodeBarang, setKodeBarang] = useState("");
   const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
   const [merekFallback, setMerekFallback] = useState<BrandOption>("");
@@ -225,6 +227,8 @@ export default function BarangMasukPage() {
   const [asalBarang, setAsalBarang] = useState<string>("SBU Regional Jawa Barat");
   const [kondisiBarang, setKondisiBarang] = useState<string>("Baru");
   const [isSaving, setIsSaving] = useState(false);
+  const [keperluan, setKeperluan] = useState<"Pusat" | "SBU" | "Gangguan" | "Aktivasi" | "Mitra">("SBU");
+  const [nomorTicket, setNomorTicket] = useState<string>("");
 
   const refreshInventoryItems = useCallback(async () => {
     try {
@@ -533,6 +537,7 @@ export default function BarangMasukPage() {
               : "Baru",
       asal: asalBarang,
       kondisi: kondisiBarang,
+      replacementFor: "",
     };
 
     setBarangMasuk((current) => [newItem, ...current]);
@@ -564,6 +569,19 @@ export default function BarangMasukPage() {
     kondisiBarang,
     asalBarangManual,
   ]);
+
+  // Handle auto-submit if code is passed via URL query param
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code) {
+      // Clear parameter to avoid infinite loop or repeating submit on re-render/re-mount
+      const url = new URL(window.location.href);
+      url.searchParams.delete("code");
+      window.history.replaceState({}, "", url.pathname + url.hash);
+      
+      void handleSubmit(code);
+    }
+  }, [searchParams, handleSubmit]);
 
   /**
    * Mengarahkan input keyboard atau barcode scanner ke field Kode/SN secara otomatis.
@@ -668,11 +686,20 @@ export default function BarangMasukPage() {
       const sessionDate = new Date().toISOString().slice(0, 10);
       const dateStr = sessionDate.replace(/-/g, "");
 
+      // Prefix based on Keperluan
+      let prefixPart = "IN";
+      if (keperluan === "Pusat") prefixPart = "PST";
+      else if (keperluan === "SBU") prefixPart = "SBU";
+      else if (keperluan === "Gangguan") prefixPart = "GG";
+      else if (keperluan === "Aktivasi") prefixPart = "AKV";
+      else if (keperluan === "Mitra") prefixPart = "MTR";
+
+      const prefix = `${prefixPart}-${dateStr}-`;
+
       // Mendapatkan nomor urut transaksi harian
       const resTrx = await fetch(`${getBaseUrl()}/transactions`, { method: "GET", headers: getHeaders() });
       const rawTrx = await resTrx.json();
       const txs = rawTrx.data || rawTrx;
-      const prefix = `IN-${dateStr}-`;
       let maxNum = 0;
       (Array.isArray(txs) ? txs : []).forEach((t: any) => {
         if (t.nomor && t.nomor.startsWith(prefix)) {
@@ -708,28 +735,9 @@ export default function BarangMasukPage() {
       });
 
       if (invalidItem) {
-        const existingItem = latestItems.find(
-          (dbItem) =>
-            dbItem.id === invalidItem.existingItemId ||
-            normalizeKodeBarang(dbItem.serialNumber) === normalizeKodeBarang(invalidItem.nomor)
-        );
-
-        toast.error(
-          user?.role === "mitra"
-            ? existingItem
-              ? "Barang belum di-scan keluar dari KP sehingga belum bisa diterima oleh Mitra."
-              : "Barang tidak ditemukan di data KP."
-            : existingItem
-              ? normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar"
-                ? "Barang sudah berstatus Tersedia di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan."
-                : "Barang tidak dapat diproses sebagai masuk kembali."
-              : "Data barang keluar tidak lagi ditemukan.",
-          {
-            description: existingItem
-              ? `${invalidItem.nomor} berstatus ${existingItem.status} pada ${existingItem.mitra || "KP Tasikmalaya"}`
-              : invalidItem.nomor,
-          }
-        );
+        toast.error("Ada barang dengan status tidak valid atau lokasi penyimpanan konflik.", {
+          description: `SN: ${invalidItem.nomor} - Harap periksa daftar kembali.`,
+        });
         setDbItems(latestItems);
         return;
       }
@@ -747,13 +755,17 @@ export default function BarangMasukPage() {
           );
         }
 
+        // Tentukan status berdasarkan kondisi barang masuk
+        const isBadMaterial = item.kondisi === "Rusak / Bad" || item.kondisi === "Cacat Pabrik";
+        const itemStatus = isBadMaterial ? "Rusak" : "Tersedia";
+
         if (existingItem) {
           const updatedItem: InventoryItem = {
             ...existingItem,
             serialNumber: item.nomor,
             kategori: item.kategori,
             merek: item.merek,
-            status: "Tersedia",
+            status: itemStatus,
             lokasiPenyimpanan: item.lokasi,
             tanggalMasuk: sessionDate,
             tanggalKeluar: undefined,
@@ -774,7 +786,7 @@ export default function BarangMasukPage() {
             serialNumber: item.nomor,
             kategori: item.kategori,
             merek: item.merek,
-            status: "Tersedia",
+            status: itemStatus,
             lokasiPenyimpanan: item.lokasi,
             tanggalMasuk: sessionDate,
             mitra:
@@ -804,7 +816,12 @@ export default function BarangMasukPage() {
             user?.role === "mitra"
               ? user.displayName
               : "KP Tasikmalaya",
-          keterangan: item.kondisi || kondisiBarang,
+          keterangan: item.replacementFor 
+            ? `SN Baru pengganti SN Rusak: ${item.replacementFor} (Ticket Gangguan: ${nomorTicket || '-'})` 
+            : (item.kondisi || kondisiBarang),
+          keperluan: keperluan,
+          nomorTicket: keperluan === "Gangguan" ? nomorTicket : undefined,
+          replacementFor: item.replacementFor || undefined,
         };
         const resAddTrx = await fetch(`${getBaseUrl()}/transactions`, {
           method: "POST",
@@ -812,6 +829,51 @@ export default function BarangMasukPage() {
           body: JSON.stringify(newTransaction),
         });
         if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
+
+        // Jika ada penggantian SN Rusak
+        if (item.replacementFor) {
+          const oldSN = item.replacementFor.trim().toUpperCase();
+          const existingOldItem = latestItems.find(
+            (dbItem) => normalizeKodeBarang(dbItem.serialNumber) === oldSN
+          );
+
+          if (existingOldItem) {
+            const updatedOldItem: InventoryItem = {
+              ...existingOldItem,
+              status: "Rusak",
+            };
+            await fetch(`${getBaseUrl()}/items/${updatedOldItem.id}`, {
+              method: "PUT",
+              headers: getHeaders(),
+              body: JSON.stringify(updatedOldItem),
+            });
+          }
+
+          const replacementTransaction = {
+            id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}-REP`,
+            tanggal: sessionDate,
+            nomor: sessionNomor,
+            kategori: "Masuk",
+            status: "Selesai",
+            sn: oldSN,
+            merek: existingOldItem?.merek || item.merek,
+            asal: item.asal || asalBarang,
+            tujuan: item.lokasi,
+            mitra:
+              user?.role === "mitra"
+                ? user.displayName
+                : "KP Tasikmalaya",
+            keterangan: `Digantikan oleh SN Baru: ${item.nomor} (Ticket Gangguan: ${nomorTicket || '-'})`,
+            keperluan: keperluan,
+            nomorTicket: keperluan === "Gangguan" ? nomorTicket : undefined,
+          };
+          const resAddTrxRep = await fetch(`${getBaseUrl()}/transactions`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify(replacementTransaction),
+          });
+          if (!resAddTrxRep.ok) throw new Error(`Gagal mencatat transaksi penggantian untuk ${oldSN}`);
+        }
       }
       toast.success(`${barangMasuk.length} barang masuk berhasil disimpan.`);
       setBarangMasuk([]); // Clear local state after saving
@@ -951,6 +1013,40 @@ export default function BarangMasukPage() {
               )}
 
               <div className="flex flex-col gap-3">
+                <Label htmlFor="keperluan-barang">Keperluan Transaksi</Label>
+                <Select
+                  value={keperluan}
+                  onValueChange={(value) => {
+                    setKeperluan(value as any);
+                    focusKodeBarangInput();
+                  }}
+                >
+                  <SelectTrigger id="keperluan-barang" className="w-full">
+                    <SelectValue placeholder="Pilih keperluan..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pusat">Pusat (PST)</SelectItem>
+                    <SelectItem value="SBU">SBU (SBU)</SelectItem>
+                    <SelectItem value="Gangguan">Gangguan (GG)</SelectItem>
+                    <SelectItem value="Aktivasi">Aktivasi (AKV)</SelectItem>
+                    <SelectItem value="Mitra">Mitra (MTR)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {keperluan === "Gangguan" && (
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="ticket-gangguan">Nomor Ticket Gangguan</Label>
+                  <Input
+                    id="ticket-gangguan"
+                    placeholder="Contoh: TKT-12345"
+                    value={nomorTicket}
+                    onChange={(e) => setNomorTicket(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
                 <Label htmlFor="kondisi-barang">Kategori / Kondisi</Label>
                 <Select
                   value={kondisiBarang}
@@ -965,6 +1061,8 @@ export default function BarangMasukPage() {
                   <SelectContent>
                     <SelectItem value="Baru">Baru</SelectItem>
                     <SelectItem value="Dismantle">Dismantle</SelectItem>
+                    <SelectItem value="Rusak / Bad">Rusak / Bad</SelectItem>
+                    <SelectItem value="Cacat Pabrik">Cacat Pabrik</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1109,6 +1207,7 @@ export default function BarangMasukPage() {
                     <TableHead>Kategori</TableHead>
                     <TableHead>Asal</TableHead>
                     <TableHead>Kondisi</TableHead>
+                    <TableHead className="w-48">Ganti SN Rusak (Opsional)</TableHead>
                     <TableHead>Rekomendasi Lokasi</TableHead>
                     <TableHead>Status Validasi</TableHead>
                     <TableHead className="w-16 text-center">Aksi</TableHead>
@@ -1117,7 +1216,7 @@ export default function BarangMasukPage() {
                 <TableBody>
                   {barangMasuk.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="p-0">
+                      <TableCell colSpan={10} className="p-0">
                         <EmptyScanTableState />
                       </TableCell>
                     </TableRow>
@@ -1137,6 +1236,17 @@ export default function BarangMasukPage() {
                           <Badge variant="outline" className="font-normal px-2.5 py-0.5 border-primary/30 bg-primary/5 text-primary">
                             {item.kondisi || kondisiBarang}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="font-mono text-xs w-[180px] h-8 bg-zinc-900 border-neutral-800"
+                            placeholder="Ketik SN Rusak..."
+                            value={item.replacementFor || ""}
+                            onChange={(e) => {
+                              const val = e.target.value.toUpperCase();
+                              setBarangMasuk(current => current.map(it => it.id === item.id ? { ...it, replacementFor: val } : it));
+                            }}
+                          />
                         </TableCell>
                         <TableCell>
                           <Select

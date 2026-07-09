@@ -23,7 +23,7 @@ export default function Layout() {
             <AppSidebar />
             <SidebarInset className="h-svh overflow-hidden flex flex-col">
                 <SiteHeader />
-                <div className="flex-1 overflow-y-auto overscroll-none pb-16 md:pb-0">
+                <div className="flex-1 overflow-y-auto overscroll-none pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
                     <Outlet />
                 </div>
                 <MobileBottomNav />

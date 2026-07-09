@@ -203,3 +203,8 @@
   }
 }
 
+
+/* Sembunyikan shaded region & kotak scan bawaan html5-qrcode untuk tampilan full camera */
+#qr-shaded-region {
+    display: none !important;
+}
