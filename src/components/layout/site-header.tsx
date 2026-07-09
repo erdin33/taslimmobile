@@ -30,6 +30,8 @@ export function SiteHeader() {
     // Determine breadcrumbs based on route
     let parent = "Menu Utama"
     let pageName = "Dashboard"
+    let parentLink = "#"
+    let grandparent = ""
 
     if (path === "/barang-masuk") {
         parent = "Operasional"
@@ -40,6 +42,11 @@ export function SiteHeader() {
     } else if (path === "/riwayat") {
         parent = "Operasional"
         pageName = "Riwayat"
+    } else if (path.startsWith("/riwayat/")) {
+        grandparent = "Operasional"
+        parent = "Riwayat"
+        pageName = "Detail Permintaan"
+        parentLink = "#/riwayat"
     } else if (path === "/data-barang") {
         parent = "Inventori"
         pageName = "Data Barang"
@@ -77,7 +84,6 @@ export function SiteHeader() {
     return (
         <header className="flex h-[calc(var(--header-height)+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-[calc(var(--header-height)+env(safe-area-inset-top,0px))] bg-background">
             <div className="flex w-full items-center justify-between gap-1 px-4 lg:gap-2 lg:px-6">
-                
                 {/* LEFT SIDE: Mobile (Page Name) / Desktop (Trigger + Breadcrumbs) */}
                 <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
                     {/* Mobile Page Name */}
@@ -94,12 +100,22 @@ export function SiteHeader() {
                         />
                         <Breadcrumb className="flex-1 min-w-0">
                             <BreadcrumbList>
-                                <BreadcrumbItem>
-                                    <BreadcrumbLink href="#">
+                                {grandparent && (
+                                    <>
+                                        <BreadcrumbItem className="hidden md:block">
+                                            <BreadcrumbLink href="#">
+                                                {grandparent}
+                                            </BreadcrumbLink>
+                                        </BreadcrumbItem>
+                                        <BreadcrumbSeparator className="hidden md:block" />
+                                    </>
+                                )}
+                                <BreadcrumbItem className="hidden md:block">
+                                    <BreadcrumbLink href={parentLink}>
                                         {parent}
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
-                                <BreadcrumbSeparator />
+                                <BreadcrumbSeparator className="hidden md:block" />
                                 <BreadcrumbItem>
                                     <BreadcrumbPage className="truncate block">{pageName}</BreadcrumbPage>
                                 </BreadcrumbItem>

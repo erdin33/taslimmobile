@@ -1,18 +1,11 @@
 import { SectionCards } from "@/features/dashboard/components/section-cards"
-import { SectionCharts } from "@/features/dashboard/components/section-charts"
 import { ChartBarMixed } from "@/features/dashboard/components/bar-chart"
-import { ChartBarPositiveNegative } from "@/features/dashboard/components/chart-bar-positive-negative"
+import { ChartInboundOutbound } from "@/features/dashboard/components/chart-inbound-outbound"
+import { RequestSection } from "@/features/dashboard/components/RequestSection"
+import { ActivityFeedCard } from "@/features/dashboard/components/ActivityFeedCard"
 import { useDashboard } from "./use-dashboard"
 import { cn } from "@/lib/utils"
 
-/**
- * Komponen DashboardPage
- * 
- * Halaman utama (dashboard) yang hanya bertanggung jawab untuk View/Presentation Layer.
- * Semua state dan logika bisnis dipisahkan ke dalam custom hook `useDashboard`.
- *
- * @returns {JSX.Element} Antarmuka halaman Dashboard.
- */
 export default function DashboardPage() {
     const {
         user,
@@ -22,42 +15,41 @@ export default function DashboardPage() {
         selectedMitra,
         setSelectedMitra,
         inventoryStats,
-        safetyStockAlerts
+        mitraDistribution,
+        transactionSeries,
+        timeRange,
+        setTimeRange,
+        requestCounts,
+        recentRequests,
+        recentTransactions,
+        isLoadingRequests,
+        isLoadingActivity,
     } = useDashboard();
 
-    const normalizeOwner = (owner?: string | null) => (owner || "").trim().toLowerCase();
-
     return (
-        <div className="@container/main flex flex-col gap-4 py-4 md:gap-6 md:pt-10 md:pb-8">
+        <div className="@container/main flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <SectionCards
                 stats={inventoryStats}
                 totalLabel={
                     user?.role === "mitra"
                         ? "Total"
-                        : "Total"
+                        : "Total Aset"
                 }
             />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 lg:px-6 pb-0">
-                <ChartBarMixed className="h-full" />
-                <ChartBarPositiveNegative
+
+            {/* Row 2: Charts (50/50) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 lg:px-6">
+                <ChartBarMixed 
+                    data={mitraDistribution} 
+                    className="h-full" 
+                />
+                <ChartInboundOutbound
+                    data={transactionSeries}
+                    timeRange={timeRange}
+                    onTimeRangeChange={setTimeRange}
                     className="h-full"
-                    transactions={
-                        selectedMitra === "all"
-                            ? chartTransactions
-                            : chartTransactions.filter((transaction) =>
-                                normalizeOwner(transaction.mitra) === normalizeOwner(selectedMitra)
-                            )
-                    }
-                    showMitraFilter={user?.role === "admin"}
-                    mitraOptions={mitraOptions}
-                    selectedMitra={selectedMitra}
-                    onMitraChange={setSelectedMitra}
                 />
             </div>
-            <SectionCharts 
-                stats={inventoryStats} 
-                safetyStockAlerts={safetyStockAlerts} 
-            />
 
             {/* Mobile View: Cards List */}
             <div className="flex flex-col gap-3 md:hidden px-4">
@@ -130,6 +122,21 @@ export default function DashboardPage() {
                         )
                     })
                 )}
+            </div>
+
+            {/* Desktop View: Request Section (2/3) + Recent Activities (1/3) */}
+            <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-4 px-4 lg:px-6 pb-4">
+                <RequestSection
+                    requests={recentRequests}
+                    counts={requestCounts}
+                    isLoading={isLoadingRequests}
+                    className="lg:col-span-2"
+                />
+                <ActivityFeedCard
+                    activities={recentTransactions}
+                    isLoading={isLoadingActivity}
+                    className="lg:col-span-1"
+                />
             </div>
         </div>
     )

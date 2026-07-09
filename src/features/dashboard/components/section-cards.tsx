@@ -55,8 +55,8 @@ export function SectionCards({
 			value: totalItems,
 			icon: Boxes,
 			direction: "up" as const,
-			percent: 12,
-			className: "col-span-2",
+			percent: 12.5,
+			className: "col-span-2 lg:col-span-1",
 		},
 		{
 			key: "tersedia",
@@ -64,7 +64,7 @@ export function SectionCards({
 			value: tersedia,
 			icon: Archive,
 			direction: "up" as const,
-			percent: 8,
+			percent: 8.2,
 			className: "col-span-1",
 		},
 		{
@@ -73,7 +73,7 @@ export function SectionCards({
 			value: diluar,
 			icon: ArrowsUpFromLine,
 			direction: "down" as const,
-			percent: 6,
+			percent: 4.1,
 			className: "col-span-1",
 		},
 		{
@@ -82,7 +82,7 @@ export function SectionCards({
 			value: rusak,
 			icon: ArchiveX,
 			direction: "down" as const,
-			percent: 3,
+			percent: 1.2,
 			className: "col-span-1",
 		},
 		{
@@ -90,14 +90,14 @@ export function SectionCards({
 			label: "Hilang",
 			value: hilang,
 			icon: HelpCircle,
-			direction: "up" as const,
-			percent: 4,
+			direction: "down" as const,
+			percent: 0.5,
 			className: "col-span-1",
 		},
 	];
 
 	return (
-		<div className="grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 lg:grid-cols-3 dark:*:data-[slot=card]:bg-card">
+		<div className="grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 lg:grid-cols-5 dark:*:data-[slot=card]:bg-card">
 			{cards.map(
 				({ key, label, value, icon: Icon, direction, percent, className }) => {
 					const color = direction === "up" ? "oklch(0.696 0.17 162.48)" : "oklch(0.645 0.246 16.439)";
@@ -111,36 +111,33 @@ export function SectionCards({
 					return (
 						<Card
 							key={key}
-							className={cn("@container/card relative overflow-hidden flex flex-col justify-between gap-0", className)}>
+							className={cn("@container/card relative overflow-hidden flex flex-col justify-between gap-0 border-border", className)}>
 							<CardHeader className="flex flex-col w-full justify-between space-y-0">
 								<div className="flex w-full items-center justify-between gap-2">
-									<CardDescription className="">{label}</CardDescription>
-									<div className="bg-primary/10 rounded-lg p-2">
-										<Icon className="text-muted-foreground w-5 h-5" />
+									<CardDescription className="font-medium text-muted-foreground">{label}</CardDescription>
+									<div className="rounded-lg p-2 bg-muted/50">
+										<Icon className="text-muted-foreground w-4 h-4" />
 									</div>
 								</div>
-								<CardTitle className="flex items-end-safe gap-4 text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+								<CardTitle className="flex items-end gap-2 text-2xl font-bold tabular-nums @[250px]/card:text-3xl pt-2">
 									<div>
 										{value}{" "}
-										<span className="text-sm font-normal text-muted-foreground">
-											Unit
-										</span>
-									</div>
-									<div
-										className={`inline-flex items-center gap-1 rounded-full px-2 py-1 max-h-5 text-xs font-medium ${direction === "up"
-											? "text-emerald-600"
-											: "text-rose-600"
-											}`}>
-										{direction === "up" ? (
-											<TrendingUp className="h-4 w-4" />
-										) : (
-											<TrendingDown className="h-4 w-4" />
-										)}
-										<span>{percent}%</span>
 									</div>
 								</CardTitle>
 							</CardHeader>
-							<CardContent className="pb-0">
+							<CardContent className="pt-0 pb-0">
+								<div
+									className={`inline-flex items-center gap-1 text-xs font-medium ${direction === "up"
+										? "text-emerald-600 dark:text-emerald-500"
+										: "text-rose-600 dark:text-rose-500"
+										}`}>
+									{direction === "up" ? (
+										<TrendingUp className="h-3.5 w-3.5" />
+									) : (
+										<TrendingDown className="h-3.5 w-3.5" />
+									)}
+									<span>{direction === "up" ? "+" : "-"}{percent}% <span className="text-muted-foreground font-normal ml-0.5">dari bulan lalu</span></span>
+								</div>
 								<ChartContainer config={chartConfig} className="mt-2 h-[60px] w-full">
 									<AreaChart
 										accessibilityLayer

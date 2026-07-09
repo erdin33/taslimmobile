@@ -136,19 +136,30 @@ const isValidMitraInboundSource = (
   const owner = normalizeOwner(item.mitra);
   const status = normalizeStatus(item.status);
   const location = normalizeStatus(item.lokasiPenyimpanan || "");
+
+  // Barang dianggap "di luar KP" jika statusnya keluar/diluar,
+  // ATAU lokasinya adalah "Keluar"/"Diluar"
   const isOutbound =
     status === "keluar" ||
     status === "diluar" ||
     location === "keluar" ||
     location === "diluar";
 
+  if (!isOutbound) return false;
+
+  // Jika lokasi fisik sudah "Diluar"/"Keluar", barang terbukti berada
+  // di luar gudang KP — izinkan mitra menerimanya tanpa validasi owner ketat,
+  // karena pengecekan owner bisa gagal akibat perbedaan nama/spasi.
+  if (location === "keluar" || location === "diluar") return true;
+
+  // Jika hanya status yang menandakan keluar (lokasi masih di KP),
+  // validasi owner agar hanya barang milik mitra sendiri atau KP yang bisa diterima.
   return (
-    isOutbound &&
-    (owner === normalizeOwner(mitraName) ||
-      owner === normalizeOwner(ADMIN_LOCATION) ||
-      owner === normalizeOwner("KP Tasikmalaya") ||
-      owner === normalizeOwner("KP") ||
-      owner === "")
+    owner === normalizeOwner(mitraName) ||
+    owner === normalizeOwner(ADMIN_LOCATION) ||
+    owner === normalizeOwner("KP Tasikmalaya") ||
+    owner === normalizeOwner("KP") ||
+    owner === ""
   );
 };
 
@@ -456,9 +467,11 @@ export default function BarangMasukPage() {
         isValid: isValidMitraInboundSource(existingItem, user.displayName),
       });
 
-      const msg = "Barang tidak dapat diterima oleh Mitra.";
+      const msg = "Barang belum bisa diterima.";
+      const status = existingItem.status || "tidak diketahui";
+      const lokasi = existingItem.lokasiPenyimpanan || "gudang KP";
       toast.error(msg, {
-        description: `${trimmedKode} harus sudah di-scan keluar dari KP terlebih dahulu sebelum diterima kembali oleh Mitra.`,
+        description: `${trimmedKode} masih berstatus "${status}" di "${lokasi}". Barang harus sudah keluar dari KP terlebih dahulu.`,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
@@ -735,9 +748,28 @@ export default function BarangMasukPage() {
       });
 
       if (invalidItem) {
-        toast.error("Ada barang dengan status tidak valid atau lokasi penyimpanan konflik.", {
-          description: `SN: ${invalidItem.nomor} - Harap periksa daftar kembali.`,
-        });
+        const existingItem = latestItems.find(
+          (dbItem) =>
+            dbItem.id === invalidItem.existingItemId ||
+            normalizeKodeBarang(dbItem.serialNumber) === normalizeKodeBarang(invalidItem.nomor)
+        );
+
+        toast.error(
+          user?.role === "mitra"
+            ? existingItem
+              ? `Barang belum bisa diterima — masih berstatus "${existingItem.status}" di "${existingItem.lokasiPenyimpanan || "gudang KP"}". Scan keluar dari KP terlebih dahulu.`
+              : "Barang tidak ditemukan di data KP. Hubungi Admin untuk mendaftarkan barang ini."
+            : existingItem
+              ? normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar"
+                ? "Barang sudah berstatus Tersedia di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan."
+                : "Barang tidak dapat diproses sebagai masuk kembali."
+              : "Data barang keluar tidak lagi ditemukan.",
+          {
+            description: existingItem
+              ? `${invalidItem.nomor} berstatus ${existingItem.status} pada ${existingItem.mitra || "KP Tasikmalaya"}`
+              : invalidItem.nomor,
+          }
+        );
         setDbItems(latestItems);
         return;
       }
@@ -976,8 +1008,9 @@ export default function BarangMasukPage() {
 
             <CardContent className="flex flex-1 flex-col gap-4">
               {user?.role === "mitra" && (
-                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs leading-5 text-sky-600 dark:text-sky-400">
-                  Untuk mitra, barang hanya bisa diterima setelah statusnya sudah keluar dari KP, seperti alur masuk kembali milik mitra.
+                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-xs leading-5 text-sky-600 dark:text-sky-400 space-y-1">
+                  <p className="font-semibold">Ketentuan Penerimaan Barang Mitra</p>
+                  <p>Barang hanya dapat diterima jika sudah berstatus <span className="font-semibold">Keluar</span> atau <span className="font-semibold">Diluar</span> dari KP. Barang yang masih tersimpan di gudang KP tidak dapat dipindah ke gudang mitra.</p>
                 </div>
               )}
 
