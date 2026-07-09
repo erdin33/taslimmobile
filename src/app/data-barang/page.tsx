@@ -506,7 +506,7 @@ export default function DataBarangPage() {
     try {
       if (formMode === "add") {
         const newBarang: BarangUnit = {
-          id: crypto.randomUUID(),
+          id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `item-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
           serialNumber: formData.serialNumber.toUpperCase(),
           kategori: formData.kategori,
           merek: formData.merek,

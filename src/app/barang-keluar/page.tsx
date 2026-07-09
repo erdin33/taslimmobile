@@ -520,6 +520,20 @@ export default function BarangKeluarPage() {
     setBarangKeluar((current) => current.filter((item) => item.id !== id));
   };
 
+  const handleClearAll = () => {
+    setKuota((current) => {
+      const next = { ...current };
+      barangKeluar.forEach((item) => {
+        if (item.lokasi in next) {
+          next[item.lokasi] = Math.max(0, (next[item.lokasi] || 0) - 1);
+        }
+      });
+      return next;
+    });
+    setBarangKeluar([]);
+    toast.success("Daftar scan sesi ini berhasil dibersihkan.");
+  };
+
   /**
    * Memvalidasi seluruh transaksi di sesi saat ini ke database dan melakukan update status inventaris.
    * Transaksi dicatat pada histori ('transactions') dan status item ('items') diubah menjadi "Diluar".
@@ -778,7 +792,19 @@ export default function BarangKeluarPage() {
 
             {/* Hasil Scan Sesi Ini */}
             <Card className="p-4 flex flex-col gap-2.5">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Hasil Scan Sesi Ini</p>
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Hasil Scan Sesi Ini</p>
+                {barangKeluar.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px] text-destructive hover:bg-destructive/10 px-2 rounded-md cursor-pointer"
+                    onClick={handleClearAll}
+                  >
+                    Bersihkan
+                  </Button>
+                )}
+              </div>
               <div className="max-h-[140px] overflow-y-auto border rounded-lg bg-muted/10 p-2 text-xs font-mono space-y-1">
                 {barangKeluar.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4 select-none">Belum ada barang di-scan</p>
@@ -1112,9 +1138,21 @@ export default function BarangKeluarPage() {
             <div className="space-y-1">
               <CardTitle>Daftar Barang Keluar</CardTitle>
             </div>
-            <Badge variant="outline" className="w-fit">
-              {barangKeluar.length} Item
-            </Badge>
+            <div className="flex items-center gap-2">
+              {barangKeluar.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs text-destructive border-destructive/20 hover:bg-destructive/10"
+                  onClick={handleClearAll}
+                >
+                  Bersihkan Sesi
+                </Button>
+              )}
+              <Badge variant="outline" className="w-fit">
+                {barangKeluar.length} Item
+              </Badge>
+            </div>
           </CardHeader>
 
           <CardContent className="flex flex-1 flex-col gap-4">

@@ -666,6 +666,20 @@ export default function BarangMasukPage() {
     setBarangMasuk((current) => current.filter((item) => item.id !== id));
   };
 
+  const handleClearAll = () => {
+    setKuota((current) => {
+      const next = { ...current };
+      barangMasuk.forEach((item) => {
+        if (item.lokasi in next) {
+          next[item.lokasi] = (next[item.lokasi] || 0) + 1;
+        }
+      });
+      return next;
+    });
+    setBarangMasuk([]);
+    toast.success("Daftar scan sesi ini berhasil dibersihkan.");
+  };
+
   const handleUpdateLokasi = (id: number, newLokasi: LokasiOption) => {
     const itemToUpdate = barangMasuk.find((item) => item.id === id);
     if (!itemToUpdate) return;
@@ -832,7 +846,7 @@ export default function BarangMasukPage() {
           if (!resUp.ok) throw new Error(`Gagal update item ${item.nomor}`);
         } else {
           const newItem: InventoryItem = {
-            id: crypto.randomUUID(),
+            id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `item-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
             serialNumber: item.nomor,
             kategori: item.kategori,
             merek: item.merek,
@@ -992,7 +1006,19 @@ export default function BarangMasukPage() {
 
             {/* Hasil Scan Sesi Ini */}
             <Card className="p-4 flex flex-col gap-2.5">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Hasil Scan Sesi Ini</p>
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Hasil Scan Sesi Ini</p>
+                {barangMasuk.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px] text-destructive hover:bg-destructive/10 px-2 rounded-md cursor-pointer"
+                    onClick={handleClearAll}
+                  >
+                    Bersihkan
+                  </Button>
+                )}
+              </div>
               <div className="max-h-[140px] overflow-y-auto border rounded-lg bg-muted/10 p-2 text-xs font-mono space-y-1">
                 {barangMasuk.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4 select-none">Belum ada barang di-scan</p>
@@ -1440,9 +1466,21 @@ export default function BarangMasukPage() {
             <div className="space-y-1">
               <CardTitle>Daftar Barang Masuk</CardTitle>
             </div>
-            <Badge variant="outline" className="w-fit">
-              {barangMasuk.length} Item
-            </Badge>
+            <div className="flex items-center gap-2">
+              {barangMasuk.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs text-destructive border-destructive/20 hover:bg-destructive/10"
+                  onClick={handleClearAll}
+                >
+                  Bersihkan Sesi
+                </Button>
+              )}
+              <Badge variant="outline" className="w-fit">
+                {barangMasuk.length} Item
+              </Badge>
+            </div>
           </CardHeader>
 
           <CardContent className="flex flex-1 flex-col gap-4">

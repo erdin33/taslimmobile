@@ -57,12 +57,12 @@ const playScannerBeep = (type: "success" | "error" | "info" = "success") => {
 }
 
 interface CameraScannerProps {
-  onScan: (code: string, mode?: "masuk" | "keluar" | "cari") => Promise<any> | any
+  onScan: (code: string, mode?: "masuk" | "keluar") => Promise<any> | any
   buttonText?: string
   className?: string
   children?: React.ReactNode
   showModeTabs?: boolean
-  defaultMode?: "masuk" | "keluar" | "cari"
+  defaultMode?: "masuk" | "keluar"
 }
 
 export function CameraScanner({
@@ -71,10 +71,10 @@ export function CameraScanner({
   className,
   children,
   showModeTabs = false,
-  defaultMode = "cari",
+  defaultMode = "masuk",
 }: CameraScannerProps) {
   const [open, setOpen] = React.useState(false)
-  const [activeMode, setActiveMode] = React.useState<"masuk" | "keluar" | "cari">(defaultMode)
+  const [activeMode, setActiveMode] = React.useState<"masuk" | "keluar">(defaultMode)
   const [scannedCodes, setScannedCodes] = React.useState<{ code: string; status: "success" | "error"; message?: string; timestamp: Date }[]>([])
   const [isTorchOn, setIsTorchOn] = React.useState(false)
   const [hasTorch, setHasTorch] = React.useState(false)
@@ -381,7 +381,7 @@ export function CameraScanner({
           
           <span className="text-zinc-100 font-semibold text-base select-none">
             {showModeTabs 
-              ? (activeMode === "masuk" ? "Scan Barang Masuk" : activeMode === "keluar" ? "Scan Barang Keluar" : "Cari Info Barang")
+              ? (activeMode === "masuk" ? "Scan Barang Masuk" : "Scan Barang Keluar")
               : (buttonText === "Scan via Kamera" ? "Scan Barang" : buttonText)
             }
           </span>
@@ -409,7 +409,7 @@ export function CameraScanner({
         {/* Mode Selector Tabs (Top center overlay) */}
         {showModeTabs && (
           <div className="absolute top-[calc(5rem+env(safe-area-inset-top,0px))] left-6 right-6 flex justify-center pointer-events-auto z-20">
-            <div className="flex bg-black/65 backdrop-blur-md p-1 rounded-full border border-white/10 shadow-lg w-full max-w-[320px]">
+            <div className="flex bg-black/65 backdrop-blur-md p-1 rounded-full border border-white/10 shadow-lg w-full max-w-[240px]">
               <button
                 type="button"
                 onClick={() => setActiveMode("masuk")}
@@ -433,18 +433,6 @@ export function CameraScanner({
                 )}
               >
                 Barang Keluar
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveMode("cari")}
-                className={cn(
-                  "flex-1 text-[11px] font-bold py-2 px-3 rounded-full transition-all text-center cursor-pointer select-none",
-                  activeMode === "cari" 
-                    ? "bg-violet-500 text-white shadow-sm" 
-                    : "text-zinc-400 hover:text-zinc-200"
-                )}
-              >
-                Cari Detail
               </button>
             </div>
           </div>
