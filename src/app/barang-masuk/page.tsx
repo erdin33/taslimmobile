@@ -479,88 +479,86 @@ export default function BarangMasukPage() {
     }
 
     const detectedBrand = detectBrandFromCode(trimmedKode, dbBrands);
+    const isBarcodeValid = !!detectedBrand || !!existingItem;
 
-    // Skip pattern matching check to allow any scanned barcode
-    /*
-    if (!detectedBrand && !existingItem) {
-      const msg = "Serial number tidak sesuai dengan identifier merek apa pun.";
-      updateKodeBarang("");
-      focusKodeBarangInput();
-      return { success: false, ignored: true, message: msg };
-    }
-    */
+    const itemBrand = isBarcodeValid ? (existingItem?.merek || detectedBrand || merekFallback) : "";
+    let recommendedLocation = "";
 
-    const itemBrand = existingItem?.merek || detectedBrand || merekFallback;
-    let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
-    const isMitraUser = user?.role === "mitra";
+    if (isBarcodeValid) {
+      recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
+      const isMitraUser = user?.role === "mitra";
 
-    if (isMitraUser && !recommendedLocation && existingItem) {
-      recommendedLocation = getMitraDefaultLocation(user.displayName);
-    }
+      if (isMitraUser && !recommendedLocation && existingItem) {
+        recommendedLocation = getMitraDefaultLocation(user.displayName);
+      }
 
-    if (
-      !isMitraUser &&
-      existingItem &&
-      normalizeStatus(existingItem.status) !== "keluar" &&
-      normalizeStatus(existingItem.status) !== "diluar"
-    ) {
-      if (recommendedLocation && recommendedLocation.trim().toLowerCase() === (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()) {
-        const alternativeLocation = dbLocations.find(
-          (loc) => (kuota[loc.name] ?? 0) > 0 && loc.name.trim().toLowerCase() !== (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()
-        );
-        if (alternativeLocation) {
-          recommendedLocation = alternativeLocation.name;
-        } else {
-          const msg = "Barang sudah berada di lokasi tersebut.";
-          toast.error("Barang sudah berada di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan.", {
-            description: `Lokasi saat ini: ${existingItem.lokasiPenyimpanan}`,
-          });
-          updateKodeBarang("");
-          focusKodeBarangInput();
-          return { success: false, message: msg };
+      if (
+        !isMitraUser &&
+        existingItem &&
+        normalizeStatus(existingItem.status) !== "keluar" &&
+        normalizeStatus(existingItem.status) !== "diluar"
+      ) {
+        if (recommendedLocation && recommendedLocation.trim().toLowerCase() === (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()) {
+          const alternativeLocation = dbLocations.find(
+            (loc) => (kuota[loc.name] ?? 0) > 0 && loc.name.trim().toLowerCase() !== (existingItem.lokasiPenyimpanan || "").trim().toLowerCase()
+          );
+          if (alternativeLocation) {
+            recommendedLocation = alternativeLocation.name;
+          } else {
+            const msg = "Barang sudah berada di lokasi tersebut.";
+            toast.error("Barang sudah berada di lokasi tersebut dan tidak dapat dimasukkan kembali kecuali pindah penyimpanan.", {
+              description: `Lokasi saat ini: ${existingItem.lokasiPenyimpanan}`,
+            });
+            updateKodeBarang("");
+            focusKodeBarangInput();
+            return { success: false, message: msg };
+          }
         }
       }
-    }
 
-    if (!recommendedLocation) {
-      const msg = dbLocations.length === 0
-        ? "Tidak ada lokasi penyimpanan aktif."
-        : "Semua lokasi penyimpanan sudah penuh.";
-      toast.error(
-        dbLocations.length === 0
-          ? "Tidak ada lokasi penyimpanan aktif yang tersedia."
-          : "Semua lokasi penyimpanan sudah penuh."
-      );
-      focusKodeBarangInput();
-      return { success: false, message: msg };
+      if (!recommendedLocation) {
+        const msg = dbLocations.length === 0
+          ? "Tidak ada lokasi penyimpanan aktif."
+          : "Semua lokasi penyimpanan sudah penuh.";
+        toast.error(
+          dbLocations.length === 0
+            ? "Tidak ada lokasi penyimpanan aktif yang tersedia."
+            : "Semua lokasi penyimpanan sudah penuh."
+        );
+        focusKodeBarangInput();
+        return { success: false, message: msg };
+      }
     }
 
     const newItem: BarangMasukItem = {
       id: Date.now(),
       nomor: trimmedKode,
-      merek: itemBrand || "(otomatis)",
-      kategori: existingItem?.kategori || kategoriBarang,
+      merek: itemBrand,
+      kategori: isBarcodeValid ? (existingItem?.kategori || kategoriBarang) : "",
       lokasi: recommendedLocation,
-      status: "Valid",
+      status: isBarcodeValid ? "Valid" : "Invalid",
       existingItemId: existingItem?.id,
-      source:
-        user?.role === "mitra" && existingItem && isValidMitraInboundSource(existingItem, user.displayName)
+      source: isBarcodeValid
+        ? (user?.role === "mitra" && existingItem && isValidMitraInboundSource(existingItem, user.displayName)
           ? "KP"
           : normalizeOwner(existingItem?.mitra) === normalizeOwner(ADMIN_LOCATION) || normalizeOwner(existingItem?.mitra) === normalizeOwner("KP Tasikmalaya")
             ? "KP"
             : existingItem
               ? "Mitra"
-              : "Baru",
-      asal: asalBarang,
-      kondisi: kondisiBarang,
+              : "Baru")
+        : "Baru",
+      asal: isBarcodeValid ? asalBarang : "",
+      kondisi: isBarcodeValid ? kondisiBarang : "",
       replacementFor: "",
     };
 
     setBarangMasuk((current) => [newItem, ...current]);
-    setKuota((current) => ({
-      ...current,
-      [recommendedLocation]: current[recommendedLocation] - 1,
-    }));
+    if (recommendedLocation) {
+      setKuota((current) => ({
+        ...current,
+        [recommendedLocation]: current[recommendedLocation] - 1,
+      }));
+    }
 
     updateKodeBarang("");
     setMerekFallback("");
@@ -697,6 +695,15 @@ export default function BarangMasukPage() {
    */
   const handleValidateAll = async () => {
     if (isSaving) return;
+
+    const hasInvalid = barangMasuk.some((item) => item.status === "Invalid");
+    if (hasInvalid) {
+      toast.error("Tidak dapat menyimpan data.", {
+        description: "Terdapat item dengan status tidak valid. Silakan hapus item tersebut terlebih dahulu.",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const sessionDate = new Date().toISOString().slice(0, 10);
@@ -1261,22 +1268,27 @@ export default function BarangMasukPage() {
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell className="font-mono">{item.nomor}</TableCell>
-                        <TableCell>{item.merek}</TableCell>
+                        <TableCell>{item.status === "Invalid" ? "-" : (item.merek || "-")}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
-                            {item.kategori}
-                          </Badge>
+                          {item.status === "Invalid" ? "-" : (
+                            <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
+                              {item.kategori}
+                            </Badge>
+                          )}
                         </TableCell>
-                        <TableCell>{item.asal || asalBarang}</TableCell>
+                        <TableCell>{item.status === "Invalid" ? "-" : (item.asal || asalBarang)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-normal px-2.5 py-0.5 border-primary/30 bg-primary/5 text-primary">
-                            {item.kondisi || kondisiBarang}
-                          </Badge>
+                          {item.status === "Invalid" ? "-" : (
+                            <Badge variant="outline" className="font-normal px-2.5 py-0.5 border-primary/30 bg-primary/5 text-primary">
+                              {item.kondisi || kondisiBarang}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Input
+                            disabled={item.status === "Invalid"}
                             className="font-mono text-xs w-[180px] h-8 bg-zinc-900 border-neutral-800"
-                            placeholder="Ketik SN Rusak..."
+                            placeholder={item.status === "Invalid" ? "-" : "Ketik SN Rusak..."}
                             value={item.replacementFor || ""}
                             onChange={(e) => {
                               const val = e.target.value.toUpperCase();
@@ -1285,55 +1297,65 @@ export default function BarangMasukPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={item.lokasi}
-                            onValueChange={(value) => {
-                              const selectedLokasi = value as LokasiOption;
-                              if ((kuota[selectedLokasi] ?? Number.POSITIVE_INFINITY) <= 0) {
-                                toast.error("Kuota lokasi sudah penuh dan tidak dapat dipilih.", {
-                                  description: selectedLokasi,
-                                });
+                          {item.status === "Invalid" ? "-" : (
+                            <Select
+                              value={item.lokasi}
+                              onValueChange={(value) => {
+                                const selectedLokasi = value as LokasiOption;
+                                if ((kuota[selectedLokasi] ?? Number.POSITIVE_INFINITY) <= 0) {
+                                  toast.error("Kuota lokasi sudah penuh dan tidak dapat dipilih.", {
+                                    description: selectedLokasi,
+                                  });
+                                  focusKodeBarangInput();
+                                  return;
+                                }
+                                handleUpdateLokasi(item.id, selectedLokasi);
                                 focusKodeBarangInput();
-                                return;
-                              }
-                              handleUpdateLokasi(item.id, selectedLokasi);
-                              focusKodeBarangInput();
-                            }}
-                          >
-                            <SelectTrigger className="w-220px">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
-                                  <SelectItem value={item.lokasi}>
-                                    {item.lokasi}
-                                  </SelectItem>
-                                )}
-                                {dbLocations.map((lokasi) => {
-                                  const isDisabled = kuota[lokasi.name] <= 0;
-                                  return (
-                                    <SelectItem
-                                      key={lokasi.name}
-                                      value={lokasi.name}
-                                      disabled={isDisabled}
-                                    >
-                                      {lokasi.name}{isDisabled ? " (Kuota penuh)" : ""}
+                              }}
+                            >
+                              <SelectTrigger className="w-220px">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
+                                    <SelectItem value={item.lokasi}>
+                                      {item.lokasi}
                                     </SelectItem>
-                                  );
-                                })}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
+                                  )}
+                                  {dbLocations.map((lokasi) => {
+                                    const isDisabled = kuota[lokasi.name] <= 0;
+                                    return (
+                                      <SelectItem
+                                        key={lokasi.name}
+                                        value={lokasi.name}
+                                        disabled={isDisabled}
+                                      >
+                                        {lokasi.name}{isDisabled ? " (Kuota penuh)" : ""}
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="font-normal gap-1.5 px-2.5 py-0.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${item.existingItemId ? "bg-sky-500" : "bg-emerald-500"}`} />
-                            {user?.role === "mitra" && item.source === "KP"
-                              ? "Dari KP"
-                              : item.existingItemId
-                                ? "Masuk Kembali"
-                                : item.status}
+                            <div className={`w-1.5 h-1.5 rounded-full ${
+                              item.status === "Invalid" 
+                                ? "bg-rose-500 animate-pulse" 
+                                : item.existingItemId 
+                                  ? "bg-sky-500" 
+                                  : "bg-emerald-500"
+                            }`} />
+                            {item.status === "Invalid"
+                              ? "Tidak Valid"
+                              : user?.role === "mitra" && item.source === "KP"
+                                ? "Dari KP"
+                                : item.existingItemId
+                                  ? "Masuk Kembali"
+                                  : item.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
