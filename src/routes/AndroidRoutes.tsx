@@ -5,9 +5,10 @@ import DashboardPage from "@/app/android/dashboard/page";
 import BarangMasukPage from "@/app/android/barang-masuk/page";
 import BarangKeluarPage from "@/app/android/barang-keluar/page";
 import DataBarangPage from "@/app/android/data-barang/page";
-import DataTransaksiPage from "@/app/android/data-transaksi/page";
-import DataTransaksiDetailPage from "@/app/android/data-transaksi/detail/page";
+import DataTransaksiPage from "@/app/android/request/page";
+import DataTransaksiDetailPage from "@/app/android/request/detail/page";
 import LokasiBarangPage from "@/app/android/lokasi-barang/page";
+import TipeMaterialPage from "@/app/android/tipe-material/page";
 import KategoriBarangPage from "@/app/android/kategori-barang/page";
 import MerekBarangPage from "@/app/android/merek-barang/page";
 import MitraPage from "@/app/android/mitra/page";
@@ -28,8 +29,8 @@ export function AndroidRoutes() {
 				<Route index element={<DashboardPage />} />
 				<Route path="barang-masuk" element={<BarangMasukPage />} />
 				<Route path="barang-keluar" element={<BarangKeluarPage />} />
-				<Route path="riwayat" element={<DataTransaksiPage />} />
-				<Route path="riwayat/:id" element={<DataTransaksiDetailPage />} />
+				<Route path="request" element={<DataTransaksiPage />} />
+				<Route path="request/:id" element={<DataTransaksiDetailPage />} />
 				<Route path="data-barang" element={<DataBarangPage />} />
 				<Route
 					path="lokasi-barang"
@@ -44,6 +45,14 @@ export function AndroidRoutes() {
 					element={
 						<ProtectedRoute adminOnly>
 							<KategoriBarangPage />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="tipe-material"
+					element={
+						<ProtectedRoute adminOnly>
+							<TipeMaterialPage />
 						</ProtectedRoute>
 					}
 				/>

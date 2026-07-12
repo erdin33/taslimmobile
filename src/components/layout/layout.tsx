@@ -1,5 +1,4 @@
 import { AppSidebar } from "@/components/layout/navigation/app-sidebar"
-import { MobileBottomNav } from "@/components/layout/navigation/mobile-bottom-nav"
 import { SiteHeader } from "@/components/layout/site-header"
 import {
     SidebarInset,
@@ -18,15 +17,14 @@ export default function Layout() {
                     "--header-height": "calc(var(--spacing) * 12)",
                 } as React.CSSProperties
             }
-            className="h-svh overflow-hidden"
+            className="h-svh overflow-hidden print:h-auto print:overflow-visible print:block print:w-full"
         >
-            <AppSidebar />
-            <SidebarInset className="h-svh overflow-hidden flex flex-col">
-                <SiteHeader />
-                <div className="flex-1 overflow-y-auto overscroll-none pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+            <AppSidebar className="print:hidden" />
+            <SidebarInset className="h-svh overflow-hidden flex flex-col print:!ml-0 print:h-auto print:overflow-visible print:block print:w-full print:!min-h-0">
+                <SiteHeader className="print:hidden" />
+                <div className="flex-1 overflow-y-auto overscroll-none print:overflow-visible print:block print:h-auto print:w-full">
                     <Outlet />
                 </div>
-                <MobileBottomNav />
             </SidebarInset>
         </SidebarProvider>
     )

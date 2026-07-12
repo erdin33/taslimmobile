@@ -5,9 +5,10 @@ import DashboardPage from "@/app/desktop/dashboard/page";
 import BarangMasukPage from "@/app/desktop/barang-masuk/page";
 import BarangKeluarPage from "@/app/desktop/barang-keluar/page";
 import DataBarangPage from "@/app/desktop/data-barang/page";
-import DataTransaksiPage from "@/app/desktop/data-transaksi/page";
-import DataTransaksiDetailPage from "@/app/desktop/data-transaksi/detail/page";
+import DataTransaksiPage from "@/app/desktop/request/page";
+import DataTransaksiDetailPage from "@/app/desktop/request/detail/page";
 import LokasiBarangPage from "@/app/desktop/lokasi-barang/page";
+import TipeMaterialPage from "@/app/desktop/tipe-material/page";
 import KategoriBarangPage from "@/app/desktop/kategori-barang/page";
 import MerekBarangPage from "@/app/desktop/merek-barang/page";
 import MitraPage from "@/app/desktop/mitra/page";
@@ -28,8 +29,8 @@ export function DesktopRoutes() {
 				<Route index element={<DashboardPage />} />
 				<Route path="barang-masuk" element={<BarangMasukPage />} />
 				<Route path="barang-keluar" element={<BarangKeluarPage />} />
-				<Route path="riwayat" element={<DataTransaksiPage />} />
-				<Route path="riwayat/:id" element={<DataTransaksiDetailPage />} />
+				<Route path="request" element={<DataTransaksiPage />} />
+				<Route path="request/:id" element={<DataTransaksiDetailPage />} />
 				<Route path="data-barang" element={<DataBarangPage />} />
 				<Route
 					path="lokasi-barang"
@@ -44,6 +45,14 @@ export function DesktopRoutes() {
 					element={
 						<ProtectedRoute adminOnly>
 							<KategoriBarangPage />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="tipe-material"
+					element={
+						<ProtectedRoute adminOnly>
+							<TipeMaterialPage />
 						</ProtectedRoute>
 					}
 				/>

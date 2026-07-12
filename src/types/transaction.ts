@@ -22,6 +22,7 @@ export type BarangMasukItem = {
   nomor: string;
   merek: string;
   kategori: KategoriOption;
+  tipe?: string;
   lokasi: LokasiOption;
   status: "Valid" | "Invalid";
   existingItemId?: string;
@@ -36,6 +37,7 @@ export type BarangKeluarItem = {
   nomor: string;
   merek: string;
   kategori: string;
+  tipe?: string;
   lokasi: LokasiOption;
   mitra: string;
   keterangan: string;
@@ -72,13 +74,15 @@ export type RequestItem = {
   id: number
   category: string
   brand: string
+  model?: string
   quantity: number
+  unit?: string
 }
 
 export type RequestAllocation = {
   id: number
   materialNumber: string
-  category: string
+  materialCategory: string
   brand: string
   materialName: string
   serialNumber?: string
@@ -90,13 +94,14 @@ export type RequestAllocation = {
 export type DashboardRequest = {
   id: string
   requestNumber: string
-  partner: string
-  partnerCategory: string
-  itemTotal: number
+  requesterName?: string
+  partnerCategory?: string
+  itemsCount?: number
+  itemsDetail?: string
   status: string
   notes: string
   requestedAt: string
-  requestItems: RequestItem[]
+  requestItems?: RequestItem[]
   requestAllocations?: RequestAllocation[]
 }
 

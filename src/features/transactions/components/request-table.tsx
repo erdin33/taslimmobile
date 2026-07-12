@@ -67,7 +67,7 @@ const STATUS_CONFIG: Record<StatusKey, { icon: typeof IconLoader; dotClass: stri
     Dibatalkan: { icon: IconBan, dotClass: "text-gray-500 border-gray-300 bg-gray-50" },
 }
 
-const DEFAULT_STATUS_CONFIG = { icon: IconLoader, dotClass: "text-muted-foreground" }
+const DEFAULT_STATUS_CONFIG = { icon: IconLoader, dotClass: "bg-muted-foreground" }
 
 const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
     day: "numeric",
@@ -82,12 +82,15 @@ const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
 // ─────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-    const key = status?.trim() as StatusKey
+    const safeStatus = status?.trim() || ""
+    const formattedStatus = safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1).toLowerCase()
+    const key = formattedStatus as StatusKey
     const config = STATUS_CONFIG[key] ?? DEFAULT_STATUS_CONFIG
+    
     return (
-        <Badge variant="outline" className="flex items-center px-1.5 py-2.5 text-muted-foreground">
+        <Badge variant="outline" className="flex items-center gap-2 px-2.5 py-1 text-muted-foreground">
             <span className={cn(config.dotClass, "size-2 rounded-full")} />
-            <span>{status}</span>
+            <span>{formattedStatus}</span>
         </Badge>
     )
 }
@@ -165,7 +168,7 @@ function ActionMenu({
                         <DropdownMenuItem
                             className="cursor-pointer"
                             variant="destructive"
-                            onClick={(e) => handleStatusChange(e, "Ditolak")}
+                            onClick={(e) => handleStatusChange(e, "Tolak")}
                         >
                             Tolak
                         </DropdownMenuItem>
@@ -180,7 +183,7 @@ function ActionMenu({
 // Column Definitions (factory function agar columns tidak berisi closure meta)
 // ─────────────────────────────────────────────
 
-function createColumns(_meta?: TableMeta): ColumnDef<DashboardRequest>[] {
+function createColumns(): ColumnDef<DashboardRequest>[] {
     return [
         {
             id: "nomor",
@@ -206,10 +209,10 @@ function createColumns(_meta?: TableMeta): ColumnDef<DashboardRequest>[] {
             ),
         },
         {
-            accessorKey: "partner",
-            header: "Pemohon",
+            accessorKey: "requesterName",
+            header: "Mitra",
             cell: ({ row }) => (
-                <div className="text-foreground font-medium">{row.original.partner}</div>
+                <div className="text-foreground font-medium">{row.original.requesterName}</div>
             ),
         },
         {
@@ -222,11 +225,11 @@ function createColumns(_meta?: TableMeta): ColumnDef<DashboardRequest>[] {
             ),
         },
         {
-            accessorKey: "itemTotal",
+            accessorKey: "itemsCount",
             header: () => <div className="text-center">Jumlah</div>,
             cell: ({ row }) => (
                 <div className="text-muted-foreground whitespace-nowrap text-center">
-                    {row.original.itemTotal}
+                    {row.original.itemsCount}
                 </div>
             ),
         },
@@ -275,7 +278,7 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
         [onRowClick, onStatusChange]
     )
 
-    const columns = React.useMemo(() => createColumns(tableMeta), [])
+    const columns = React.useMemo(() => createColumns(), [])
 
     const columnVisibility = React.useMemo(
         () => Object.fromEntries(hiddenColumns.map((col) => [col, false])),
@@ -314,7 +317,7 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
                                     key={row.id}
                                     data-state={row.getIsSelected() && "selected"}
                                     className="cursor-pointer transition-colors hover:bg-muted/40"
-                                    onClick={() => navigate(`/riwayat/${row.original.id}`)}
+                                    onClick={() => navigate(`/request/${row.original.id}`)}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>

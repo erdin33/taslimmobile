@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
+  Box,
   CircleStar,
   Database,
   Handshake,
@@ -64,8 +65,8 @@ const data = {
           isActive: false,
         },
         {
-          title: "Riwayat",
-          url: "/riwayat",
+          title: "Request",
+          url: "/request",
           icon: (
             <HistoryIcon />
           ),
@@ -94,6 +95,14 @@ const data = {
           url: "/lokasi-barang",
           icon: (
             <MapPinHouse />
+          ),
+          isActive: false,
+        },
+        {
+          title: "Tipe Material",
+          url: "/tipe-material",
+          icon: (
+            <Box />
           ),
           isActive: false,
         },
@@ -154,7 +163,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const mitraAllowedUrls = new Set([
     "/barang-masuk",
     "/barang-keluar",
-    "/riwayat",
+    "/request",
     "/data-barang",
   ])
   const visibleNavMain = isAdmin
