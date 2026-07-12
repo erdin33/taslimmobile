@@ -1,0 +1,214 @@
+[1mdiff --git a/.env b/.env[m
+[1mindex 35988b5..3a0451a 100644[m
+[1m--- a/.env[m
+[1m+++ b/.env[m
+[36m@@ -1,5 +1,5 @@[m
+[31m-URL=https://api-taslim.duckdns.org/[m
+[31m-VITE_URL=https://api-taslim.duckdns.org/[m
+[32m+[m[32mURL=http://localhost:3000/[m
+[32m+[m[32mVITE_URL=http://localhost:3000/[m
+ [m
+ [m
+ GOOGLE_CLIENT_ID="847352193552-odl1tr4a71os3eddiftnu9en4ncg7mqg.apps.googleusercontent.com"[m
+\ No newline at end of file[m
+[1mdiff --git a/.gitignore b/.gitignore[m
+[1mindex da91e80..8e4bb07 100644[m
+[1m--- a/.gitignore[m
+[1m+++ b/.gitignore[m
+[36m@@ -11,8 +11,6 @@[m [mnode_modules[m
+ dist[m
+ dist-ssr[m
+ *.local[m
+[31m-.env[m
+[31m-.gitignore[m
+ [m
+ # Editor directories and files[m
+ .vscode/*[m
+[36m@@ -24,3 +22,6 @@[m [mdist-ssr[m
+ *.njsproj[m
+ *.sln[m
+ *.sw?[m
+[32m+[m
+[32m+[m[32m.env[m
+[32m+[m[32m.gitignore[m
+\ No newline at end of file[m
+[1mdiff --git a/error.txt b/error.txt[m
+[1mdeleted file mode 100644[m
+[1mindex 0c3da94..0000000[m
+Binary files a/error.txt and /dev/null differ
+[1mdiff --git a/index.html b/index.html[m
+[1mindex 5723adf..ff93803 100644[m
+[1m--- a/index.html[m
+[1m+++ b/index.html[m
+[36m@@ -3,7 +3,7 @@[m
+   <head>[m
+     <meta charset="UTF-8" />[m
+     <link rel="icon" type="image/svg+xml" href="/vite.svg" />[m
+[31m-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />[m
+[32m+[m[32m    <meta name="viewport" content="width=device-width, initial-scale=1.0" />[m
+     <title>Tauri + React + Typescript</title>[m
+   </head>[m
+ [m
+[1mdiff --git a/package-lock.json b/package-lock.json[m
+[1mindex c4c0acf..0fa10c3 100644[m
+[1m--- a/package-lock.json[m
+[1m+++ b/package-lock.json[m
+[36m@@ -22,7 +22,6 @@[m
+         "@types/qrcode": "^1.5.6",[m
+         "class-variance-authority": "^0.7.1",[m
+         "clsx": "^2.1.1",[m
+[31m-        "html5-qrcode": "^2.3.8",[m
+         "lucide-react": "^1.17.0",[m
+         "next-themes": "^0.4.6",[m
+         "qrcode": "^1.5.4",[m
+[36m@@ -5618,12 +5617,6 @@[m
+         "node": ">=16.9.0"[m
+       }[m
+     },[m
+[31m-    "node_modules/html5-qrcode": {[m
+[31m-      "version": "2.3.8",[m
+[31m-      "resolved": "https://registry.npmjs.org/html5-qrcode/-/html5-qrcode-2.3.8.tgz",[m
+[31m-      "integrity": "sha512-jsr4vafJhwoLVEDW3n1KvPnCCXWaQfRng0/EEYk1vNcQGcG/htAdhJX0be8YyqMoSz7+hZvOZSTAepsabiuhiQ==",[m
+[31m-      "license": "Apache-2.0"[m
+[31m-    },[m
+     "node_modules/http-errors": {[m
+       "version": "2.0.1",[m
+       "resolved": "https://registry.npmjs.org/http-errors/-/http-errors-2.0.1.tgz",[m
+[1mdiff --git a/package.json b/package.json[m
+[1mindex 0d89428..c07cbf8 100644[m
+[1m--- a/package.json[m
+[1m+++ b/package.json[m
+[36m@@ -24,7 +24,6 @@[m
+     "@types/qrcode": "^1.5.6",[m
+     "class-variance-authority": "^0.7.1",[m
+     "clsx": "^2.1.1",[m
+[31m-    "html5-qrcode": "^2.3.8",[m
+     "lucide-react": "^1.17.0",[m
+     "next-themes": "^0.4.6",[m
+     "qrcode": "^1.5.4",[m
+[1mdiff --git a/src-tauri/gen/android/.editorconfig b/src-tauri/gen/android/.editorconfig[m
+[1mdeleted file mode 100644[m
+[1mindex ebe51d3..0000000[m
+[1m--- a/src-tauri/gen/android/.editorconfig[m
+[1m+++ /dev/null[m
+[36m@@ -1,12 +0,0 @@[m
+[31m-# EditorConfig is awesome: https://EditorConfig.org[m
+[31m-[m
+[31m-# top-most EditorConfig file[m
+[31m-root = true[m
+[31m-[m
+[31m-[*][m
+[31m-indent_style = space[m
+[31m-indent_size = 2[m
+[31m-end_of_line = lf[m
+[31m-charset = utf-8[m
+[31m-trim_trailing_whitespace = false[m
+[31m-insert_final_newline = false[m
+\ No newline at end of file[m
+[1mdiff --git a/src-tauri/gen/android/app/build.gradle.kts b/src-tauri/gen/android/app/build.gradle.kts[m
+[1mdeleted file mode 100644[m
+[1mindex 0ea4826..0000000[m
+[1m--- a/src-tauri/gen/android/app/build.gradle.kts[m
+[1m+++ /dev/null[m
+[36m@@ -1,71 +0,0 @@[m
+[31m-import java.util.Properties[m
+[31m-[m
+[31m-plugins {[m
+[31m-    id("com.android.application")[m
+[31m-    id("org.jetbrains.kotlin.android")[m
+[31m-    id("rust")[m
+[31m-}[m
+[31m-[m
+[31m-val tauriProperties = Properties().apply {[m
+[31m-    val propFile = file("tauri.properties")[m
+[31m-    if (propFile.exists()) {[m
+[31m-        propFile.inputStream().use { load(it) }[m
+[31m-    }[m
+[31m-}[m
+[31m-[m
+[31m-android {[m
+[31m-    compileSdk = 36[m
+[31m-    namespace = "com.taslim.app"[m
+[31m-    defaultConfig {[m
+[31m-        manifestPlaceholders["usesCleartextTraffic"] = "false"[m
+[31m-        applicationId = "com.taslim.app"[m
+[31m-        minSdk = 24[m
+[31m-        targetSdk = 36[m
+[31m-        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()[m
+[31m-        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")[m
+[31m-    }[m
+[31m-    buildTypes {[m
+[31m-        getByName("debug") {[m
+[31m-            manifestPlaceholders["usesCleartextTraffic"] = "true"[m
+[31m-            isDebuggable = true[m
+[31m-            isJniDebuggable = true[m
+[31m-            isMinifyEnabled = false[m
+[31m-            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")[m
+[31m-                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")[m
+[31m-                jniLibs.keepDebugSymbols.add("*/x86/*.so")[m
+[31m-                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")[m
+[31m-            }[m
+[31m-        }[m
+[31m-        getByName("release") {[m
+[31m-            isMinifyEnabled = true[m
+[31m-            proguardFiles([m
+[31m-                *fileTree(".") { include("**/*.pro") }[m
+[31m-                    .plus(getDefaultProguardFile("proguard-android-optimize.txt"))[m
+[31m-                    .toList().toTypedArray()[m
+[31m-            )[m
+[31m-        }[m
+[31m-    }[m
+[31m-    kotlinOptions {[m
+[31m-        jvmTarget = "1.8"[m
+[31m-    }[m
+[31m-    buildFeatures {[m
+[31m-        buildConfig = true[m
+[31m-    }[m
+[31m-}[m
+[31m-[m
+[31m-rust {[m
+[31m-    rootDirRel = "../../../"[m
+[31m-}[m
+[31m-[m
+[31m-dependencies {[m
+[31m-    implementation("androidx.webkit:webkit:1.14.0")[m
+[31m-    implementation("androidx.appcompat:appcompat:1.7.1")[m
+[31m-    implementation("androidx.activity:activity-ktx:1.10.1")[m
+[31m-    implementation("com.google.android.material:material:1.12.0")[m
+[31m-    implementation("androidx.lifecycle:lifecycle-process:2.10.0")[m
+[31m-    testImplementation("junit:junit:4.13.2")[m
+[31m-    androidTestImplementation("androidx.test.ext:junit:1.1.4")[m
+[31m-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")[m
+[31m-}[m
+[31m-[m
+[31m-apply(from = "tauri.build.gradle.kts")[m
+\ No newline at end of file[m
+[1mdiff --git a/src-tauri/gen/android/app/proguard-rules.pro b/src-tauri/gen/android/app/proguard-rules.pro[m
+[1mdeleted file mode 100644[m
+[1mindex 481bb43..0000000[m
+[1m--- a/src-tauri/gen/android/app/proguard-rules.pro[m
+[1m+++ /dev/null[m
+[36m@@ -1,21 +0,0 @@[m
+[31m-# Add project specific ProGuard rules here.[m
+[31m-# You can control the set of applied configuration files using the[m
+[31m-# proguardFiles setting in build.gradle.[m
+[31m-#[m
+[31m-# For more details, see[m
+[31m-#   http://developer.android.com/guide/developing/tools/proguard.html[m
+[31m-[m
+[31m-# If your project uses WebView with JS, uncomment the following[m
+[31m-# and specify the fully qualified class name to the JavaScript interface[m
+[31m-# class:[m
+[31m-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {[m
+[31m-#   public *;[m
+[31m-#}[m
+[31m-[m
+[31m-# Uncomment this to preserve the line number information for[m
+[31m-# debugging stack traces.[m
+[31m-#-keepattributes SourceFile,LineNumberTable[m
+[31m-[m
+[31m-# If you keep the line number information, uncomment this to[m
+[31m-# hide the original source file name.[m
+[31m-#-renamesourcefileattribute SourceFile[m
+\ No newline at end of file[m
+[1mdiff --git a/src-tauri/gen/android/app/src/main/AndroidManifest.xml b/src-tauri/gen/android/ap
