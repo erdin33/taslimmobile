@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
-import Layout from "@/components/layout/layout";
+import AndroidLayout from "@/components/layout/AndroidLayout";
 import DashboardPage from "@/app/android/dashboard/page";
 import BarangMasukPage from "@/app/android/barang-masuk/page";
 import BarangKeluarPage from "@/app/android/barang-keluar/page";
@@ -23,7 +23,7 @@ export function AndroidRoutes() {
 				path="/"
 				element={
 					<ProtectedRoute>
-						<Layout />
+						<AndroidLayout />
 					</ProtectedRoute>
 				}>
 				<Route index element={<DashboardPage />} />

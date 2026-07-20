@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
-import { DataTable } from "@/features/transactions/components/transaction-table"
-import { Search, Loader2, EllipsisVertical, FileUp, FileDown, ListFilter } from "lucide-react"
+import { DataTable } from "@/features/transactions/components/request-table"
+import { Search, EllipsisVertical, FileUp, FileDown, ListFilter, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "react-router-dom"
@@ -8,24 +8,10 @@ import { toast } from "sonner"
 import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { useAuth } from "@/lib/auth"
-import type { Transaction } from "@/types/transaction"
-import type { DeleteDialogState } from "@/types/ui"
-import requestsData from "@/data/request.json"
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/lib/auth"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import {
   Table,
   TableBody,
@@ -42,6 +28,23 @@ const getBaseUrl = () => {
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 };
 
+const getUnitByCategory = (categoryName?: string) => {
+  if (!categoryName) return "Unit";
+  const name = categoryName.toLowerCase();
+  if (name.includes("kabel") || name.includes("foc") || name.includes("dropwire")) {
+    return "Meter";
+  }
+  return "Unit";
+};
+
+const getCleanCategoryName = (categoryName?: string) => {
+  if (!categoryName) return "-";
+  const name = categoryName.toLowerCase();
+  if (name.includes("ont")) return "ONT";
+  if (name.includes("dropwire") || name.includes("kabel") || name.includes("foc")) return "DropWire";
+  return categoryName;
+};
+
 const getHeaders = () => {
   const token = localStorage.getItem("arxiva-auth-token");
   const headers: Record<string, string> = {
@@ -53,6 +56,14 @@ const getHeaders = () => {
   return headers;
 };
 
+/**
+ * Komponen DataTransaksiPage
+ * 
+ * Halaman untuk melihat log riwayat seluruh transaksi barang (Masuk, Keluar, Rusak, Hilang).
+ * Menyediakan fungsi filtering canggih, bulk delete, dan eksport data ke Excel.
+ *
+ * @returns {JSX.Element} Antarmuka halaman riwayat transaksi.
+ */
 export default function DataTransaksiPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -66,18 +77,12 @@ export default function DataTransaksiPage() {
   }
 
   const [searchTerm, setSearchTerm] = useState("")
-  const [filterKategori, _setFilterKategori] = useState("all")
-  // const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<DashboardRequest | null>(null)
-  const [localRequests, setLocalRequests] = useState<DashboardRequest[]>(requestsData as DashboardRequest[])
-  const isMobile = useIsMobile()
+  const [localRequests, setLocalRequests] = useState<DashboardRequest[]>([])
 
   // Ambil semua nilai unik partnerCategory sebagai opsi filter
   const categoryOptions = Array.from(
-    new Set((requestsData as DashboardRequest[]).map((r) => r.partnerCategory))
+    new Set(localRequests.map((r) => r.partnerCategory).filter((c): c is string => !!c))
   ).sort()
 
   // State untuk filter yang sedang aktif (multi-select)
@@ -93,138 +98,77 @@ export default function DataTransaksiPage() {
 
   const clearFilters = () => setFilterCategories([])
 
-  const handleStatusChange = (id: string, newStatus: string) => {
-    setLocalRequests(prev => prev.map(req => {
-      if (req.id === id) {
-        return { ...req, status: newStatus }
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      const res = await fetch(`${getBaseUrl()}/requests/${id}/status`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({ status: newStatus.toUpperCase() })
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Gagal mengubah status");
       }
-      return req
-    }))
-    toast.success(`Status transaksi berhasil diubah menjadi ${newStatus}`)
+
+      setLocalRequests(prev => prev.map(req => {
+        if (req.id === id) {
+          return { ...req, status: newStatus }
+        }
+        return req
+      }))
+      toast.success(`Status transaksi berhasil diubah menjadi ${newStatus}`)
+    } catch (error: any) {
+      toast.error(error.message || "Gagal mengubah status transaksi")
+    }
   }
 
   /**
-   * Mengambil seluruh data riwayat transaksi dari backend.
-   * Melakukan *client-side filtering* berdasarkan `role` jika user adalah 'mitra'.
+   * Mengambil seluruh data riwayat request dari backend.
    */
-  const fetchTransactions = async () => {
+  const fetchRequests = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/transactions`, {
+      const res = await fetch(`${getBaseUrl()}/requests`, {
         method: "GET",
         headers: getHeaders(),
       });
       if (!res.ok) {
-        throw new Error("Gagal mengambil data transaksi");
+        throw new Error("Gagal mengambil data permintaan");
       }
-      const rawTrx = await res.json();
-      const data: Transaction[] = rawTrx.data || rawTrx;
+      const data: DashboardRequest[] = await res.json();
 
-      // Jika user adalah mitra, sembunyikan transaksi mitra lain
-      setTransactions(
+      // Jika user adalah mitra, sembunyikan request mitra lain
+      setLocalRequests(
         user?.role === "mitra"
-          ? data.filter((transaction) => {
-              if (!transaction.mitra) return false
-              const trxMitra = transaction.mitra.trim().toLowerCase()
-              return (
-                trxMitra === user.displayName.trim().toLowerCase() ||
-                trxMitra === user.username.trim().toLowerCase() ||
-                (user.identityCode &&
-                  trxMitra.includes(user.identityCode.trim().toLowerCase()))
-              )
-            })
+          ? data.filter((req) => {
+            const reqMitra = req.requesterName?.trim().toLowerCase() || "";
+            return (
+              reqMitra === user.displayName?.trim().toLowerCase() ||
+              reqMitra === user.username?.trim().toLowerCase() ||
+              (user.identityCode && reqMitra.includes(user.identityCode.trim().toLowerCase()))
+            )
+          })
           : data
       );
     } catch (error) {
-      console.error("Gagal mengambil data transaksi:", error);
-      toast.error("Gagal memuat data riwayat transaksi.");
+      console.error("Gagal mengambil data permintaan:", error);
+      toast.error("Gagal memuat data permintaan.");
     }
   };
 
   useEffect(() => {
-    fetchTransactions();
+    fetchRequests();
   }, [user])
 
-  /*
-  const _handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return
-    setDeleteDialog({
-      type: "bulk",
-      ids: selectedIds,
-    })
-  }
-
-  const _handleDeleteRow = async (id: string) => {
-    const transaction = transactions.find((item) => item.id === id);
-    if (!transaction) return;
-    setDeleteDialog({
-      type: "single",
-      ids: [id],
-      transactionNumber: transaction.nomor,
-    })
-  };
-  */
-
-  const confirmDelete = async () => {
-    if (!deleteDialog || isDeleting) return
-    const idsToDelete = deleteDialog.ids
-    setIsDeleting(true)
-
-    try {
-      for (const id of idsToDelete) {
-        const res = await fetch(`${getBaseUrl()}/transactions/${id}`, {
-          method: "DELETE",
-          headers: getHeaders(),
-        });
-        if (!res.ok) {
-          throw new Error(`Gagal menghapus transaksi dengan ID ${id}`);
-        }
-      }
-      toast.success(deleteDialog.type === "single" ? "Transaksi berhasil dihapus." : `${idsToDelete.length} transaksi berhasil dihapus.`)
-      // setSelectedIds((current) => current.filter((id) => !idsToDelete.includes(id)))
-      setDeleteDialog(null)
-      await fetchTransactions();
-    } catch (error) {
-      console.error("Gagal menghapus transaksi:", error);
-      toast.error(deleteDialog.type === "single" ? "Gagal menghapus transaksi." : "Gagal menghapus beberapa transaksi.");
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  const flattenedData = transactions.map((t) => ({
-    id: t.id,
-    tanggal: t.tanggal,
-    tanggalDisplay: t.tanggalDisplay,
-    waktu: t.waktu,
-    createdAt: t.createdAt,
-    nomor: t.nomor,
-    kategori: t.kategori,
-    status: t.status,
-    sn: t.sn,
-    merek: t.merek,
-    asal: t.asal || "-",
-    tujuan: t.tujuan || "-",
-    keterangan: t.keterangan || "-",
-  }));
-
-  const filteredData = flattenedData.filter((item) => {
-    // Implementasi multi-search: mencari pada Nomor, Serial Number, dan Keterangan PA
-    const matchesSearch = item.nomor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.sn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.keterangan.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesKategori = filterKategori === "all" || item.kategori === filterKategori;
-    return matchesSearch && matchesKategori;
+  const filteredData = localRequests.filter((item) => {
+    const matchesSearch = item.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.requesterName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
   }).sort((a, b) => {
-    // Pengurutan secara default (Terbaru ke Terlama)
-    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : new Date(a.tanggal).getTime();
-    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : new Date(b.tanggal).getTime();
-    if (timeB !== timeA) {
-      return timeB - timeA;
-    }
-    // Fallback sort jika tanggal presisi sama persis
-    return b.id.toString().localeCompare(a.id.toString());
+    const timeA = new Date(a.requestedAt).getTime();
+    const timeB = new Date(b.requestedAt).getTime();
+    return timeB - timeA;
   });
-  // const _hasActiveFilter = searchTerm.length > 0 || filterKategori !== "all";
 
   const handleExportExcel = async () => {
     if (filteredData.length === 0) {
@@ -236,27 +180,23 @@ export default function DataTransaksiPage() {
       const headers = [
         "No",
         "Tanggal",
-        "ID Transaksi",
-        "Kategori",
+        "No Request",
+        "Nama Pemohon",
+        "Tipe Partner",
         "Status",
-        "Serial Number",
-        "Merek",
-        "Lokasi Asal",
-        "Lokasi Tujuan",
-        "PA / Keterangan",
+        "Catatan",
+        "Jumlah Item"
       ]
 
       const rows = filteredData.map((item, index) => [
         index + 1,
-        item.tanggal,
-        item.nomor,
-        item.kategori,
+        new Date(item.requestedAt).toLocaleDateString(),
+        item.requestNumber,
+        item.requesterName,
+        item.partnerCategory || "-",
         item.status,
-        item.sn,
-        item.merek,
-        item.asal,
-        item.tujuan,
-        item.keterangan,
+        item.notes || "-",
+        item.itemsCount || 0
       ])
 
       const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
@@ -270,8 +210,7 @@ export default function DataTransaksiPage() {
         String(now.getMonth() + 1).padStart(2, "0"),
         String(now.getDate()).padStart(2, "0"),
       ].join("-")
-      const categorySuffix =
-        filterKategori === "all" ? "semua-kategori" : filterKategori.toLowerCase()
+      const categorySuffix = "semua-kategori"
       const searchSuffix = searchTerm.trim()
         ? `-pencarian-${searchTerm
           .trim()
@@ -313,7 +252,7 @@ export default function DataTransaksiPage() {
               <TabsTrigger value="Disetujui" className="cursor-pointer">Disetujui</TabsTrigger>
               <TabsTrigger value="Siap" className="cursor-pointer">Siap</TabsTrigger>
               <TabsTrigger value="Selesai" className="cursor-pointer">Selesai</TabsTrigger>
-              <TabsTrigger value="Ditolak" className="cursor-pointer">Ditolak</TabsTrigger>
+              <TabsTrigger value="Ditolak" className="cursor-pointer">Ditolak / Batal</TabsTrigger>
             </TabsList>
           </div>
           <div className="flex flex-row items-center gap-2 w-full lg:w-auto">
@@ -354,7 +293,6 @@ export default function DataTransaksiPage() {
                 ))}
                 {filterCategories.length > 0 && (
                   <>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="cursor-pointer text-muted-foreground justify-center text-xs"
                       onClick={clearFilters}
@@ -381,19 +319,22 @@ export default function DataTransaksiPage() {
 
         {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => {
           // Terapkan filter sebelum diteruskan ke DataTable
-          const filteredByStatus = localRequests.filter(
-            (req) => req.status.toLowerCase() === status.toLowerCase()
-          )
+          const filteredByStatus = localRequests.filter((req) => {
+            if (status.toLowerCase() === "ditolak") {
+              return ["ditolak", "dibatalkan"].includes(req.status.toLowerCase())
+            }
+            return req.status.toLowerCase() === status.toLowerCase()
+          })
           const filteredData = filterCategories.length > 0
-            ? filteredByStatus.filter((req) => filterCategories.includes(req.partnerCategory))
+            ? filteredByStatus.filter((req) => req.partnerCategory && filterCategories.includes(req.partnerCategory))
             : filteredByStatus
 
           // Tambahkan filter search term
           const finalData = searchTerm.trim()
             ? filteredData.filter((req) =>
-              req.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              req.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              req.partnerCategory.toLowerCase().includes(searchTerm.toLowerCase())
+              req.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              req.requesterName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              req.partnerCategory?.toLowerCase().includes(searchTerm.toLowerCase())
             )
             : filteredData
 
@@ -414,30 +355,7 @@ export default function DataTransaksiPage() {
         item={selectedRequest}
         open={selectedRequest !== null}
         onClose={() => setSelectedRequest(null)}
-        isMobile={isMobile}
       />
-
-      <AlertDialog open={deleteDialog !== null} onOpenChange={(open) => !open && !isDeleting && setDeleteDialog(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {deleteDialog?.type === "bulk" ? "Hapus beberapa transaksi?" : "Hapus transaksi ini?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteDialog?.type === "bulk"
-                ? `${deleteDialog.ids.length} transaksi akan dihapus permanen dari riwayat.`
-                : `Transaksi ${deleteDialog?.transactionNumber} akan dihapus permanen dari riwayat.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting}>
-              {isDeleting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
-              Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
@@ -449,82 +367,194 @@ function RequestDetailDrawer({
   item,
   open,
   onClose,
-  isMobile: _isMobile,
 }: {
   item: DashboardRequest | null
   open: boolean
   onClose: () => void
-  isMobile: boolean
 }) {
+  const [detailData, setDetailData] = useState<DashboardRequest | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open || !item?.id) {
+      setDetailData(null)
+      return
+    }
+
+    const fetchDetail = async () => {
+      setIsLoading(true)
+      try {
+        const res = await fetch(`${getBaseUrl()}/requests/${item.id}`, {
+          method: "GET",
+          headers: getHeaders(),
+        })
+        if (!res.ok) throw new Error("Gagal mengambil detail")
+        const data = await res.json()
+        const formatted: DashboardRequest = {
+          id: data.id,
+          requestNumber: data.requestNumber,
+          requesterName: data.requester?.profile?.nama || data.requester?.username,
+          partnerCategory: data.requester?.profile?.partnerType || "Mitra",
+          status: data.status,
+          notes: data.notes || "-",
+          requestedAt: data.requestedAt,
+          itemsCount: data.requestItems?.reduce((acc: number, ri: any) => acc + ri.quantity, 0),
+          requestItems: data.requestItems?.map((ri: any) => ({
+            id: ri.id,
+            category: ri.materialCategory?.nama,
+            brand: ri.brand?.nama,
+            model: ri.model?.nama || ri.model?.name || "-",
+            quantity: ri.quantity,
+            unit: getUnitByCategory(ri.materialCategory?.nama)
+          })),
+          requestAllocations: data.requestItems?.flatMap((ri: any) =>
+            ri.allocations?.map((alloc: any) => ({
+              id: alloc.id,
+              materialNumber: alloc.item?.paNumber || "-",
+              materialCategory: ri.materialCategory?.nama,
+              brand: alloc.item?.brand?.nama || ri.brand?.nama,
+              materialName: `${getCleanCategoryName(ri.materialCategory?.nama)} ${alloc.item?.brand?.nama || ri.brand?.nama}${alloc.item?.model?.nama ? ` (${alloc.item.model.nama})` : ''}`,
+              serialNumber: alloc.item?.serialNumber,
+              quantity: 1,
+              unit: getUnitByCategory(ri.materialCategory?.nama)
+            })) || []
+          )
+        }
+        setDetailData(formatted)
+      } catch (error) {
+        console.error("Gagal memuat detail request:", error)
+        toast.error("Gagal memuat detail alokasi barang")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDetail()
+  }, [open, item?.id])
+
   if (!item) return null
+
+  const displayItem = detailData || item
 
   return (
     <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
         <DrawerHeader className="gap-1">
-          <DrawerTitle>{item.requestNumber}</DrawerTitle>
+          <DrawerTitle>{displayItem.requestNumber}</DrawerTitle>
           <DrawerDescription>
             Detail Permintaan
           </DrawerDescription>
         </DrawerHeader>
-        <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 text-sm">
-
-          {/* Daftar Item */}
-          <div className="flex flex-col gap-3">
-            {item.status.toLowerCase() === "siap" && item.requestAllocations && item.requestAllocations.length > 0 ? (
-              <div className="rounded-lg border overflow-hidden overflow-x-auto">
-                <Table className="whitespace-nowrap">
-                  <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-12">No</TableHead>
-                      <TableHead>No. Material</TableHead>
-                      <TableHead>Nama Material</TableHead>
-                      <TableHead>Serial Number</TableHead>
-                      <TableHead className="text-right">Jumlah</TableHead>
-                      <TableHead className="text-right">Satuan</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {item.requestAllocations.map((ra, idx) => (
-                      <TableRow key={ra.id}>
-                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell className="font-medium">{ra.materialNumber}</TableCell>
-                        <TableCell className="truncate max-w-[200px]" title={ra.materialName}>{ra.materialName}</TableCell>
-                        <TableCell className="text-muted-foreground">{ra.serialNumber || "-"}</TableCell>
-                        <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
-                        <TableCell className="text-right font-medium">{ra.unit}</TableCell>
+        <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 text-sm min-h-[150px] justify-center">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Memuat detail alokasi...</span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {['SIAP', 'SELESAI', 'DITERIMA'].includes(displayItem.status?.toUpperCase() || "") ? (
+                <div className="rounded-lg border overflow-hidden overflow-x-auto">
+                  <Table className="whitespace-nowrap">
+                    <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-12">No</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Nama Material</TableHead>
+                        <TableHead>Material Number</TableHead>
+                        <TableHead>Merek</TableHead>
+                        <TableHead className="text-right">Jumlah</TableHead>
+                        <TableHead className="text-right">Satuan</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : item.requestItems && item.requestItems.length > 0 ? (
-              <div className="rounded-lg border overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-12">No</TableHead>
-                      <TableHead>Kategori</TableHead>
-                      <TableHead>Merek</TableHead>
-                      <TableHead className="text-right">Jumlah</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {item.requestItems.map((ri, idx) => (
-                      <TableRow key={ri.id}>
-                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell className="font-medium">{ri.category}</TableCell>
-                        <TableCell>{ri.brand}</TableCell>
-                        <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
+                    </TableHeader>
+                    <TableBody>
+                      {displayItem.requestAllocations && displayItem.requestAllocations.length > 0 ? (
+                        displayItem.requestAllocations.map((ra, idx) => (
+                          <TableRow key={ra.id}>
+                            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                            <TableCell className="font-medium">{ra.materialCategory}</TableCell>
+                            <TableCell className="truncate max-w-[200px]" title={ra.materialName}>{ra.materialName}</TableCell>
+                            <TableCell className="font-medium text-muted-foreground" title={ra.materialNumber}>{ra.materialNumber}</TableCell>
+                            <TableCell>{ra.brand}</TableCell>
+                            <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
+                            <TableCell className="text-right font-medium">Unit</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                            Belum ada alokasi material spesifik.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : displayItem.status?.toUpperCase() === 'DISETUJUI' ? (
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-12">No</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Merek</TableHead>
+                        <TableHead>Tipe/Model</TableHead>
+                        <TableHead className="text-right">Jumlah</TableHead>
+                        <TableHead className="text-right">Satuan</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-muted-foreground italic">Tidak ada item.</p>
-            )}
-          </div>
+                    </TableHeader>
+                    <TableBody>
+                      {displayItem.requestItems && displayItem.requestItems.length > 0 ? (
+                        displayItem.requestItems.map((ri, idx) => (
+                          <TableRow key={ri.id}>
+                            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                            <TableCell className="font-medium">{ri.category}</TableCell>
+                            <TableCell>{ri.brand}</TableCell>
+                            <TableCell>{ri.model || "-"}</TableCell>
+                            <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
+                            <TableCell className="text-right font-medium">Unit</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                            Tidak ada item.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : displayItem.requestItems && displayItem.requestItems.length > 0 ? (
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-12">No</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Merek</TableHead>
+                        <TableHead>Tipe/Model</TableHead>
+                        <TableHead className="text-right">Jumlah</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {displayItem.requestItems.map((ri, idx) => (
+                        <TableRow key={ri.id}>
+                          <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                          <TableCell className="font-medium">{ri.category}</TableCell>
+                          <TableCell>{ri.brand}</TableCell>
+                          <TableCell>{ri.model || "-"}</TableCell>
+                          <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-muted-foreground italic">Tidak ada item.</p>
+              )}
+            </div>
+          )}
         </div>
         <DrawerFooter>
           <DrawerClose asChild>
