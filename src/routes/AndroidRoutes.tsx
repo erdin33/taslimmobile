@@ -14,11 +14,13 @@ import MerekBarangPage from "@/app/android/merek-barang/page";
 import MitraPage from "@/app/android/mitra/page";
 import LoginPage from "@/app/android/login/page";
 import PengaturanPage from "@/app/android/pengaturan/page";
+import MobileSignPage from "@/app/mobile-sign/page";
 
 export function AndroidRoutes() {
 	return (
 		<Routes>
 			<Route path="/login" element={<LoginPage />} />
+			<Route path="/mobile-sign/:sessionId" element={<MobileSignPage />} />
 			<Route
 				path="/"
 				element={

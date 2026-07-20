@@ -14,11 +14,13 @@ import MerekBarangPage from "@/app/desktop/merek-barang/page";
 import MitraPage from "@/app/desktop/mitra/page";
 import LoginPage from "@/app/desktop/login/page";
 import PengaturanPage from "@/app/desktop/pengaturan/page";
+import MobileSignPage from "@/app/mobile-sign/page";
 
 export function DesktopRoutes() {
 	return (
 		<Routes>
 			<Route path="/login" element={<LoginPage />} />
+			<Route path="/mobile-sign/:sessionId" element={<MobileSignPage />} />
 			<Route
 				path="/"
 				element={
