@@ -204,7 +204,7 @@ function DocumentMenu({
         }
         setIsSigning(true)
         try {
-            await api.post(`/requests/${row.original.id}/sign`);
+            await api.post(`/requests/${row.original.id}/sign-bast`);
             toast.success("Dokumen BAST berhasil ditandatangani");
             meta?.onStatusChange?.(row.original.id, "Selesai")
         } catch (error: any) {
@@ -270,12 +270,22 @@ function ActionMenu({
     const status = row.original.status?.toUpperCase()?.trim()
     const meta = table.options.meta as TableMeta | undefined
 
+    const navigate = useNavigate()
+
     const handleStatusChange = React.useCallback(
         (e: React.MouseEvent, newStatus: string) => {
             e.stopPropagation()
             meta?.onStatusChange?.(row.original.id, newStatus)
         },
         [meta, row.original.id]
+    )
+
+    const handleNavigateToPrepare = React.useCallback(
+        (e: React.MouseEvent) => {
+            e.stopPropagation()
+            navigate(`/request/${row.original.id}/prepare`)
+        },
+        [navigate, row.original.id]
     )
 
     return (
@@ -286,7 +296,7 @@ function ActionMenu({
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-amber-600 cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Siap")}
+                        onClick={handleNavigateToPrepare}
                     >
                         <IconPackage size={18} />
                     </Button>
@@ -363,7 +373,7 @@ function createColumns(): ColumnDef<DashboardRequest>[] {
             accessorKey: "requestNumber",
             header: "No. Permintaan",
             cell: ({ row }) => (
-                <div className="font-medium text-primary">{row.original.requestNumber}</div>
+                <div className="font-medium text-primary uppercase">{row.original.requestNumber}</div>
             ),
         },
         {
@@ -397,8 +407,8 @@ function createColumns(): ColumnDef<DashboardRequest>[] {
             accessorKey: "partnerCategory",
             header: "Kategori",
             cell: ({ row }) => (
-                <Badge variant="outline" className="flex items-center text-muted-foreground whitespace-nowrap px-2 py-2.5">
-                    {row.original.partnerCategory}
+                <Badge variant="outline" className="flex items-center text-muted-foreground whitespace-nowrap px-2 py-2.5 capitalize">
+                    {row.original.partnerCategory?.toLocaleLowerCase()}
                 </Badge>
             ),
         },
