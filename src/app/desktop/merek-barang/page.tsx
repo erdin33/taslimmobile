@@ -152,12 +152,14 @@ export default function MerekBarangPage() {
         setName(brand.nama);
         setIdentifier(brand.identifier);
         setOrigin(brand.origin);
+        setCategoryId(brand.categoryId ? String(brand.categoryId) : (brand as any).kategoriId ? String((brand as any).kategoriId) : "");
         setEditId(id);
       }
     } else {
       setName("");
       setIdentifier("");
       setOrigin("");
+      setCategoryId("");
       setEditId(null);
     }
     setFormErrors({});
@@ -238,7 +240,7 @@ export default function MerekBarangPage() {
             nama: trimmedName,
             identifier: normalizedIdentifier,
             origin: origin.trim() || "-",
-            categoryId: parseInt(categoryId),
+            categoryId: categoryId ? parseInt(categoryId) : undefined,
           }),
         });
 
@@ -410,12 +412,18 @@ export default function MerekBarangPage() {
                   <SelectTrigger className="bg-neutral-900 border-neutral-800">
                     <SelectValue placeholder="Pilih Kategori" />
                   </SelectTrigger>
-                  <SelectContent className="bg-neutral-900 border-neutral-800">
-                    {categories.map(category => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                  <SelectContent className="bg-neutral-900 border-neutral-800 z-[100]" position="popper">
+                    {categories.length > 0 ? (
+                      categories.map(category => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        Tidak ada kategori
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>

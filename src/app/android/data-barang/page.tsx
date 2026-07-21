@@ -13,7 +13,7 @@ import {
   Loader2,
 } from "lucide-react"
 
-import { Card } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -67,6 +67,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
 import { useAuth } from "@/lib/auth"
+import { cn } from "@/lib/utils"
 
 /**
  * Helper: Mengembalikan Base URL untuk pemanggilan API.
@@ -905,134 +906,125 @@ export default function DataBarangPage() {
         </div>
       </Card>
 
-      {/* Data Table */}
-      <div className="min-h-0 flex-1 rounded-lg border bg-card/20 overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted">
-            <TableRow>
-              <TableHead className="w-12.5 text-center">No.</TableHead>
-              {user?.role === "admin" && (
-                <TableHead className="w-12.5 text-center">
+      {/* Card List Data */}
+      <div className="min-h-0 flex-1 overflow-auto bg-transparent pb-4 px-1 -mx-1 scrollbar-hide">
+        {paginatedBarang.length > 0 ? (
+          <div className="flex flex-col gap-3.5">
+            {/* Header / Select All for Admin */}
+            {user?.role === "admin" && (
+              <div className="flex items-center justify-between px-2 pb-1 sticky top-0 z-10 bg-background/80 backdrop-blur-md pt-1">
+                <div className="flex items-center gap-2.5">
                   <Checkbox
-                    checked={
-                      paginatedBarang.length > 0 &&
-                      paginatedBarang.every(item => selectedIds.includes(item.id))
-                    }
+                    id="select-all"
+                    checked={paginatedBarang.length > 0 && paginatedBarang.every(item => selectedIds.includes(item.id))}
                     onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                    aria-label="Pilih semua"
+                    className="border-muted-foreground/40 rounded-[4px]"
                   />
-                </TableHead>
-              )}
-              <TableHead className="w-42.5">Serial Number (SN)</TableHead>
-              <TableHead className="w-30">Merek</TableHead>
-              <TableHead className="w-30">Kategori</TableHead>
-              <TableHead className=" w-30">Status</TableHead>
-              <TableHead>Lokasi Penyimpanan</TableHead>
-              {user?.role === "admin" && (
-                <TableHead className="w-37.5">Tempat</TableHead>
-              )}
-              <TableHead className="hidden md:table-cell w-32.5">Tanggal Masuk</TableHead>
-              <TableHead className="hidden lg:table-cell w-32.5">Tanggal Keluar</TableHead>
-              {user?.role === "admin" && (
-                <TableHead className="w-15 text-right"></TableHead>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedBarang.length > 0 ? (
-              paginatedBarang.map((item, index) => {
-                const badge = getStatusBadgeProps(item.status)
-                return (
-                  <TableRow
-                    key={item.id}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => handleOpenDetail(item)}
-                    data-state={selectedIds.includes(item.id) ? "selected" : undefined}
-                  >
-                    <TableCell className="text-center font-medium">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </TableCell>
-                    {user?.role === "admin" && (
-                      <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
-                        <Checkbox
-                          checked={selectedIds.includes(item.id)}
-                          onCheckedChange={(checked) => handleSelectRow(checked as boolean, item.id)}
-                          aria-label={`Pilih ${item.serialNumber}`}
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      {item.serialNumber}
-                    </TableCell>
-                    <TableCell>
-                      {item.merek}
-                    </TableCell>
-                    <TableCell>
-                      {item.kategori}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="font-normal gap-1.5 px-2.5 py-0.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />
-                        {badge.text}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.lokasiPenyimpanan}
-                    </TableCell>
-                    {user?.role === "admin" && (
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className="font-normal"
-                        >
-                          {item.mitra || ADMIN_LOCATION}
-                        </Badge>
-                      </TableCell>
-                    )}
-                    <TableCell className="hidden md:table-cell">
-                      {formatTanggal(item.tanggalMasuk)}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {formatTanggal(item.tanggalKeluar || "")}
-                    </TableCell>
-                    {user?.role === "admin" && (
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon-xs" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                              <MoreVertical className="size-4" />
-                              <span className="sr-only">Menu Aksi</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[160px]">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleOpenEdit(item) }}>
-                              <Edit className="size-4 mr-2" />
-                              <span>Edit Unit</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
-                              className="text-destructive hover:bg-destructive/10 dark:text-destructive/80"
-                            >
-                              <Trash2 className="size-4 mr-2" />
-                              <span>Hapus</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                )
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={user?.role === "admin" ? 12 : 9} className="p-0">
-                  <EmptyBarangTableState isFiltered={hasActiveFilter} />
-                </TableCell>
-              </TableRow>
+                  <Label htmlFor="select-all" className="text-xs text-muted-foreground font-medium cursor-pointer">
+                    Pilih Semua Halaman Ini
+                  </Label>
+                </div>
+                {selectedIds.length > 0 && (
+                  <Badge variant="destructive" className="text-[10px] h-5 rounded-full px-2">
+                    {selectedIds.length} terpilih
+                  </Badge>
+                )}
+              </div>
             )}
-          </TableBody>
-        </Table>
+
+            {paginatedBarang.map((item) => {
+              const badge = getStatusBadgeProps(item.status)
+              const isSelected = selectedIds.includes(item.id)
+              return (
+                <Card
+                  key={item.id}
+                  className={cn(
+                    "relative overflow-hidden transition-all active:scale-[0.98] cursor-pointer",
+                    isSelected ? "border-primary bg-primary/5 shadow-md" : "bg-card hover:border-border/80 border-border/40 shadow-sm"
+                  )}
+                  onClick={() => handleOpenDetail(item)}
+                >
+                  <CardContent className="p-4 flex flex-col gap-3.5">
+                    <div className="flex items-start justify-between gap-2 w-full">
+                      <div className="flex-1 flex flex-col gap-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-base tracking-tight text-foreground truncate max-w-[80%]">
+                            {item.serialNumber}
+                          </span>
+                          {user?.role === "admin" && (
+                            <Badge variant="outline" className="font-normal text-[9px] px-1.5 py-0 h-4 border-border/60 bg-muted/20 text-muted-foreground truncate max-w-[80px]">
+                              {item.mitra || ADMIN_LOCATION}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground/90 font-medium">
+                          <span className="truncate max-w-[110px]">{item.merek}</span>
+                          <span className="opacity-40 text-[10px]">•</span>
+                          <span className="truncate max-w-[110px]">{item.kategori}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-2.5 shrink-0">
+                        <Badge variant="secondary" className="font-medium text-[10px] gap-1.5 px-2 py-0.5 whitespace-nowrap shadow-none rounded-full border border-border/50 bg-background">
+                          <div className={`w-1.5 h-1.5 rounded-full shadow-sm ${badge.dotClass}`} />
+                          {badge.text}
+                        </Badge>
+                        
+                        {user?.role === "admin" && (
+                          <div onClick={(e) => e.stopPropagation()} className="pr-0.5">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleSelectRow(checked as boolean, item.id)}
+                              className="w-4 h-4 rounded-sm border-muted-foreground/30 data-[state=checked]:border-primary"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Row */}
+                    <div className="flex items-center justify-between pt-3 border-t border-border/40">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
+                        <Boxes className="size-3.5 opacity-70" />
+                        <span className="truncate max-w-[180px] leading-none">{item.lokasiPenyimpanan}</span>
+                      </div>
+                      
+                      {user?.role === "admin" && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon-xs" className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-full transition-colors">
+                                <MoreVertical className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[180px] rounded-xl shadow-lg border-border/40 p-1">
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleOpenEdit(item) }} className="py-2.5 px-3 cursor-pointer rounded-lg">
+                                <Edit className="size-4 mr-2.5 opacity-70" />
+                                <span className="font-medium">Edit Unit</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-border/40 my-1" />
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10 py-2.5 px-3 cursor-pointer rounded-lg"
+                              >
+                                <Trash2 className="size-4 mr-2.5 opacity-70" />
+                                <span className="font-medium">Hapus Data</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="h-full border border-dashed border-border/60 bg-muted/10 rounded-2xl flex items-center justify-center">
+            <EmptyBarangTableState isFiltered={hasActiveFilter} />
+          </div>
+        )}
       </div>
       {filteredBarang.length > 0 && (
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1300,65 +1292,57 @@ export default function DataBarangPage() {
 
       {/* Detail Drawer */}
       <Drawer open={isDetailOpen} onOpenChange={handleDetailOpenChange} direction={isMobile ? "bottom" : "right"}>
-        <DrawerContent>
+        <DrawerContent className="overflow-hidden">
           {detailBarang && (
             <>
-              <DrawerHeader className="gap-1">
-                <DrawerTitle>{detailBarang.serialNumber}</DrawerTitle>
-                <DrawerDescription>
-                  Detail identitas unit dan rantai histori pergerakan
-                </DrawerDescription>
-              </DrawerHeader>
+              {/* Colored Header Block */}
+              <div className={cn(
+                "w-full px-6 pt-6 pb-8 border-b -mb-4",
+                detailBarang.status === "Tersedia" && "bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30",
+                detailBarang.status === "Diluar" && "bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30",
+                detailBarang.status === "Rusak" && "bg-rose-50/50 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/30",
+                detailBarang.status === "Hilang" && "bg-slate-50 border-slate-100 dark:bg-slate-900/20 dark:border-slate-800/30"
+              )}>
+                <DrawerHeader className="p-0 flex flex-col gap-2.5 items-start text-left">
+                  <Badge variant="secondary" className="border border-foreground/10 shadow-none bg-background/60 font-medium px-2 py-0.5 rounded-full">
+                    <div className={cn("w-1.5 h-1.5 rounded-full mr-1.5", getStatusBadgeProps(detailBarang.status).dotClass)} />
+                    {getStatusBadgeProps(detailBarang.status).text}
+                  </Badge>
+                  <DrawerTitle className="text-2xl font-bold tracking-tight mt-1">{detailBarang.serialNumber}</DrawerTitle>
+                  <DrawerDescription className="text-sm font-medium">
+                    {detailBarang.merek} • {detailBarang.kategori}
+                  </DrawerDescription>
+                </DrawerHeader>
+              </div>
 
-              <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
-                {/* Metadata */}
-                <form className="flex flex-col gap-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="flex flex-col gap-3">
-                      <Label>Merek</Label>
-                      <Input readOnly defaultValue={detailBarang.merek} />
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <Label>Kategori</Label>
-                      <Input readOnly defaultValue={detailBarang.kategori} />
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <Label>Tipe / Model</Label>
-                      <Input readOnly defaultValue={detailBarang.tipe || "-"} />
-                    </div>
+              <div className="flex flex-col gap-6 overflow-y-auto px-6 py-8 text-sm bg-background">
+                {/* Information Grid */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Tipe/Model</span>
+                    <span className="font-semibold text-foreground">{detailBarang.tipe || "-"}</span>
                   </div>
-
-                  <div className="flex flex-col gap-3">
-                    <Label>Status Gudang</Label>
-                    <Input readOnly defaultValue={getStatusBadgeProps(detailBarang.status).text} />
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Lokasi Aktif</span>
+                    <span className="font-semibold text-foreground">{detailBarang.lokasiPenyimpanan}</span>
                   </div>
-
-                  <div className="flex flex-col gap-3">
-                    <Label>Lokasi Aktif</Label>
-                    <Input readOnly defaultValue={detailBarang.lokasiPenyimpanan} />
-                  </div>
-
+                  
                   {user?.role === "admin" && (
-                    <div className="flex flex-col gap-3">
-                      <Label>Pemilik</Label>
-                      <Input
-                        readOnly
-                        defaultValue={detailBarang.mitra || ADMIN_LOCATION}
-                      />
+                    <div className="flex flex-col gap-1.5 col-span-2">
+                      <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Pemilik Barang (Mitra)</span>
+                      <span className="font-semibold text-foreground">{detailBarang.mitra || ADMIN_LOCATION}</span>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-3">
-                      <Label>Tanggal Masuk</Label>
-                      <Input readOnly defaultValue={detailBarang.tanggalMasuk} />
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <Label>Tanggal Keluar</Label>
-                      <Input readOnly defaultValue={formatTanggal(detailBarang.tanggalKeluar || "")} />
-                    </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Tgl Masuk</span>
+                    <span className="font-medium">{formatTanggal(detailBarang.tanggalMasuk)}</span>
                   </div>
-                </form>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Tgl Keluar</span>
+                    <span className="font-medium">{formatTanggal(detailBarang.tanggalKeluar || "") || "-"}</span>
+                  </div>
+                </div>
 
                 {/* Ledger Timeline */}
                 <div className="flex flex-col gap-4 pt-2">

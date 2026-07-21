@@ -119,44 +119,44 @@ export default function TipeMaterialPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="p-4 md:p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-          <Input placeholder="Cari tipe material..." className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+          <Input placeholder="Cari tipe material..." className="w-full pl-10 h-11 rounded-2xl bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 shadow-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
-        <Button className="w-full sm:w-auto gap-2" onClick={() => handleOpenSheet()}>
+        <Button className="w-full sm:w-auto gap-2 h-11 rounded-2xl shadow-sm" onClick={() => handleOpenSheet()}>
           <Plus className="w-4 h-4" /> Tambah Tipe Material
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
+      <div className="grid gap-2.5 pb-10">
         {filteredTypes.map(t => (
-          <Card key={t.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
-            <CardContent className="px-5 py-5 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0">
-                  <Box className="w-6 h-6 text-blue-400" />
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
-                    <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(t.id)}>
-                      <Edit className="w-4 h-4 mr-2" /> Edit Tipe
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => setDeleteAlertData({ isOpen: true, id: t.id, name: t.nama })}>
-                      <Trash2 className="w-4 h-4 mr-2" /> Hapus Tipe
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+          <Card key={t.id} className="overflow-hidden transition-colors duration-200 hover:bg-neutral-900/60 bg-neutral-950 border-neutral-800/80 shadow-sm">
+            <CardContent className="p-3.5 flex items-center gap-3.5">
+              <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
+                <Box className="w-4 h-4 text-blue-400" />
               </div>
-              <div>
-                <h3 className="font-semibold text-lg text-neutral-100 mb-1">{t.nama}</h3>
+              
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-sm text-neutral-100 truncate">{t.nama}</h3>
               </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 transition-opacity">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
+                  <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(t.id)}>
+                    <Edit className="w-4 h-4 mr-2" /> Edit Tipe
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => setDeleteAlertData({ isOpen: true, id: t.id, name: t.nama })}>
+                    <Trash2 className="w-4 h-4 mr-2" /> Hapus Tipe
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardContent>
           </Card>
         ))}

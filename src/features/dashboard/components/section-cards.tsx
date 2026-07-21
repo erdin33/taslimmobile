@@ -97,7 +97,7 @@ export function SectionCards({
 	];
 
 	return (
-		<div className="grid grid-cols-2 gap-4 px-4 *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 lg:grid-cols-5 dark:*:data-[slot=card]:bg-card">
+		<div className="grid grid-cols-2 gap-3 px-4 lg:px-6 lg:grid-cols-5">
 			{cards.map(
 				({ key, label, value, icon: Icon, direction, percent, className }) => {
 					const color = direction === "up" ? "oklch(0.696 0.17 162.48)" : "oklch(0.645 0.246 16.439)";
@@ -108,49 +108,65 @@ export function SectionCards({
 						},
 					} satisfies ChartConfig;
 
+          // Define dynamic colors based on card key
+          let gradientClass = "bg-gradient-to-br from-background to-muted/20 border-border/40 hover:border-primary/30";
+          let iconBgClass = "bg-primary/10 text-primary";
+          
+          if (key === "total") {
+            gradientClass = "bg-gradient-to-br from-blue-50/80 to-background border-blue-100/50 hover:border-blue-200 dark:from-blue-950/20 dark:border-blue-900/30";
+            iconBgClass = "bg-blue-500/15 text-blue-600 dark:text-blue-400";
+          } else if (key === "tersedia") {
+            gradientClass = "bg-gradient-to-br from-emerald-50/80 to-background border-emerald-100/50 hover:border-emerald-200 dark:from-emerald-950/20 dark:border-emerald-900/30";
+            iconBgClass = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+          } else if (key === "diluar") {
+            gradientClass = "bg-gradient-to-br from-amber-50/80 to-background border-amber-100/50 hover:border-amber-200 dark:from-amber-950/20 dark:border-amber-900/30";
+            iconBgClass = "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+          } else if (key === "rusak") {
+            gradientClass = "bg-gradient-to-br from-rose-50/80 to-background border-rose-100/50 hover:border-rose-200 dark:from-rose-950/20 dark:border-rose-900/30";
+            iconBgClass = "bg-rose-500/15 text-rose-600 dark:text-rose-400";
+          } else if (key === "hilang") {
+            gradientClass = "bg-gradient-to-br from-slate-50/80 to-background border-slate-100/50 hover:border-slate-200 dark:from-slate-900/20 dark:border-slate-800/30";
+            iconBgClass = "bg-slate-500/15 text-slate-600 dark:text-slate-400";
+          }
+
 					return (
 						<Card
 							key={key}
-							className={cn("@container/card relative overflow-hidden flex flex-col justify-between gap-0 border-border", className)}>
-							<CardHeader className="flex flex-col w-full justify-between space-y-0">
-								<div className="flex w-full items-center justify-between gap-2">
-									<CardDescription className="font-medium text-muted-foreground">{label}</CardDescription>
-									<div className="rounded-lg p-2 bg-muted/50">
-										<Icon className="text-muted-foreground w-4 h-4" />
+							className={cn("@container/card relative overflow-hidden flex flex-col justify-between gap-0 shadow-sm transition-all duration-300", gradientClass, className)}>
+							<CardHeader className="flex flex-col w-full justify-between space-y-0 pb-1">
+								<div className="flex w-full items-center justify-between gap-2 mb-2">
+									<CardDescription className="font-semibold text-xs text-muted-foreground/90 uppercase tracking-wider">{label}</CardDescription>
+									<div className={cn("rounded-xl p-2", iconBgClass)}>
+										<Icon className="w-4 h-4" strokeWidth={2.5} />
 									</div>
 								</div>
-								<CardTitle className="flex items-end gap-2 text-2xl font-bold tabular-nums @[250px]/card:text-3xl pt-2">
+								<CardTitle className="flex items-end gap-2 text-2xl font-black tracking-tight tabular-nums @[250px]/card:text-3xl text-foreground">
 									<div>
 										{value}{" "}
 									</div>
 								</CardTitle>
 							</CardHeader>
-							<CardContent className="pt-0 pb-0">
+							<CardContent className="pt-1 pb-0">
 								<div
-									className={`inline-flex items-center gap-1 text-xs font-medium ${direction === "up"
-										? "text-emerald-600 dark:text-emerald-500"
-										: "text-rose-600 dark:text-rose-500"
+									className={`inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wide rounded-full px-2 py-0.5 w-fit ${direction === "up"
+										? "text-emerald-700 bg-emerald-500/10 dark:text-emerald-400"
+										: "text-rose-700 bg-rose-500/10 dark:text-rose-400"
 										}`}>
 									{direction === "up" ? (
-										<TrendingUp className="h-3.5 w-3.5" />
+										<TrendingUp className="h-3 w-3" strokeWidth={3} />
 									) : (
-										<TrendingDown className="h-3.5 w-3.5" />
+										<TrendingDown className="h-3 w-3" strokeWidth={3} />
 									)}
-									<span>{direction === "up" ? "+" : "-"}{percent}% <span className="text-muted-foreground font-normal ml-0.5">dari bulan lalu</span></span>
+									<span>{direction === "up" ? "+" : "-"}{percent}%</span>
 								</div>
-								<ChartContainer config={chartConfig} className="mt-2 h-[60px] w-full">
+								<ChartContainer config={chartConfig} className="mt-2 h-[50px] w-full opacity-60 mix-blend-multiply dark:mix-blend-screen">
 									<AreaChart
 										accessibilityLayer
 										data={createTrendSeries(direction)}
-										margin={{
-											left: 0,
-											right: 0,
-											top: 5,
-											bottom: 0,
-										}}>
+										margin={{ left: 0, right: 0, top: 0, bottom: 0 }}>
 										<defs>
 											<linearGradient id={`fill-${key}`} x1="0" y1="0" x2="0" y2="1">
-												<stop offset="5%" stopColor="var(--color-value)" stopOpacity={0.3} />
+												<stop offset="5%" stopColor="var(--color-value)" stopOpacity={0.4} />
 												<stop offset="95%" stopColor="var(--color-value)" stopOpacity={0.0} />
 											</linearGradient>
 										</defs>
@@ -161,7 +177,7 @@ export function SectionCards({
 										/>
 										<Area
 											dataKey="value"
-											type="natural"
+											type="monotone"
 											fill={`url(#fill-${key})`}
 											stroke="var(--color-value)"
 											strokeWidth={2}

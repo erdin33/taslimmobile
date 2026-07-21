@@ -1,4 +1,6 @@
 import { Outlet, NavLink } from "react-router-dom";
+import { Notifications } from "@/features/dashboard/components/notifications";
+import { CameraScanner } from "@/components/camera-scanner";
 import { 
 	Home, 
 	PackagePlus, 
@@ -13,12 +15,15 @@ import {
 	CircleStar,
 	Handshake,
 	Settings,
-	LogOut
+	LogOut,
+	Sun,
+	Moon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
+import { useTheme } from "@/components/shared/themeProvider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,8 +36,25 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useNavigate } from "react-router-dom"
 
+const getBaseUrl = () => {
+  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
+  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+};
+
+const getHeaders = () => {
+  const token = localStorage.getItem("arxiva-auth-token");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `${token}`;
+  }
+  return headers;
+};
+
 export default function AndroidLayout() {
 	const { user, logout } = useAuth();
+	const { theme, setTheme } = useTheme();
 	const navigate = useNavigate();
 	const isAdmin = user?.role === "admin";
 	const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
@@ -50,27 +72,71 @@ export default function AndroidLayout() {
 	return (
 		<div className="flex flex-col h-svh w-full bg-background overflow-hidden relative">
 			{/* Top Header (Optional) */}
-			<header className="h-14 border-b flex items-center justify-between bg-card shadow-sm z-10 shrink-0 px-4">
+			<header className="pt-[env(safe-area-inset-top,0px)] h-[calc(3.5rem+env(safe-area-inset-top,0px))] border-b flex items-center justify-between bg-card shadow-sm z-10 shrink-0 px-4">
 				<h1 className="font-semibold text-lg tracking-tight">Taslim Mobile</h1>
-				<button onClick={() => setIsLogoutDialogOpen(true)} className="p-2 text-muted-foreground hover:bg-muted rounded-full">
-					<LogOut className="w-5 h-5" />
-				</button>
+				<div className="flex items-center gap-1">
+					<button 
+						onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+						className="p-2 text-muted-foreground hover:bg-muted rounded-full"
+					>
+						{theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+					</button>
+					<Notifications />
+					<button onClick={() => setIsLogoutDialogOpen(true)} className="p-2 text-muted-foreground hover:bg-muted rounded-full">
+						<LogOut className="w-5 h-5" />
+					</button>
+				</div>
 			</header>
 
 			{/* Main Content Area */}
-			<main className="flex-1 overflow-y-auto pb-24 pt-4 px-4">
+			<main className="flex-1 overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
 				<Outlet />
 			</main>
 
 			{/* Floating Action Button for Scan */}
-			<div className="absolute bottom-24 right-6 z-50">
-				<button className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all">
-					<ScanBarcode className="w-6 h-6" />
-				</button>
+			<div className="absolute bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-50">
+				<CameraScanner
+					showModeTabs={true}
+					defaultMode="masuk"
+					onScan={async (code, mode) => {
+						try {
+							const res = await fetch(`${getBaseUrl()}/brands`, { method: "GET", headers: getHeaders() });
+							if (!res.ok) return { success: false, message: "Gagal mengambil data merek." };
+							const rawBrands = await res.json();
+							const data = rawBrands.data || rawBrands;
+							const brands = (Array.isArray(data) ? data : []).map((brand: any) => ({
+								identifier: brand.identifier || "",
+							}));
+
+							const normalizedCode = code.trim().toUpperCase();
+							const hasMatchingBrand = brands.some((b: { identifier: string }) => {
+								const ident = b.identifier?.trim().toUpperCase();
+								return ident && normalizedCode.includes(ident);
+							});
+
+							if (!hasMatchingBrand) {
+								return { success: false, message: "Barcode tidak sesuai dengan identifier merek apa pun." };
+							}
+
+							if (mode === "masuk") {
+								navigate(`/barang-masuk?code=${encodeURIComponent(code)}`);
+							} else if (mode === "keluar") {
+								navigate(`/barang-keluar?code=${encodeURIComponent(code)}`);
+							}
+							return { success: true };
+						} catch (error) {
+							return { success: false, message: "Terjadi kesalahan sistem." };
+						}
+					}}
+				>
+					<button className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all">
+						<ScanBarcode className="w-6 h-6" />
+					</button>
+				</CameraScanner>
 			</div>
 
 			{/* Bottom Navigation Bar */}
-			<nav className="absolute bottom-0 w-full h-16 bg-card border-t flex items-center justify-around pb-safe z-50 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] px-2">
+			<nav className="absolute bottom-0 w-full h-[calc(4rem+env(safe-area-inset-bottom,0px))] bg-card border-t flex items-center justify-around pb-[env(safe-area-inset-bottom,0px)] z-50 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] px-2">
 				{/* Home */}
 				<NavLink
 					to="/"
@@ -119,16 +185,16 @@ export default function AndroidLayout() {
 							<span className="text-[10px]">Lainnya</span>
 						</button>
 					</SheetTrigger>
-					<SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-2xl">
-						<SheetHeader className="mb-4 text-left">
-							<SheetTitle>Menu Lengkap</SheetTitle>
+					<SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] px-5">
+						<SheetHeader className="mb-6 pt-3 text-left">
+							<SheetTitle className="text-xl font-bold tracking-tight">Menu Utama</SheetTitle>
 						</SheetHeader>
 						
-						<div className="space-y-6">
+						<div className="space-y-7">
 							{/* Operasional */}
 							<div>
-								<h3 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Operasional</h3>
-								<div className="grid grid-cols-4 gap-4">
+								<h3 className="text-[11px] font-bold text-muted-foreground/70 mb-4 uppercase tracking-widest px-1">Operasional</h3>
+								<div className="grid grid-cols-4 gap-y-6 gap-x-2">
 									<MenuButton to="/barang-masuk" icon={<PackagePlus />} label="Brg Masuk" onClick={closeSheet} />
 									<MenuButton to="/barang-keluar" icon={<PackageMinus />} label="Brg Keluar" onClick={closeSheet} />
 									<MenuButton to="/request" icon={<HistoryIcon />} label="Request" onClick={closeSheet} />
@@ -137,8 +203,8 @@ export default function AndroidLayout() {
 
 							{/* Inventori */}
 							<div>
-								<h3 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Inventori</h3>
-								<div className="grid grid-cols-4 gap-4">
+								<h3 className="text-[11px] font-bold text-muted-foreground/70 mb-4 uppercase tracking-widest px-1">Inventori</h3>
+								<div className="grid grid-cols-4 gap-y-6 gap-x-2">
 									<MenuButton to="/data-barang" icon={<Database />} label="Data Brg" onClick={closeSheet} />
 								</div>
 							</div>
@@ -146,8 +212,8 @@ export default function AndroidLayout() {
 							{/* Manajemen Data (Admin Only) */}
 							{isAdmin && (
 								<div>
-									<h3 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Manajemen Data</h3>
-									<div className="grid grid-cols-4 gap-4">
+									<h3 className="text-[11px] font-bold text-muted-foreground/70 mb-4 uppercase tracking-widest px-1">Manajemen Data</h3>
+									<div className="grid grid-cols-4 gap-y-6 gap-x-2">
 										<MenuButton to="/lokasi-barang" icon={<MapPinHouse />} label="Lokasi" onClick={closeSheet} />
 										<MenuButton to="/tipe-material" icon={<Box />} label="Tipe Mat." onClick={closeSheet} />
 										<MenuButton to="/kategori-barang" icon={<Shapes />} label="Kategori" onClick={closeSheet} />
@@ -159,8 +225,8 @@ export default function AndroidLayout() {
 
 							{/* Sistem */}
 							<div>
-								<h3 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Sistem</h3>
-								<div className="grid grid-cols-4 gap-4">
+								<h3 className="text-[11px] font-bold text-muted-foreground/70 mb-4 uppercase tracking-widest px-1">Sistem</h3>
+								<div className="grid grid-cols-4 gap-y-6 gap-x-2">
 									<MenuButton to="/pengaturan" icon={<Settings />} label="Pengaturan" onClick={closeSheet} />
 								</div>
 							</div>
@@ -188,7 +254,6 @@ export default function AndroidLayout() {
 	);
 }
 
-// Helper component for Sheet Menu Items
 function MenuButton({ to, icon, label, onClick }: { to: string; icon: React.ReactNode; label: string; onClick: () => void }) {
 	return (
 		<NavLink
@@ -196,15 +261,21 @@ function MenuButton({ to, icon, label, onClick }: { to: string; icon: React.Reac
 			onClick={onClick}
 			className={({ isActive }) =>
 				cn(
-					"flex flex-col items-center gap-2",
+					"group flex flex-col items-center gap-2.5 transition-all active:scale-95",
 					isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
 				)
 			}
 		>
-			<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary/50">
-				{icon}
+			<div className={cn(
+				"flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-[1rem] transition-colors",
+				"bg-muted/40 group-hover:bg-muted/60 shadow-sm",
+				"group-active:bg-muted/80"
+			)}>
+				<div className="size-5 *:w-full *:h-full">
+					{icon}
+				</div>
 			</div>
-			<span className="text-[10px] font-medium text-center leading-tight">{label}</span>
+			<span className="text-[10px] font-medium text-center leading-[1.1] w-full px-0.5 line-clamp-2">{label}</span>
 		</NavLink>
 	);
 }

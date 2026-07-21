@@ -282,32 +282,25 @@ export default function DataTransaksiPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in">
+    <div className="flex flex-col min-h-full gap-5 p-4 md:p-6 lg:p-8 animate-fade-in">
       {/* Page Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Daftar Request</h1>
+        <p className="text-sm text-muted-foreground">
+          Kelola permintaan barang dari mitra kerja Anda.
+        </p>
+      </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
-          <div className="flex items-center w-full overflow-x-auto pb-1 scrollbar-hide">
-            <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex h-auto w-full lg:w-auto">
-              <TabsTrigger value="Menunggu" className="cursor-pointer">
-                Menunggu {countMenunggu > 0 && <Badge variant="secondary">{countMenunggu}</Badge>}
-              </TabsTrigger>
-              <TabsTrigger value="Disetujui" className="cursor-pointer">
-                Disetujui {countDisetujui > 0 && <Badge variant="secondary">{countDisetujui}</Badge>}
-              </TabsTrigger>
-              <TabsTrigger value="Siap" className="cursor-pointer">
-                Siap {countSiap > 0 && <Badge variant="secondary">{countSiap}</Badge>}
-              </TabsTrigger>
-              <TabsTrigger value="Selesai" className="cursor-pointer">Selesai</TabsTrigger>
-              <TabsTrigger value="Ditolak" className="cursor-pointer">Ditolak / Batal</TabsTrigger>
-            </TabsList>
-          </div>
-          <div className="flex flex-row items-center gap-2 w-full lg:w-auto">
-            <div className="relative flex-1 lg:w-64">
-              <Search className="absolute top-[9px] left-3 size-4 text-muted-foreground" />
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col flex-1 gap-5 w-full min-h-0">
+        
+        {/* Search, Filter, and Tabs Toolbar */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2.5 w-full">
+            <div className="relative flex-1">
+              <Search className="absolute top-[11px] left-3.5 size-4 text-muted-foreground" />
               <Input
                 placeholder="Cari transaksi..."
-                className="pl-9 w-full"
+                className="pl-10 h-11 rounded-2xl bg-card shadow-sm border-border/60"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -322,12 +315,15 @@ export default function DataTransaksiPage() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={cn("shrink-0 gap-1.5 px-3 cursor-pointer", (filterCategories.length > 0 || dateRange?.from || dateRange?.to) && "border-gray-400 text-primary")}
+                  className={cn(
+                    "shrink-0 gap-2 h-11 px-4 rounded-2xl border-border/60 bg-card shadow-sm cursor-pointer transition-all", 
+                    (filterCategories.length > 0 || dateRange?.from || dateRange?.to) && "border-primary/50 text-primary bg-primary/5"
+                  )}
                 >
                   <ListFilter className="size-4" />
-                  <span className="hidden sm:inline">Filter</span>
+                  <span className="hidden sm:inline font-medium">Filter</span>
                   {(filterCategories.length > 0 || dateRange?.from || dateRange?.to) && (
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    <Badge variant="secondary" className="ml-0.5 h-5 min-w-[20px] px-1.5 text-[10px] rounded-full justify-center">
                       {(filterCategories.length > 0 ? 1 : 0) + (dateRange?.from || dateRange?.to ? 1 : 0)}
                     </Badge>
                   )}
@@ -382,6 +378,23 @@ export default function DataTransaksiPage() {
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
+          
+          {/* Scrollable Tabs */}
+          <div className="flex items-center w-full overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+            <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex h-auto w-max p-1 bg-card shadow-sm border border-border/40 rounded-xl">
+              <TabsTrigger value="Menunggu" className="cursor-pointer rounded-lg px-4 py-2">
+                Menunggu {countMenunggu > 0 && <Badge variant="secondary" className="ml-1.5 shadow-none">{countMenunggu}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="Disetujui" className="cursor-pointer rounded-lg px-4 py-2">
+                Disetujui {countDisetujui > 0 && <Badge variant="secondary" className="ml-1.5 shadow-none">{countDisetujui}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="Siap" className="cursor-pointer rounded-lg px-4 py-2">
+                Siap {countSiap > 0 && <Badge variant="secondary" className="ml-1.5 shadow-none">{countSiap}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="Selesai" className="cursor-pointer rounded-lg px-4 py-2">Selesai</TabsTrigger>
+              <TabsTrigger value="Ditolak" className="cursor-pointer rounded-lg px-4 py-2">Ditolak</TabsTrigger>
+            </TabsList>
           </div>
         </div>
 

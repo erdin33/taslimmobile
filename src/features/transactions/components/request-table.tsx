@@ -19,6 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
     IconPackage,
@@ -457,7 +458,8 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
 
     return (
         <div className={cn("flex flex-col w-full h-full min-h-0 gap-4", className)}>
-            <ScrollShadowWrapper>
+            {/* Desktop View */}
+            <ScrollShadowWrapper className="hidden md:flex">
                 <Table>
                     <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -501,6 +503,61 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
                     </TableBody>
                 </Table>
             </ScrollShadowWrapper>
+
+            {/* Mobile View */}
+            <div className="flex md:hidden flex-col gap-3 overflow-y-auto pb-4">
+                {table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map((row) => {
+                        const item = row.original;
+                        return (
+                            <Card 
+                                key={row.id} 
+                                className="cursor-pointer transition-colors hover:bg-muted/40"
+                                onClick={() => onRowClick?.(item)}
+                            >
+                                <CardContent className="p-4 flex flex-col gap-3">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="font-semibold text-primary">{item.requestNumber}</span>
+                                            <span className="text-xs text-muted-foreground font-medium">
+                                                {new Date(item.requestedAt).toLocaleDateString("id-ID", {
+                                                    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+                                                })}
+                                            </span>
+                                        </div>
+                                        <StatusBadge status={item.status} />
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm pt-3 border-t border-border/40">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">Mitra</span>
+                                            <span className="font-medium text-foreground leading-tight">{item.requesterName}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">Kategori</span>
+                                            <span className="font-medium text-foreground leading-tight">{item.partnerCategory || "-"}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">Jumlah</span>
+                                            <span className="font-medium text-foreground leading-tight">{item.itemsCount} Item</span>
+                                        </div>
+                                    </div>
+
+                                    {table.getState().columnVisibility.document !== false && (
+                                        <div className="mt-2 pt-3 border-t border-border flex justify-end">
+                                            <DocumentMenu row={row} table={table} />
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )
+                    })
+                ) : (
+                    <div className="h-24 flex items-center justify-center text-center text-sm text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border/60">
+                        Belum ada daftar permintaan.
+                    </div>
+                )}
+            </div>
 
             {/* Pagination Controls */}
             {data.length > 0 && (

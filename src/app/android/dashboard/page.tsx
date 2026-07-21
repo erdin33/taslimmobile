@@ -23,7 +23,7 @@ export default function DashboardPage() {
     } = useDashboard();
 
     return (
-        <div className="@container/main flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="@container/main flex flex-col gap-4 p-4 md:gap-6 md:p-6 lg:p-8">
             <SectionCards
                 stats={inventoryStats}
                 totalLabel={
@@ -34,7 +34,7 @@ export default function DashboardPage() {
             />
 
             {/* Row 2: Charts (50/50) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 lg:px-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <ChartBarMixed 
                     data={mitraDistribution} 
                     className="h-full" 
@@ -48,7 +48,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Mobile View: Cards List */}
-            <div className="flex flex-col gap-3 md:hidden px-4">
+            <div className="flex flex-col gap-3 md:hidden">
                 <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
                     <h3 className="font-semibold text-foreground text-sm">Transaksi Terbaru</h3>
                 </div>
@@ -121,7 +121,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Desktop View: Request Section (2/3) + Recent Activities (1/3) */}
-            <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-4 px-4 lg:px-6 pb-4">
+            <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-4 pb-4">
                 <RequestSection
                     requests={recentRequests}
                     counts={requestCounts}

@@ -19,7 +19,7 @@ function App() {
 					</Router>
 				</AuthProvider>
 			</TooltipProvider>
-			<Toaster position="top-right" />
+			<Toaster />
 		</ThemeProvider>
 	);
 }

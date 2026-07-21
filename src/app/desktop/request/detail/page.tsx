@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-import BastTemplate from "@/features/transactions/components/BastTemplate";
-
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
@@ -56,8 +54,6 @@ export default function RequestDetailPage() {
   const navigate = useNavigate();
   const [request, setRequest] = useState<DashboardRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [bastData, setBastData] = useState<any>(null);
-  const bastRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -108,22 +104,7 @@ export default function RequestDetailPage() {
       }
     };
 
-    const fetchBast = async () => {
-      try {
-        const res = await fetch(`${getBaseUrl()}/requests/${id}/bast`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setBastData(data);
-        }
-      } catch (error) {
-        // BAST tidak wajib ada, tidak perlu error toast
-        console.log("BAST belum tersedia:", error);
-      }
-    };
-    fetchRequest().then(() => fetchBast());
+    fetchRequest();
   }, [id]);
 
   if (isLoading) {
@@ -143,11 +124,6 @@ export default function RequestDetailPage() {
   }
 
   const status = request.status?.toLowerCase() || "";
-  const showBast = ["siap", "selesai"].includes(status) && bastData;
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full print:p-0 print:m-0 print:block print:max-w-none">
@@ -168,7 +144,7 @@ export default function RequestDetailPage() {
         </div>
       </div>
 
-      <div className={`grid gap-6 ${showBast ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} print:block print:gap-0`}>
+      <div className={`grid gap-6 grid-cols-1 print:block print:gap-0`}>
         {/* ===== KOLOM KIRI: Detail Transaksi ===== */}
         <div className="flex flex-col gap-6 print:hidden">
           <Card className="shadow-sm">
@@ -320,35 +296,6 @@ export default function RequestDetailPage() {
           </Card>
         </div>
 
-        {/* ===== KOLOM KANAN: Pratinjau BAST ===== */}
-        {showBast && (
-          <div className="flex flex-col gap-4 print:block print:w-full print:m-0 print:p-0 print:bg-white print:static print:rounded-none">
-            <Card className="shadow-sm print:shadow-none print:border-none print:bg-transparent print:m-0 print:p-0 print:rounded-none">
-              <CardHeader className="bg-muted/30 border-b print:hidden">
-                <CardTitle>Pratinjau Dokumen BAST</CardTitle>
-                <CardDescription>Bukti Serah Terima Barang resmi</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 print:p-0 print:m-0 print:rounded-none">
-                <div className="border rounded-md m-4 print:m-0 print:border-none overflow-hidden print:overflow-visible aspect-[1/1.4] print:aspect-auto print:w-full print:block print:rounded-none">
-                  <div className="h-full overflow-y-auto print:overflow-visible print:h-auto print:w-full print:block print:m-0 print:p-0 print:rounded-none">
-                    <BastTemplate
-                      ref={bastRef}
-                      documentNumber={bastData.document.documentNumber}
-                      requesterName={bastData.request.requesterName}
-                      generatedByName={bastData.request.generatedByName}
-                      bastDate={bastData.request.processedAt || bastData.request.completedAt || bastData.request.requestedAt}
-                      allocations={bastData.request.allocations || []}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Button onClick={handlePrint} className="w-full print:hidden" size="lg">
-              <Printer className="size-4 mr-2" />
-              Cetak BAST
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

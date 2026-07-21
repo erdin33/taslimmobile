@@ -196,6 +196,10 @@ export default function BarangKeluarPage() {
   const [kodeBarang, setKodeBarang] = useState("");
   const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
   const [barangKeluar, setBarangKeluar] = useState<BarangKeluarItem[]>([]);
+  const barangKeluarRef = useRef<BarangKeluarItem[]>([]);
+  useEffect(() => {
+    barangKeluarRef.current = barangKeluar;
+  }, [barangKeluar]);
   const [kuota, setKuota] = useState<Record<string, number>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const processedCodesRef = useRef<Set<string>>(new Set());
@@ -357,18 +361,16 @@ export default function BarangKeluarPage() {
     const targetMitraName =
       user?.role === "mitra" ? user.displayName : selectedPartner?.name;
 
-    const isDuplicate = barangKeluar.some(
+    const isDuplicate = barangKeluarRef.current.some(
       (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
     );
 
     if (isDuplicate) {
       const msg = "Serial number sudah ada di sesi ini.";
-      toast.error(msg, {
-        description: trimmedKode,
-      });
+      // Abaikan diam-diam jika barang sudah ada di sesi ini
       updateKodeBarang("");
       focusKodeBarangInput();
-      return { success: false, message: msg };
+      return { success: false, ignored: true, message: msg };
     }
 
     // Periksa apakah kode yang discan ada di data master (SQLite)
@@ -378,12 +380,10 @@ export default function BarangKeluarPage() {
 
     if (!matchedItem) {
       const msg = "Data serial number tidak ditemukan.";
-      toast.error(msg, {
-        description: trimmedKode,
-      });
+      // Secara diam-diam abaikan scan yang tidak dikenali sesuai permintaan pengguna
       updateKodeBarang("");
       focusKodeBarangInput();
-      return { success: false, message: msg };
+      return { success: false, ignored: true, message: msg };
     }
 
     if (isOutsideStatus(matchedItem.status)) {
@@ -423,7 +423,11 @@ export default function BarangKeluarPage() {
       status: "Valid",
     };
 
-    setBarangKeluar((current) => [newItem, ...current]);
+    setBarangKeluar((current) => {
+      const next = [newItem, ...current];
+      barangKeluarRef.current = next;
+      return next;
+    });
     // Tambah kuota lokasi karena barang keluar
     setKuota((current) => ({
       ...current,
@@ -730,19 +734,35 @@ export default function BarangKeluarPage() {
   if (isMobile) {
     return (
       <div className="flex flex-col min-h-full gap-4 px-4 py-4 select-none pb-[calc(4rem+env(safe-area-inset-bottom,0px))]">
+        {/* Distinct Top Header Banner for Outbound */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-amber-900/20 to-background border border-amber-500/30 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <PackageMinus className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-foreground">Barang Keluar</h2>
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] px-2 py-0">OUTBOUND</Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Pengeluaran & penyerahan ke mitra</p>
+            </div>
+          </div>
+        </div>
+
         {/* Stats Summary Cards for Mobile */}
         <div className="grid grid-cols-2 gap-2.5">
-          <Card className="p-3 flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
+          <Card className="p-3 flex items-center gap-3 border-amber-500/20 bg-amber-500/5">
+            <div className="rounded-lg bg-amber-500/20 p-2 text-amber-400 shrink-0">
               <PackageMinus className="size-4" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] text-muted-foreground uppercase font-medium">Sesi Keluar</p>
-              <p className="text-base font-bold tabular-nums">{barangKeluar.length} Unit</p>
+              <p className="text-base font-bold tabular-nums text-amber-400">{barangKeluar.length} Unit</p>
             </div>
           </Card>
           
-          <Card className="p-3 flex items-center gap-3">
+          <Card className="p-3 flex items-center gap-3 border-border/60">
             <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
               <Boxes className="size-4" />
             </div>
@@ -753,158 +773,132 @@ export default function BarangKeluarPage() {
           </Card>
         </div>
 
-        {/* Mobile Tabs */}
-        <Tabs value={activeMobileTab} onValueChange={(val) => setActiveMobileTab(val as any)} className="flex-1 flex flex-col gap-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="scan">Scan & Form</TabsTrigger>
-            <TabsTrigger value="daftar">Daftar Barang Keluar ({barangKeluar.length})</TabsTrigger>
-          </TabsList>
+        {/* Auto Scanner Card */}
+        <Card className="p-4 flex flex-col items-center justify-center text-center gap-3 border-amber-500/20">
+          <div className="flex size-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+            <ScanLine className="size-6 animate-pulse" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">Scan Barcode / QR</p>
+            <p className="text-xs text-muted-foreground">Sistem akan otomatis mendeteksi pola serial number.</p>
+          </div>
+          <CameraScanner
+            onScan={(code) => handleSubmit(code)}
+            className="w-full max-w-[200px]"
+            buttonText="Scan via Kamera"
+          />
+        </Card>
 
-          <TabsContent value="scan" className="mt-0 flex flex-1 flex-col gap-4">
-            {/* Auto Scanner Card */}
-            <Card className="p-4 flex flex-col items-center justify-center text-center gap-3">
-              <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <ScanLine className="size-6 animate-pulse" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">Scan Barcode / QR</p>
-                <p className="text-xs text-muted-foreground">Sistem akan otomatis mendeteksi pola serial number.</p>
-              </div>
-              <CameraScanner
-                onScan={(code) => handleSubmit(code)}
-                className="w-full max-w-[200px]"
-                buttonText="Scan via Kamera"
-              />
-            </Card>
+        {/* Hasil Scan & Daftar Barang Keluar Sesi Ini */}
+        <Card className="p-4 flex flex-col gap-3">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Hasil Scan Sesi Ini ({barangKeluar.length})</p>
+              <p className="text-[11px] text-muted-foreground">Unit yang siap dikeluarkan dari gudang</p>
+            </div>
+            <Button
+              variant="ghost"
+              className="h-7 text-xs px-2.5 text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg font-medium"
+              onClick={() => setBarangKeluar([])}
+              disabled={barangKeluar.length === 0}
+            >
+              Clear
+            </Button>
+          </div>
 
-            {/* Hasil Scan Sesi Ini */}
-            <Card className="p-4 flex flex-col gap-2.5">
-              <div className="flex justify-between items-center">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Hasil Scan Sesi Ini</p>
-                <Button
-                  variant="ghost"
-                  className="h-6 text-[10px] px-2 text-destructive hover:bg-destructive/10 cursor-pointer rounded-md font-medium"
-                  onClick={() => setBarangKeluar([])}
-                  disabled={barangKeluar.length === 0}
-                >
-                  Clear
-                </Button>
-              </div>
-              <div className="max-h-[140px] overflow-y-auto border rounded-lg bg-muted/10 p-2 text-xs font-mono space-y-1">
+          <div className="border rounded-xl bg-muted/10 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="text-[11px] h-8 font-semibold">SN / Barcode</TableHead>
+                  <TableHead className="text-[11px] h-8 font-semibold">Merek</TableHead>
+                  <TableHead className="text-[11px] h-8 font-semibold">Lokasi Asal</TableHead>
+                  <TableHead className="text-[11px] h-8 text-center font-semibold w-10">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {barangKeluar.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4 select-none">Belum ada barang di-scan</p>
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-xs py-8 text-muted-foreground select-none">
+                      Belum ada barang di-scan
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  barangKeluar.map((item, idx) => (
-                    <div key={item.id} className="flex justify-between items-center py-1 border-b last:border-0 border-muted/30">
-                      <span className="truncate pr-2">{idx + 1}. {item.nomor}</span>
-                      <span className="text-[10px] text-sky-500 font-semibold shrink-0">{item.merek}</span>
-                    </div>
+                  barangKeluar.map((item) => (
+                    <TableRow key={item.id} className="border-b last:border-0 border-muted/20">
+                      <TableCell className="font-mono text-xs py-2 font-semibold text-foreground">{item.nomor}</TableCell>
+                      <TableCell className="text-xs py-2">
+                        <span className="text-[10px] text-amber-400 font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">{item.merek}</span>
+                      </TableCell>
+                      <TableCell className="text-xs py-2 text-muted-foreground">{item.lokasi}</TableCell>
+                      <TableCell className="text-center py-2">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 rounded-full"
+                          onClick={() => handleDeleteItem(item.id)}
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </div>
-            </Card>
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
 
-            {/* Form Fields: Mitra Tujuan, PA / Keterangan */}
-            <Card className="p-4 flex flex-col gap-4">
-              {user?.role !== "mitra" && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="mitra-tujuan-mobile" className="text-xs">Tujuan</Label>
-                  <Select value={selectedPartnerId} onValueChange={(val) => setSelectedPartnerId(val)}>
-                    <SelectTrigger id="mitra-tujuan-mobile" className="w-full h-9 text-xs">
-                      <SelectValue placeholder="Pilih mitra tujuan..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {dbPartners.map((partner) => (
-                        <SelectItem key={partner.id} value={partner.id}>{partner.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+        {/* Form Fields: Mitra Tujuan, PA / Keterangan */}
+        <Card className="p-4 flex flex-col gap-4">
+          {user?.role !== "mitra" && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="mitra-tujuan-mobile" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tujuan</Label>
+              <Select value={selectedPartnerId} onValueChange={(val) => setSelectedPartnerId(val)}>
+                <SelectTrigger id="mitra-tujuan-mobile" className="w-full h-12 text-sm bg-muted/20 border-border/60 rounded-xl px-4 transition-colors hover:bg-muted/30">
+                  <SelectValue placeholder="Pilih mitra tujuan..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {dbPartners.map((partner) => (
+                    <SelectItem key={partner.id} value={partner.id}>{partner.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="keterangan-keluar-mobile" className="text-xs">
-                  {user?.role === "mitra" ? "PA / Keterangan" : "Keterangan"}
-                </Label>
-                <Input
-                  id="keterangan-keluar-mobile"
-                  value={keterangan}
-                  onChange={(event) => {
-                    const nextKeterangan = event.target.value;
-                    setKeterangan(nextKeterangan);
-                    setBarangKeluar((current) =>
-                      current.map((item) => ({
-                        ...item,
-                        keterangan: nextKeterangan,
-                      }))
-                    );
-                  }}
-                  placeholder="Contoh: PA-00123 atau keperluan barang"
-                  className="h-9 text-xs"
-                />
-              </div>
-            </Card>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="keterangan-keluar-mobile" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {user?.role === "mitra" ? "PA / Keterangan" : "Keterangan"}
+            </Label>
+            <Input
+              id="keterangan-keluar-mobile"
+              value={keterangan}
+              onChange={(event) => {
+                const nextKeterangan = event.target.value;
+                setKeterangan(nextKeterangan);
+                setBarangKeluar((current) =>
+                  current.map((item) => ({
+                    ...item,
+                    keterangan: nextKeterangan,
+                  }))
+                );
+              }}
+              placeholder="Contoh: PA-00123 atau keperluan barang"
+              className="h-12 text-sm bg-muted/20 border-border/60 rounded-xl px-4 transition-colors hover:bg-muted/30"
+            />
+          </div>
+        </Card>
 
-            {/* Simpan Button */}
-            <Button
-              className="w-full h-11 text-xs font-bold gap-2 mt-2 cursor-pointer"
-              onClick={handleValidateAll}
-              disabled={barangKeluar.length === 0 || isSaving}
-            >
-              {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
-              Simpan
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="daftar" className="mt-0 flex flex-1 flex-col gap-4">
-            <Card className="flex-1 flex flex-col min-h-[300px]">
-              <CardHeader className="py-3 px-4 border-b">
-                <CardTitle className="text-sm">Detail Daftar Barang Keluar</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">No</TableHead>
-                      <TableHead className="text-xs">Serial Number</TableHead>
-                      <TableHead className="text-xs">Merek</TableHead>
-                      <TableHead className="text-xs">Lokasi Asal</TableHead>
-                      <TableHead className="text-xs text-center">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {barangKeluar.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-xs py-10 text-muted-foreground select-none">
-                          Belum ada barang keluar di sesi ini.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      barangKeluar.map((item, index) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="text-xs font-medium">{index + 1}</TableCell>
-                          <TableCell className="font-mono text-xs truncate max-w-[120px]">{item.nomor}</TableCell>
-                          <TableCell className="text-xs">{item.merek}</TableCell>
-                          <TableCell className="text-xs">{item.lokasi}</TableCell>
-                          <TableCell className="text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteItem(item.id)}
-                            >
-                              <X className="size-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* Simpan Barang Keluar Button */}
+        <Button
+          className="w-full h-14 text-sm font-bold gap-2 mt-2 cursor-pointer rounded-xl bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-950/50 active:scale-[0.98]"
+          onClick={handleValidateAll}
+          disabled={barangKeluar.length === 0 || isSaving}
+        >
+          {isSaving ? <Loader2 className="size-4 animate-spin" /> : <PackageMinus className="size-4" />}
+          📤 Simpan Barang Keluar ({barangKeluar.length})
+        </Button>
       </div>
     );
   }

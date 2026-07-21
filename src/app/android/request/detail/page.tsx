@@ -6,18 +6,8 @@ import type { DashboardRequest } from "@/types/transaction";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-import BastTemplate from "@/features/transactions/components/BastTemplate";
-
 const getBaseUrl = () => {
   const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
@@ -56,8 +46,6 @@ export default function RequestDetailPage() {
   const navigate = useNavigate();
   const [request, setRequest] = useState<DashboardRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [bastData, setBastData] = useState<any>(null);
-  const bastRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -108,22 +96,7 @@ export default function RequestDetailPage() {
       }
     };
 
-    const fetchBast = async () => {
-      try {
-        const res = await fetch(`${getBaseUrl()}/requests/${id}/bast`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setBastData(data);
-        }
-      } catch (error) {
-        // BAST tidak wajib ada, tidak perlu error toast
-        console.log("BAST belum tersedia:", error);
-      }
-    };
-    fetchRequest().then(() => fetchBast());
+    fetchRequest();
   }, [id]);
 
   if (isLoading) {
@@ -143,11 +116,6 @@ export default function RequestDetailPage() {
   }
 
   const status = request.status?.toLowerCase() || "";
-  const showBast = ["siap", "selesai"].includes(status) && bastData;
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full print:p-0 print:m-0 print:block print:max-w-none">
@@ -168,7 +136,7 @@ export default function RequestDetailPage() {
         </div>
       </div>
 
-      <div className={`grid gap-6 ${showBast ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} print:block print:gap-0`}>
+      <div className={`grid gap-6 grid-cols-1 print:block print:gap-0`}>
         {/* ===== KOLOM KIRI: Detail Transaksi ===== */}
         <div className="flex flex-col gap-6 print:hidden">
           <Card className="shadow-sm">
@@ -221,98 +189,70 @@ export default function RequestDetailPage() {
             </CardHeader>
             <CardContent className="pt-6">
               {['SIAP', 'SELESAI', 'DITERIMA'].includes(request.status?.toUpperCase() || "") ? (
-                <div className="rounded-lg border overflow-hidden overflow-x-auto shadow-sm">
-                  <Table className="whitespace-nowrap">
-                    <TableHeader className="bg-muted/50">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-16 text-center">No</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Nama Material</TableHead>
-                        <TableHead>Merek</TableHead>
-                        <TableHead className="text-right">Jumlah</TableHead>
-                        <TableHead className="text-right pr-6">Satuan</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {request.requestAllocations && request.requestAllocations.length > 0 ? (
-                        request.requestAllocations.map((ra, idx) => (
-                          <TableRow key={ra.id}>
-                            <TableCell className="text-muted-foreground text-center">{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{ra.materialCategory}</TableCell>
-                            <TableCell className="truncate max-w-[300px]" title={ra.materialName}>{ra.materialName}</TableCell>
-                            <TableCell>{ra.brand}</TableCell>
-                            <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
-                            <TableCell className="text-right font-medium pr-6">{ra.unit}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                            Belum ada alokasi material spesifik.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                <div className="flex flex-col gap-3">
+                  {request.requestAllocations && request.requestAllocations.length > 0 ? (
+                    request.requestAllocations.map((ra, idx) => (
+                      <div key={ra.id} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/10 flex flex-col gap-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-sm text-neutral-100">{ra.materialName}</span>
+                            <span className="text-xs text-neutral-400">{ra.materialCategory} • {ra.brand}</span>
+                          </div>
+                          <div className="flex items-end gap-1 shrink-0">
+                            <span className="font-bold text-sm text-neutral-100">{ra.quantity}</span>
+                            <span className="text-xs text-neutral-400 font-medium">{ra.unit}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-10 text-sm text-neutral-500 border border-dashed border-neutral-800 rounded-xl">
+                      Belum ada alokasi material spesifik.
+                    </div>
+                  )}
                 </div>
               ) : request.status?.toUpperCase() === 'DISETUJUI' ? (
-                <div className="rounded-lg border overflow-hidden shadow-sm">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-16 text-center">No</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Merek</TableHead>
-                        <TableHead className="text-right">Jumlah</TableHead>
-                        <TableHead className="text-right pr-6">Satuan</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {request.requestItems && request.requestItems.length > 0 ? (
-                        request.requestItems.map((ri, idx) => (
-                          <TableRow key={ri.id}>
-                            <TableCell className="text-muted-foreground text-center">{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{ri.category}</TableCell>
-                            <TableCell>{ri.brand}</TableCell>
-                            <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
-                            <TableCell className="text-right font-medium pr-6">{ri.unit}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                            Tidak ada item.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                <div className="flex flex-col gap-3">
+                  {request.requestItems && request.requestItems.length > 0 ? (
+                    request.requestItems.map((ri, idx) => (
+                      <div key={ri.id} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/10 flex flex-col gap-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-sm text-neutral-100">{ri.category}</span>
+                            <span className="text-xs text-neutral-400">Merek: {ri.brand}</span>
+                          </div>
+                          <div className="flex items-end gap-1 shrink-0">
+                            <span className="font-bold text-sm text-neutral-100">{ri.quantity}</span>
+                            <span className="text-xs text-neutral-400 font-medium">{ri.unit}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-10 text-sm text-neutral-500 border border-dashed border-neutral-800 rounded-xl">
+                      Tidak ada item.
+                    </div>
+                  )}
                 </div>
               ) : request.requestItems && request.requestItems.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden shadow-sm">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-16 text-center">No</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Merek</TableHead>
-                        <TableHead className="text-right pr-6">Jumlah</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {request.requestItems.map((ri, idx) => (
-                        <TableRow key={ri.id}>
-                          <TableCell className="text-muted-foreground text-center">{idx + 1}</TableCell>
-                          <TableCell className="font-medium">{ri.category}</TableCell>
-                          <TableCell>{ri.brand}</TableCell>
-                          <TableCell className="text-right font-medium pr-6">{ri.quantity}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="flex flex-col gap-3">
+                  {request.requestItems.map((ri, idx) => (
+                    <div key={ri.id} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/10 flex flex-col gap-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-semibold text-sm text-neutral-100">{ri.category}</span>
+                          <span className="text-xs text-neutral-400">Merek: {ri.brand}</span>
+                        </div>
+                        <div className="flex items-end gap-1 shrink-0">
+                          <span className="font-bold text-sm text-neutral-100">{ri.quantity}</span>
+                          <span className="text-xs text-neutral-400 font-medium">{ri.unit || "Unit"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="text-center p-12 text-muted-foreground border rounded-lg bg-muted/10 border-dashed">
+                <div className="text-center py-12 text-sm text-neutral-500 border border-dashed border-neutral-800 rounded-xl bg-neutral-900/5">
                   Tidak ada data barang yang tersedia.
                 </div>
               )}
@@ -320,35 +260,6 @@ export default function RequestDetailPage() {
           </Card>
         </div>
 
-        {/* ===== KOLOM KANAN: Pratinjau BAST ===== */}
-        {showBast && (
-          <div className="flex flex-col gap-4 print:block print:w-full print:m-0 print:p-0 print:bg-white print:static print:rounded-none">
-            <Card className="shadow-sm print:shadow-none print:border-none print:bg-transparent print:m-0 print:p-0 print:rounded-none">
-              <CardHeader className="bg-muted/30 border-b print:hidden">
-                <CardTitle>Pratinjau Dokumen BAST</CardTitle>
-                <CardDescription>Bukti Serah Terima Barang resmi</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 print:p-0 print:m-0 print:rounded-none">
-                <div className="border rounded-md m-4 print:m-0 print:border-none overflow-hidden print:overflow-visible aspect-[1/1.4] print:aspect-auto print:w-full print:block print:rounded-none">
-                  <div className="h-full overflow-y-auto print:overflow-visible print:h-auto print:w-full print:block print:m-0 print:p-0 print:rounded-none">
-                    <BastTemplate
-                      ref={bastRef}
-                      documentNumber={bastData.document.documentNumber}
-                      requesterName={bastData.request.requesterName}
-                      generatedByName={bastData.request.generatedByName}
-                      bastDate={bastData.request.processedAt || bastData.request.completedAt || bastData.request.requestedAt}
-                      allocations={bastData.request.allocations || []}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Button onClick={handlePrint} className="w-full print:hidden" size="lg">
-              <Printer className="size-4 mr-2" />
-              Cetak BAST
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

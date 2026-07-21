@@ -76,24 +76,23 @@ const ADMIN_LOCATION = "KP Tasikmalaya";
  * @returns {BrandOption} Nama merek yang terdeteksi, atau string kosong jika tidak ada yang cocok.
  */
 const detectBrandFromCode = (code: string, brands: BrandDefinition[]): BrandOption => {
-  if (!code) return "";
+  if (!code || !brands || brands.length === 0) return "";
   const normalizedCode = code.trim().toUpperCase();
 
-  // Sort brands by identifier length descending to avoid short prefixes overriding longer ones
-  const sortedBrands = [...brands]
-    .filter((brand) => brand.identifier && brand.identifier.trim() !== "")
-    .sort((a, b) => b.identifier.trim().length - a.identifier.trim().length);
+  const brandEntries: { name: string; identifier: string }[] = [];
+  for (const brand of brands) {
+    if (!brand.identifier || !brand.name) continue;
+    const parts = brand.identifier.split(/[,;\s]+/).map(p => p.trim().toUpperCase()).filter(Boolean);
+    for (const part of parts) {
+      brandEntries.push({ name: brand.name, identifier: part });
+    }
+  }
 
-  const matchedByIdentifier = sortedBrands.find((brand) => {
-    const normalizedIdentifier = brand.identifier.trim().toUpperCase();
-    return normalizedCode.includes(normalizedIdentifier);
-  });
+  // Sort by identifier length descending so longer identifiers match first
+  brandEntries.sort((a, b) => b.identifier.length - a.identifier.length);
 
-  if (matchedByIdentifier) return matchedByIdentifier.name;
-
-  const prefix = normalizedCode.substring(0, 3);
-  const matchedByName = brands.find((brand) => brand.name.toUpperCase().startsWith(prefix));
-  return matchedByName?.name || "";
+  const match = brandEntries.find((entry) => normalizedCode.startsWith(entry.identifier));
+  return match ? match.name : "";
 };
 
 /**
@@ -494,7 +493,7 @@ export default function BarangMasukPage() {
       return { success: false, message: msg };
     }
 
-    const itemBrand = existingItem?.merek || detectedBrand || merekFallback;
+    const itemBrand = existingItem?.merek || detectedBrand || merekFallback || "Lainnya";
     let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, kuota);
     const isMitraUser = user?.role === "mitra";
 
@@ -853,7 +852,7 @@ export default function BarangMasukPage() {
         }
 
         const newTransaction = {
-          id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          id: `TRX-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
           tanggal: sessionDate,
           nomor: sessionNomor,
           kategori: "Masuk",
@@ -900,7 +899,7 @@ export default function BarangMasukPage() {
           }
 
           const replacementTransaction = {
-            id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}-REP`,
+            id: `TRX-${Date.now()}-${Math.random().toString(36).substring(2, 10)}-REP`,
             tanggal: sessionDate,
             nomor: sessionNomor,
             kategori: "Masuk",
@@ -932,9 +931,9 @@ export default function BarangMasukPage() {
       const resRefresh = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() });
       const rawRefresh = await resRefresh.json();
       setDbItems(Array.isArray(rawRefresh.data || rawRefresh) ? (rawRefresh.data || rawRefresh) : []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gagal menyimpan ke database:", error);
-      toast.error("Gagal menyimpan barang masuk ke database.");
+      toast.error(error?.message || "Gagal menyimpan barang masuk ke database.");
     } finally {
       setIsSaving(false);
     }
