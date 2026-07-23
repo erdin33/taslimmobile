@@ -900,7 +900,7 @@ export default function BarangMasukPage() {
               </TabsList>
             </CardHeader>
 
-            <CardContent className="flex flex-1 flex-col gap-4">
+            <CardContent className="flex flex-1 flex-col gap-4 overflow-y-auto max-h-[60vh] md:max-h-none">
               {user?.role === "mitra" && (
                 <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-xs leading-5 text-sky-600 dark:text-sky-400 space-y-1">
                   <p className="font-semibold">Ketentuan Penerimaan Barang Mitra</p>
