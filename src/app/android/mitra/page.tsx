@@ -18,7 +18,7 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -489,77 +489,141 @@ export default function MitraPage() {
   return (
     <div className="flex min-h-full flex-col gap-4 p-4 md:p-6 md:pt-10 md:pb-8 lg:p-8 lg:pt-10 lg:pb-8">
       {/* Toolbar */}
-      <Card className="p-4 bg-transparent border-0 shadow-none px-0 pt-0">
-        <div className="flex flex-col gap-3">
-          <div className="relative w-full">
-            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Cari mitra, PIC, telepon..."
-              className="pl-10 h-11 rounded-2xl bg-card shadow-sm border-border/60"
-            />
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Cari mitra, PIC, telepon..."
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Jenis mitra" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Jenis</SelectItem>
+                  {PARTNER_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="inactive">Nonaktif</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Result count */}
+            {!isLoading && (
+              <div className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
+                <Users className="size-3.5" />
+                <span>{filteredPartners.length} mitra</span>
+              </div>
+            )}
           </div>
-          <div className="flex gap-2">
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-1/2 h-11 rounded-2xl bg-card shadow-sm border-border/60">
-                <SelectValue placeholder="Jenis mitra" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Jenis</SelectItem>
-                {PARTNER_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-1/2 h-11 rounded-2xl bg-card shadow-sm border-border/60">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Status</SelectItem>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Nonaktif</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={openAddSheet} className="gap-2 h-11 rounded-2xl w-full shadow-sm">
+          <Button onClick={openAddSheet} className="gap-2">
             <Plus className="size-4" />
             Tambah Mitra
           </Button>
         </div>
       </Card>
 
-      {/* Mobile Card List */}
-      <div className="flex-1 overflow-y-auto min-h-0 -mx-4 px-4 pb-2">
-        {isLoading ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-2xl" />)}
-          </div>
-        ) : paginatedPartners.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {paginatedPartners.map((partner) => (
-              <Card key={partner.id} className="overflow-hidden transition-colors duration-200 hover:bg-muted/40 shadow-sm border-border/60">
-                <CardContent className="p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-[15px] leading-tight text-foreground">{partner.name}</span>
-                      <span className="text-xs font-medium text-muted-foreground">{partner.code}</span>
-                    </div>
+      {/* Data Table */}
+      <div className="min-h-0 flex-1 rounded-lg border bg-card/20 overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-muted">
+            <TableRow>
+              <TableHead className="w-[50px] text-center">No.</TableHead>
+              <TableHead className="w-[180px]">Nama Mitra</TableHead>
+              <TableHead className="w-[100px]">Kode</TableHead>
+              <TableHead className="w-[110px]">Jenis</TableHead>
+              <TableHead className="w-[150px]">PIC</TableHead>
+              <TableHead className="w-[130px]">Username</TableHead>
+              <TableHead className="w-[140px]">Telepon</TableHead>
+              <TableHead className="hidden lg:table-cell w-[180px]">Email</TableHead>
+              <TableHead className="hidden lg:table-cell w-[180px]">Wilayah</TableHead>
+              <TableHead className="w-[100px] text-center">Status</TableHead>
+              <TableHead className="w-[50px] text-right"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableSkeleton />
+            ) : paginatedPartners.length > 0 ? (
+              paginatedPartners.map((partner, index) => (
+                <TableRow
+                  key={partner.id}
+                  className="hover:bg-muted/30 transition-colors"
+                >
+                  <TableCell className="text-center font-medium">
+                    {(currentPage - 1) * pageSize + index + 1}
+                  </TableCell>
+                  <TableCell>
+                    <span className="block max-w-[160px] truncate font-medium">{partner.name}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-muted-foreground">{partner.code}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="font-normal">{partner.partnerType === "AKTIVASI" ? "Aktivasi" : "Gangguan"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="block max-w-[130px] truncate">{partner.contactPerson}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="block max-w-[120px] truncate text-muted-foreground">
+                      {partner.username ? `${partner.username}` : "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="block max-w-[130px] truncate">{partner.phone}</span>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <span className="block max-w-[160px] truncate text-muted-foreground">{partner.email}</span>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <span className="block max-w-[160px] truncate text-muted-foreground">{partner.address}</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge
+                      variant="secondary"
+                      className="font-normal gap-1.5 px-2.5 py-0.5"
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full ${partner.isActive
+                        ? "bg-emerald-500"
+                        : "bg-muted-foreground/50"
+                        }`} />
+                      {partner.isActive ? "Aktif" : "Nonaktif"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 rounded-full text-muted-foreground hover:text-foreground">
+                        <Button variant="ghost" size="icon-xs" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                           <MoreVertical className="size-4" />
+                          <span className="sr-only">Menu mitra</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[160px] rounded-xl border-border/60">
-                        <DropdownMenuItem onClick={() => openEditSheet(partner)} className="rounded-lg">
+                      <DropdownMenuContent align="end" className="w-[160px]">
+                        <DropdownMenuItem onClick={() => openEditSheet(partner)}>
                           <Edit className="size-4 mr-2" />
                           <span>Edit Mitra</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem disabled={togglingId === partner.id} onClick={() => handleToggleStatus(partner)} className="rounded-lg">
+                        <DropdownMenuItem disabled={togglingId === partner.id} onClick={() => handleToggleStatus(partner)}>
                           {togglingId === partner.id ? (
                             <Loader2 className="size-4 mr-2 animate-spin" />
                           ) : (
@@ -571,46 +635,24 @@ export default function MitraPage() {
                         <DropdownMenuItem
                           variant="destructive"
                           onClick={() => setDeleteTarget(partner)}
-                          className="rounded-lg text-red-500 focus:bg-red-500/10 focus:text-red-500"
                         >
                           <Trash2 className="size-4 mr-2" />
                           <span>Hapus Mitra</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm pt-2.5 border-t border-border/40">
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold leading-none">Jenis</span>
-                      <Badge variant="secondary" className="w-fit font-medium text-xs px-2 py-0.5 h-5 rounded-md">{partner.partnerType === "AKTIVASI" ? "Aktivasi" : "Gangguan"}</Badge>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold leading-none">Status</span>
-                      <Badge variant="secondary" className="w-fit font-medium gap-1.5 px-2 py-0.5 h-5 rounded-md text-xs border-0">
-                        <div className={`w-1.5 h-1.5 rounded-full ${partner.isActive ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
-                        {partner.isActive ? "Aktif" : "Nonaktif"}
-                      </Badge>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">PIC / Kontak</span>
-                      <span className="font-medium text-foreground leading-tight text-xs">{partner.contactPerson}</span>
-                      <span className="font-medium text-muted-foreground leading-tight text-xs">{partner.phone}</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold">Username</span>
-                      <span className="font-medium text-foreground leading-tight text-xs">{partner.username || "—"}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="h-full bg-card/20 rounded-2xl border border-dashed border-border/60">
-             <EmptyMitraTableState isFiltered={hasActiveFilter} />
-          </div>
-        )}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={11} className="p-0">
+                  <EmptyMitraTableState isFiltered={hasActiveFilter} />
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Pagination */}

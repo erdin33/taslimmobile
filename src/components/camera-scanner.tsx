@@ -63,6 +63,7 @@ interface CameraScannerProps {
   children?: React.ReactNode
   showModeTabs?: boolean
   defaultMode?: "masuk" | "keluar"
+  onOpenChange?: (open: boolean) => void
 }
 
 export function CameraScanner({
@@ -72,6 +73,7 @@ export function CameraScanner({
   children,
   showModeTabs = false,
   defaultMode = "masuk",
+  onOpenChange,
 }: CameraScannerProps) {
   const [open, setOpen] = React.useState(false)
   const [activeMode, setActiveMode] = React.useState<"masuk" | "keluar">(defaultMode)
@@ -81,9 +83,14 @@ export function CameraScanner({
   const [cameraActive, setCameraActive] = React.useState(false)
   const [scanFlash, setScanFlash] = React.useState<"success" | "error" | null>(null)
 
+  const handleOpen = (val: boolean) => {
+    setOpen(val)
+    onOpenChange?.(val)
+  }
+
   const location = useLocation()
   React.useEffect(() => {
-    setOpen(false)
+    handleOpen(false)
   }, [location.pathname])
 
   const onScanRef = React.useRef(onScan)
@@ -275,7 +282,7 @@ export function CameraScanner({
       toast.error("Gagal membuka kamera. Pastikan izin kamera telah diberikan.")
       setCameraActive(false)
     }
-  }, [open])
+  }, [open, activeMode])
 
   // Stop Scanner
   const stopScanner = React.useCallback(async () => {
@@ -431,7 +438,7 @@ export function CameraScanner({
         toast.success(`${newTexts.length} barcode berhasil diproses!`)
         
         setTimeout(() => {
-          setOpen(false)
+          handleOpen(false)
         }, 800)
       } catch (err: any) {
         playScannerBeep("error")
@@ -473,7 +480,7 @@ export function CameraScanner({
             variant="ghost"
             size="icon"
             className="rounded-full size-10 bg-black/40 hover:bg-black/60 text-white border border-white/10 cursor-pointer"
-            onClick={() => setOpen(false)}
+            onClick={() => handleOpen(false)}
           >
             <X className="size-5" />
           </Button>
@@ -619,7 +626,7 @@ export function CameraScanner({
               type="button"
               size="sm"
               className="h-7 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-full px-3.5 cursor-pointer shadow-md active:scale-95 transition-all pointer-events-auto"
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpen(false)}
             >
               Selesai
             </Button>
@@ -665,11 +672,11 @@ export function CameraScanner({
   return (
     <>
       {children ? (
-        <div onClick={() => setOpen(true)} className="cursor-pointer">
+        <div onClick={() => handleOpen(true)} className="cursor-pointer">
           {children}
         </div>
       ) : (
-        <Button className={className} variant="outline" onClick={() => setOpen(true)}>
+        <Button className={className} variant="outline" onClick={() => handleOpen(true)}>
           <Camera className="mr-2 size-4" />
           {buttonText}
         </Button>
