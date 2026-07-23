@@ -774,7 +774,7 @@ export default function BarangKeluarPage() {
             </Badge>
           </CardHeader>
 
-          <CardContent className="relative flex-1 overflow-auto p-4">
+          <CardContent className="relative flex-1 overflow-auto p-4 max-h-[60vh] md:max-h-none">
             {barangKeluar.length === 0 ? (
               <div className="rounded-lg border bg-card text-card-foreground shadow-sm my-auto">
                 <EmptyScanTableState />

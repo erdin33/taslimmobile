@@ -1021,7 +1021,7 @@ export default function BarangMasukPage() {
             </Badge>
           </CardHeader>
 
-          <CardContent className="flex flex-1 flex-col gap-4 p-4">
+          <CardContent className="relative flex flex-1 flex-col gap-4 p-4 overflow-y-auto max-h-[60vh] md:max-h-none">
             {barangMasuk.length === 0 ? (
               <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
                 <EmptyScanTableState />
