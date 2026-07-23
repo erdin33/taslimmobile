@@ -191,15 +191,15 @@ const getMitraDefaultLocation = (mitraName: string): LokasiOption =>
 
 function EmptyScanTableState() {
   return (
-    <div className="flex items-center justify-center px-6 py-12">
-      <div className="flex max-w-md flex-col items-center gap-4 text-center">
-        <div className="flex size-14 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
-          <PackagePlus className="size-7" strokeWidth={1.8} />
+    <div className="flex flex-col items-center justify-center p-6 text-center">
+      <div className="flex max-w-sm flex-col items-center gap-3">
+        <div className="flex size-12 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
+          <PackagePlus className="size-6" strokeWidth={1.8} />
         </div>
-        <div className="space-y-1.5">
-          <p className="text-base font-semibold text-foreground">Belum ada barang masuk</p>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Scan atau masukkan serial number dari form di sebelah kiri untuk menambahkan item ke sesi ini.
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">Belum ada barang masuk</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Scan barcode atau masukkan serial number dari form di atas untuk menambahkan item.
           </p>
         </div>
       </div>
@@ -942,62 +942,70 @@ export default function BarangMasukPage() {
               <div className="my-2 border-t border-dashed"></div>
 
               <div className="flex flex-col gap-3">
-
                 {kondisiBarang === "Baru" && (
-                  <Select
-                    value={tipeBarang}
-                    onValueChange={(value) => {
-                      setTipeBarang(value);
-                      focusKodeBarangInput();
-                    }}
-                  >
-                    <Label htmlFor="tipe-barang">Model</Label>
-                    <SelectTrigger id="tipe-barang" className="w-full mb-3 h-10">
-                      <SelectValue placeholder="Pilih Model Default (Opsional)" />
-                    </SelectTrigger>
-                    <Label htmlFor="kode-barang-manual">Kode / SN</Label>
-                    <SelectContent>
-                      <SelectGroup>
-                        {dbModels.map((model) => (
-                          <SelectItem key={model.id} value={model.nama}>
-                            {model.nama} ({model.brand?.nama || model.brand?.name || "Tanpa Merek"})
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <ScanLine className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
-                    <Input
-                      ref={inputRef}
-                      id="kode-barang-manual"
-                      className="pl-9 h-10 bg-muted/50 border-input shadow-sm"
-                      value={kodeBarang}
-                      onChange={(event) => updateKodeBarang(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void handleSubmit(kodeBarangRef.current);
-                        }
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="tipe-barang" className="text-sm font-medium">Model Default (Opsional)</Label>
+                    <Select
+                      value={tipeBarang}
+                      onValueChange={(value) => {
+                        setTipeBarang(value);
+                        focusKodeBarangInput();
                       }}
-                      placeholder="Scan barcode atau ketik manual di sini..."
-                    />
+                    >
+                      <SelectTrigger id="tipe-barang" className="w-full h-10">
+                        <SelectValue placeholder="Pilih Model Default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {dbModels.map((model) => (
+                            <SelectItem key={model.id} value={model.nama}>
+                              {model.nama} ({model.brand?.nama || model.brand?.name || "Tanpa Merek"})
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <CameraScanner
-                    onOpenChange={setOpenScanner}
-                    onScan={handleScanSuccess}
-                  >
-                    <div className="h-10 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all flex items-center gap-2 cursor-pointer">
-                      <ScanLine className="size-4" />
-                      <span className="hidden sm:inline">Kamera</span>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="kode-barang-manual" className="text-sm font-medium">Kode / Serial Number</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <ScanLine className="absolute top-3 left-3 size-4 text-muted-foreground" />
+                      <Input
+                        ref={inputRef}
+                        id="kode-barang-manual"
+                        className="pl-9 h-10 bg-muted/50 border-input shadow-sm font-mono text-sm"
+                        value={kodeBarang}
+                        onChange={(event) => updateKodeBarang(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void handleSubmit(kodeBarangRef.current);
+                          }
+                        }}
+                        placeholder="Scan barcode / ketik SN..."
+                      />
                     </div>
-                  </CameraScanner>
+                    <CameraScanner
+                      onOpenChange={setOpenScanner}
+                      onScan={handleScanSuccess}
+                    >
+                      <Button
+                        type="button"
+                        variant="default"
+                        className="h-10 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all flex items-center gap-1.5 shrink-0"
+                      >
+                        <ScanLine className="size-4" />
+                        <span className="text-xs font-semibold">Kamera</span>
+                      </Button>
+                    </CameraScanner>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Kategori & Merek akan terdeteksi otomatis dari SN.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Kategori dan Merek akan terdeteksi otomatis dari SN.
-                </p>
               </div>
             </CardContent>
           </Tabs>
@@ -1013,129 +1021,252 @@ export default function BarangMasukPage() {
             </Badge>
           </CardHeader>
 
-          <CardContent className="flex flex-1 flex-col gap-4">
-            <div className="flex-1 overflow-auto rounded-lg border">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted">
-                  <TableRow>
-                    <TableHead className="w-14">No</TableHead>
-                    <TableHead>Serial Number</TableHead>
-                    <TableHead>Merek</TableHead>
-                    <TableHead>Kategori</TableHead>
-                    <TableHead>Tipe/Model</TableHead>
-                    <TableHead>Asal</TableHead>
-                    <TableHead>Lokasi</TableHead>
-                    <TableHead className="w-16 text-center">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {barangMasuk.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="p-0">
-                        <EmptyScanTableState />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    barangMasuk.map((item, index) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-mono">{item.nomor}</TableCell>
-                        <TableCell>
+          <CardContent className="flex flex-1 flex-col gap-4 p-4">
+            {barangMasuk.length === 0 ? (
+              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+                <EmptyScanTableState />
+              </div>
+            ) : (
+              <>
+                {/* Mobile Cards View (md:hidden) */}
+                <div className="flex flex-col gap-3 md:hidden">
+                  {barangMasuk.map((item, index) => (
+                    <Card key={item.id} className="p-3.5 space-y-3 border-border/80 shadow-xs">
+                      <div className="flex items-center justify-between gap-2 border-b pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                            {index + 1}
+                          </span>
+                          <span className="font-mono text-sm font-semibold tracking-tight">{item.nomor}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant={item.kondisi === "Baru" ? "default" : "outline"} className="text-[10px] px-2 py-0.5">
+                            {item.kondisi}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="size-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteItem(item.id)}
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Merek</span>
                           {item.kondisi === "Baru" ? (
                             <Select value={item.merek} onValueChange={(val) => handleUpdateInline(item.id, "merek", val)}>
-                              <SelectTrigger className="w-30 h-8 text-xs"><SelectValue placeholder="Pilih Merek" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs w-full"><SelectValue placeholder="Pilih Merek" /></SelectTrigger>
                               <SelectContent>
                                 {dbBrands.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.merek}</div>
+                            <div className="flex items-center gap-1 py-1 font-medium"><Lock className="size-3 text-muted-foreground" />{item.merek}</div>
                           )}
-                        </TableCell>
-                        <TableCell>
+                        </div>
+
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Kategori</span>
                           {item.kondisi === "Baru" ? (
                             <Select value={item.kategori} onValueChange={(val) => handleUpdateInline(item.id, "kategori", val)}>
-                              <SelectTrigger className="w-30 h-8 text-xs"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs w-full"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger>
                               <SelectContent>
                                 {dbCategories.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <Badge variant="secondary" className="font-normal px-2.5 py-0.5 flex w-fit items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.kategori}</Badge>
+                            <div className="flex items-center gap-1 py-1 font-medium"><Lock className="size-3 text-muted-foreground" />{item.kategori}</div>
                           )}
-                        </TableCell>
-                        <TableCell>
+                        </div>
+
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Model</span>
                           {item.kondisi === "Baru" ? (
                             <Select value={item.tipe} onValueChange={(val) => handleUpdateInline(item.id, "tipe", val)}>
-                              <SelectTrigger className={`w-[140px] h-8 text-xs ${!item.tipe ? "border-destructive text-destructive" : ""}`}><SelectValue placeholder="Pilih Model" /></SelectTrigger>
+                              <SelectTrigger className={`h-8 text-xs w-full ${!item.tipe ? "border-destructive text-destructive" : ""}`}><SelectValue placeholder="Pilih Model" /></SelectTrigger>
                               <SelectContent>
                                 {dbModels.filter(m => (m.brand?.nama || m.brand?.name || "").toLowerCase() === item.merek.toLowerCase()).map(m => <SelectItem key={m.id} value={m.nama}>{m.nama}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.tipe || "-"}</div>
+                            <div className="flex items-center gap-1 py-1 font-medium"><Lock className="size-3 text-muted-foreground" />{item.tipe || "-"}</div>
                           )}
-                        </TableCell>
-                        <TableCell>{item.asal || asalBarang}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={item.lokasi}
-                            onValueChange={(value) => {
-                              const selectedLokasi = value as LokasiOption;
-                              if ((kuota[selectedLokasi] ?? Number.POSITIVE_INFINITY) <= 0) {
-                                toast.error("Kuota lokasi sudah penuh dan tidak dapat dipilih.", {
-                                  description: selectedLokasi,
-                                });
-                                focusKodeBarangInput();
-                                return;
-                              }
-                              handleUpdateLokasi(item.id, selectedLokasi);
+                        </div>
+
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Asal</span>
+                          <div className="py-1 font-medium truncate">{item.asal || asalBarang}</div>
+                        </div>
+                      </div>
+
+                      <div className="pt-1 border-t">
+                        <span className="text-muted-foreground block text-[10px] mb-1">Lokasi Penyimpanan</span>
+                        <Select
+                          value={item.lokasi}
+                          onValueChange={(value) => {
+                            const selectedLokasi = value as LokasiOption;
+                            if ((kuota[selectedLokasi] ?? Number.POSITIVE_INFINITY) <= 0) {
+                              toast.error("Kuota lokasi sudah penuh dan tidak dapat dipilih.", {
+                                description: selectedLokasi,
+                              });
                               focusKodeBarangInput();
-                            }}
-                          >
-                            <SelectTrigger className="w-220px">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
-                                  <SelectItem value={item.lokasi}>
-                                    {item.lokasi}
+                              return;
+                            }
+                            handleUpdateLokasi(item.id, selectedLokasi);
+                            focusKodeBarangInput();
+                          }}
+                        >
+                          <SelectTrigger className="w-full h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
+                                <SelectItem value={item.lokasi}>
+                                  {item.lokasi}
+                                </SelectItem>
+                              )}
+                              {dbLocations.map((lokasi) => {
+                                const isDisabled = kuota[lokasi.name] <= 0;
+                                return (
+                                  <SelectItem
+                                    key={lokasi.name}
+                                    value={lokasi.name}
+                                    disabled={isDisabled}
+                                  >
+                                    {lokasi.name}{isDisabled ? " (Kuota penuh)" : ""}
                                   </SelectItem>
-                                )}
-                                {dbLocations.map((lokasi) => {
-                                  const isDisabled = kuota[lokasi.name] <= 0;
-                                  return (
-                                    <SelectItem
-                                      key={lokasi.name}
-                                      value={lokasi.name}
-                                      disabled={isDisabled}
-                                    >
-                                      {lokasi.name}{isDisabled ? " (Kuota penuh)" : ""}
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteItem(item.id)}
-                          >
-                            <X className="size-4" />
-                            <span className="sr-only">Hapus item</span>
-                          </Button>
-                        </TableCell>
+                                );
+                              })}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Desktop Table View (hidden md:block) */}
+                <div className="hidden md:block flex-1 overflow-auto rounded-lg border">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-muted">
+                      <TableRow>
+                        <TableHead className="w-14">No</TableHead>
+                        <TableHead>Serial Number</TableHead>
+                        <TableHead>Merek</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Tipe/Model</TableHead>
+                        <TableHead>Asal</TableHead>
+                        <TableHead>Lokasi</TableHead>
+                        <TableHead className="w-16 text-center">Aksi</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {barangMasuk.map((item, index) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{index + 1}</TableCell>
+                          <TableCell className="font-mono">{item.nomor}</TableCell>
+                          <TableCell>
+                            {item.kondisi === "Baru" ? (
+                              <Select value={item.merek} onValueChange={(val) => handleUpdateInline(item.id, "merek", val)}>
+                                <SelectTrigger className="w-30 h-8 text-xs"><SelectValue placeholder="Pilih Merek" /></SelectTrigger>
+                                <SelectContent>
+                                  {dbBrands.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.merek}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {item.kondisi === "Baru" ? (
+                              <Select value={item.kategori} onValueChange={(val) => handleUpdateInline(item.id, "kategori", val)}>
+                                <SelectTrigger className="w-30 h-8 text-xs"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger>
+                                <SelectContent>
+                                  {dbCategories.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Badge variant="secondary" className="font-normal px-2.5 py-0.5 flex w-fit items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.kategori}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {item.kondisi === "Baru" ? (
+                              <Select value={item.tipe} onValueChange={(val) => handleUpdateInline(item.id, "tipe", val)}>
+                                <SelectTrigger className={`w-[140px] h-8 text-xs ${!item.tipe ? "border-destructive text-destructive" : ""}`}><SelectValue placeholder="Pilih Model" /></SelectTrigger>
+                                <SelectContent>
+                                  {dbModels.filter(m => (m.brand?.nama || m.brand?.name || "").toLowerCase() === item.merek.toLowerCase()).map(m => <SelectItem key={m.id} value={m.nama}>{m.nama}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.tipe || "-"}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>{item.asal || asalBarang}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={item.lokasi}
+                              onValueChange={(value) => {
+                                const selectedLokasi = value as LokasiOption;
+                                if ((kuota[selectedLokasi] ?? Number.POSITIVE_INFINITY) <= 0) {
+                                  toast.error("Kuota lokasi sudah penuh dan tidak dapat dipilih.", {
+                                    description: selectedLokasi,
+                                  });
+                                  focusKodeBarangInput();
+                                  return;
+                                }
+                                handleUpdateLokasi(item.id, selectedLokasi);
+                                focusKodeBarangInput();
+                              }}
+                            >
+                              <SelectTrigger className="w-220px">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
+                                    <SelectItem value={item.lokasi}>
+                                      {item.lokasi}
+                                    </SelectItem>
+                                  )}
+                                  {dbLocations.map((lokasi) => {
+                                    const isDisabled = kuota[lokasi.name] <= 0;
+                                    return (
+                                      <SelectItem
+                                        key={lokasi.name}
+                                        value={lokasi.name}
+                                        disabled={isDisabled}
+                                      >
+                                        {lokasi.name}{isDisabled ? " (Kuota penuh)" : ""}
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteItem(item.id)}
+                            >
+                              <X className="size-4" />
+                              <span className="sr-only">Hapus item</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
           </CardContent>
 
           <CardFooter className="justify-end gap-2">

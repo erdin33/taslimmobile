@@ -774,70 +774,141 @@ export default function BarangKeluarPage() {
             </Badge>
           </CardHeader>
 
-          <CardContent className="relative flex-1 overflow-auto p-0">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
-                <TableRow>
-                  <TableHead className="w-14">No</TableHead>
-                  <TableHead>Serial Number</TableHead>
-                  <TableHead>Merek</TableHead>
-                  <TableHead>Kategori</TableHead>
-                  <TableHead>Tipe/Model</TableHead>
-                  <TableHead>Asal Lokasi</TableHead>
-                  {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
-                  {user?.role === "mitra" && <TableHead>PA / Keterangan</TableHead>}
-                  <TableHead>{user?.role === "mitra" ? "Status" : "Status Validasi"}</TableHead>
-                  <TableHead className="w-16 text-center">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {barangKeluar.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="h-[300px] p-0">
-                      <EmptyScanTableState />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  barangKeluar.map((item, index) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell className="font-mono">{item.nomor}</TableCell>
-                      <TableCell>{item.merek}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
-                          {item.kategori}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{item.tipe || "-"}</TableCell>
-                      <TableCell>{item.lokasi}</TableCell>
-                      {user?.role !== "mitra" && <TableCell>{item.mitra}</TableCell>}
-                      {user?.role === "mitra" && <TableCell>{item.keterangan}</TableCell>}
-                      <TableCell>
-                        <Badge variant="secondary" className="gap-1.5 font-normal px-2.5 py-0.5">
-                          <div
-                            className={`size-1.5 rounded-full ${
-                              user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"
-                            }`}
-                          />
-                          {user?.role === "mitra" ? "Diluar" : item.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteItem(item.id)}
-                        >
-                          <X className="size-4" />
-                          <span className="sr-only">Hapus item</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+          <CardContent className="relative flex-1 overflow-auto p-4">
+            {barangKeluar.length === 0 ? (
+              <div className="rounded-lg border bg-card text-card-foreground shadow-sm my-auto">
+                <EmptyScanTableState />
+              </div>
+            ) : (
+              <>
+                {/* Mobile View Cards (md:hidden) */}
+                <div className="flex flex-col gap-3 md:hidden">
+                  {barangKeluar.map((item, index) => (
+                    <Card key={item.id} className="p-3.5 space-y-2.5 border-border/80 shadow-xs">
+                      <div className="flex items-center justify-between gap-2 border-b pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                            {index + 1}
+                          </span>
+                          <span className="font-mono text-sm font-semibold tracking-tight">{item.nomor}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="secondary" className="gap-1.5 font-normal px-2 py-0.5 text-[10px]">
+                            <div className={`size-1.5 rounded-full ${user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"}`} />
+                            {user?.role === "mitra" ? "Diluar" : item.status}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="size-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteItem(item.id)}
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Merek</span>
+                          <div className="font-medium truncate">{item.merek}</div>
+                        </div>
+
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Kategori</span>
+                          <Badge variant="secondary" className="font-normal text-[10px] px-2 py-0.5">
+                            {item.kategori}
+                          </Badge>
+                        </div>
+
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Model</span>
+                          <div className="font-medium truncate">{item.tipe || "-"}</div>
+                        </div>
+
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Asal Lokasi</span>
+                          <div className="font-medium truncate">{item.lokasi}</div>
+                        </div>
+
+                        {user?.role !== "mitra" && (
+                          <div>
+                            <span className="text-muted-foreground block text-[10px]">Mitra</span>
+                            <div className="font-medium truncate">{item.mitra}</div>
+                          </div>
+                        )}
+
+                        {user?.role === "mitra" && (
+                          <div>
+                            <span className="text-muted-foreground block text-[10px]">PA / Keterangan</span>
+                            <div className="font-medium truncate">{item.keterangan || "-"}</div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Desktop View Table (hidden md:block) */}
+                <div className="hidden md:block flex-1 overflow-auto rounded-lg border">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
+                      <TableRow>
+                        <TableHead className="w-14">No</TableHead>
+                        <TableHead>Serial Number</TableHead>
+                        <TableHead>Merek</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Tipe/Model</TableHead>
+                        <TableHead>Asal Lokasi</TableHead>
+                        {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
+                        {user?.role === "mitra" && <TableHead>PA / Keterangan</TableHead>}
+                        <TableHead>{user?.role === "mitra" ? "Status" : "Status Validasi"}</TableHead>
+                        <TableHead className="w-16 text-center">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {barangKeluar.map((item, index) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{index + 1}</TableCell>
+                          <TableCell className="font-mono">{item.nomor}</TableCell>
+                          <TableCell>{item.merek}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
+                              {item.kategori}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{item.tipe || "-"}</TableCell>
+                          <TableCell>{item.lokasi}</TableCell>
+                          {user?.role !== "mitra" && <TableCell>{item.mitra}</TableCell>}
+                          {user?.role === "mitra" && <TableCell>{item.keterangan}</TableCell>}
+                          <TableCell>
+                            <Badge variant="secondary" className="gap-1.5 font-normal px-2.5 py-0.5">
+                              <div
+                                className={`size-1.5 rounded-full ${
+                                  user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"
+                                }`}
+                              />
+                              {user?.role === "mitra" ? "Diluar" : item.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteItem(item.id)}
+                            >
+                              <X className="size-4" />
+                              <span className="sr-only">Hapus item</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
           </CardContent>
 
           {/* Sticky Footer Metrics & Action */}
