@@ -57,7 +57,7 @@ const playScannerBeep = (type: "success" | "error" | "info" = "success") => {
 }
 
 interface CameraScannerProps {
-  onScan: (code: string, mode?: "masuk" | "keluar") => Promise<any> | any
+  onScan: (code: string | string[], mode?: "masuk" | "keluar") => Promise<any> | any
   buttonText?: string
   className?: string
   children?: React.ReactNode
@@ -92,7 +92,9 @@ export function CameraScanner({
   }, [onScan])
 
   const qrScannerRef = React.useRef<Html5Qrcode | null>(null)
+  const scannedCodesSetRef = React.useRef<Set<string>>(new Set())
   const lastScannedCodeRef = React.useRef<{ code: string; time: number } | null>(null)
+  const nativeDetectorRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const readerId = "camera-scanner-viewfinder"
 
   // Start Scanner
@@ -118,20 +120,22 @@ export function CameraScanner({
       await scanner.start(
         { facingMode: "environment" },
         {
-          fps: 30, // naikkan dari 25 → 30, lebih sering polling frame
-          disableFlip: true, // skip pengecekan mirror/flip, kurangi beban decode per frame
+          fps: 30,
+          disableFlip: true,
           videoConstraints: {
             facingMode: "environment",
             width: { ideal: 1280, min: 640 },
             height: { ideal: 720, min: 480 },
-            frameRate: { ideal: 30, min: 15 }, // pastikan browser kirim frame rate tinggi, bukan cuma diminta di fps decoder
+            frameRate: { ideal: 30, min: 15 },
           },
           experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true, // ini sudah bagus — pakai native BarcodeDetector di Chrome Android, jauh lebih cepat dari JS decoder (ZXing)
+            useBarCodeDetectorIfSupported: true,
           },
         } as any,
         async (decodedText) => {
           const now = Date.now()
+
+          // Skip if this exact code was scanned very recently (cooldown 2.5s for rapid re-reads)
           if (
             lastScannedCodeRef.current &&
             lastScannedCodeRef.current.code === decodedText &&
@@ -139,12 +143,22 @@ export function CameraScanner({
           ) {
             return
           }
+
+          // Skip if this code was already scanned or is being processed
+          if (scannedCodesSetRef.current.has(decodedText)) {
+            return
+          }
+
           lastScannedCodeRef.current = { code: decodedText, time: now }
+
+          // Mark as processing immediately to prevent race with native detector
+          scannedCodesSetRef.current.add(decodedText)
 
           try {
             const result = await onScanRef.current(decodedText, activeMode)
             if (result && result.success === false) {
               if (result.ignored) {
+                scannedCodesSetRef.current.delete(decodedText)
                 lastScannedCodeRef.current = null
                 return
               }
@@ -155,22 +169,19 @@ export function CameraScanner({
             setScanFlash("success")
             setScannedCodes((prev) => [
               { code: decodedText, status: "success", timestamp: new Date() },
-              ...prev.slice(0, 19),
+              ...prev.slice(0, 49),
             ])
             toast.success(`SN Discan: ${decodedText}`)
-
-            // Auto-close scanner after 800ms so user can see main form page
-            setTimeout(() => {
-              setOpen(false)
-            }, 800)
           } catch (err: any) {
+            // Remove from Set so it can be retried
+            scannedCodesSetRef.current.delete(decodedText)
             if (navigator.vibrate) navigator.vibrate([100, 50, 100])
             playScannerBeep("error")
             setScanFlash("error")
             const errMsg = err.message || "Barang tidak valid"
             setScannedCodes((prev) => [
               { code: decodedText, status: "error", message: errMsg, timestamp: new Date() },
-              ...prev.slice(0, 19),
+              ...prev.slice(0, 49),
             ])
             toast.error(errMsg, { description: decodedText })
           } finally {
@@ -196,6 +207,69 @@ export function CameraScanner({
         }
       }, 1200)
 
+      // Start native multi-barcode detection loop
+      // html5-qrcode only returns 1 barcode per frame; native BarcodeDetector can detect ALL at once
+      if ("BarcodeDetector" in window) {
+        setTimeout(() => {
+          try {
+            const videoEl = document.querySelector(`#${readerId} video`) as HTMLVideoElement
+            if (!videoEl || !qrScannerRef.current?.isScanning) return
+
+            const detector = new (window as any).BarcodeDetector()
+
+            nativeDetectorRef.current = setInterval(async () => {
+              if (!qrScannerRef.current?.isScanning) return
+              try {
+                const results = await detector.detect(videoEl)
+                for (const barcode of results) {
+                  const code = barcode.rawValue
+                  if (!code || scannedCodesSetRef.current.has(code)) continue
+
+                  // Mark immediately to prevent double-processing
+                  scannedCodesSetRef.current.add(code)
+
+                  try {
+                    const result = await onScanRef.current(code, activeMode)
+                    if (result && result.success === false) {
+                      if (result.ignored) {
+                        scannedCodesSetRef.current.delete(code)
+                        continue
+                      }
+                      throw new Error(result.message || "Ditolak oleh sistem")
+                    }
+                    if (navigator.vibrate) navigator.vibrate(150)
+                    playScannerBeep("success")
+                    setScanFlash("success")
+                    setScannedCodes((prev) => [
+                      { code, status: "success", timestamp: new Date() },
+                      ...prev.slice(0, 49),
+                    ])
+                    toast.success(`SN Discan: ${code}`)
+                  } catch (err: any) {
+                    scannedCodesSetRef.current.delete(code)
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100])
+                    playScannerBeep("error")
+                    setScanFlash("error")
+                    const errMsg = err.message || "Barang tidak valid"
+                    setScannedCodes((prev) => [
+                      { code, status: "error", message: errMsg, timestamp: new Date() },
+                      ...prev.slice(0, 49),
+                    ])
+                    toast.error(errMsg, { description: code })
+                  } finally {
+                    setTimeout(() => setScanFlash(null), 500)
+                  }
+                }
+              } catch (e) {
+                // Ignore frame detection errors
+              }
+            }, 400)
+          } catch (e) {
+            console.warn("Failed to start native BarcodeDetector loop", e)
+          }
+        }, 1500)
+      }
+
     } catch (err) {
       console.error("Failed to start HTML5 Scanner", err)
       toast.error("Gagal membuka kamera. Pastikan izin kamera telah diberikan.")
@@ -205,6 +279,11 @@ export function CameraScanner({
 
   // Stop Scanner
   const stopScanner = React.useCallback(async () => {
+    // Stop native multi-barcode detector
+    if (nativeDetectorRef.current) {
+      clearInterval(nativeDetectorRef.current)
+      nativeDetectorRef.current = null
+    }
     if (qrScannerRef.current && qrScannerRef.current.isScanning) {
       try {
         await qrScannerRef.current.stop()
@@ -214,6 +293,7 @@ export function CameraScanner({
     }
     qrScannerRef.current = null
     lastScannedCodeRef.current = null
+    scannedCodesSetRef.current.clear()
     setIsTorchOn(false)
     setHasTorch(false)
     setCameraActive(false)
@@ -222,11 +302,28 @@ export function CameraScanner({
   // Handle open state changes
   React.useEffect(() => {
     if (open) {
+      // Blur any focused input to dismiss the keyboard on mobile
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+
+      // Prevent inputs from regaining focus while scanner is open
+      // (e.g. handleSubmit calls focusKodeBarangInput after processing a scan)
+      const preventFocus = (e: FocusEvent) => {
+        const target = e.target as HTMLElement
+        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
+          target.blur()
+        }
+      }
+      document.addEventListener("focusin", preventFocus)
+
       startScanner()
+
+      return () => {
+        document.removeEventListener("focusin", preventFocus)
+        stopScanner()
+      }
     } else {
-      stopScanner()
-    }
-    return () => {
       stopScanner()
     }
   }, [open, startScanner, stopScanner])
@@ -301,47 +398,49 @@ export function CameraScanner({
         throw new Error("Tidak ada barcode yang terdeteksi.")
       }
 
-      toast.success(`${detectedTexts.length} barcode terdeteksi di gambar. Memproses...`)
+      // Remove duplicates within the image itself, then filter out already-scanned codes
+      const uniqueTexts = Array.from(new Set(detectedTexts))
+      const newTexts = uniqueTexts.filter(code => !scannedCodesSetRef.current.has(code))
+      const skippedCount = uniqueTexts.length - newTexts.length
 
-      // Process each detected code
-      let hasSuccess = false
-      for (const decodedText of detectedTexts) {
-        // Simple delay to prevent simultaneous toast collisions
-        await new Promise((resolve) => setTimeout(resolve, 300))
-
-        try {
-          const result = await onScanRef.current(decodedText, activeMode)
-          if (result && result.success === false) {
-            if (result.ignored) {
-              continue
-            }
-            throw new Error(result.message || "Ditolak oleh sistem")
-          }
-          if (navigator.vibrate) navigator.vibrate(100)
-          playScannerBeep("success")
-          setScanFlash("success")
-          setScannedCodes((prev) => [
-            { code: decodedText, status: "success", timestamp: new Date() },
-            ...prev.slice(0, 19),
-          ])
-          toast.success(`SN Terdeteksi: ${decodedText}`)
-          hasSuccess = true
-        } catch (err: any) {
-          playScannerBeep("error")
-          setScanFlash("error")
-          const errMsg = err.message || "Barang tidak valid"
-          setScannedCodes((prev) => [
-            { code: decodedText, status: "error", message: errMsg, timestamp: new Date() },
-            ...prev.slice(0, 19),
-          ])
-          toast.error(errMsg, { description: decodedText })
-        }
+      if (skippedCount > 0) {
+        toast.info(`${skippedCount} barcode sudah pernah discan, dilewati.`)
       }
 
-      if (hasSuccess) {
+      if (newTexts.length === 0) {
+        toast.info("Semua barcode di foto sudah pernah discan.")
+        return
+      }
+
+      toast.success(`${newTexts.length} barcode baru terdeteksi di gambar. Memproses...`)
+
+      try {
+        const result = await onScanRef.current(newTexts, activeMode)
+        if (result && result.success === false) {
+           throw new Error(result.message || "Ditolak oleh sistem")
+        }
+        
+        // Track all newly scanned codes
+        newTexts.forEach(code => scannedCodesSetRef.current.add(code))
+        if (navigator.vibrate) navigator.vibrate(100)
+        playScannerBeep("success")
+        setScanFlash("success")
+        
+        const newScans = newTexts.map((code) => ({ code, status: "success" as const, timestamp: new Date() }))
+        setScannedCodes((prev) => [...newScans, ...prev].slice(0, 50))
+        toast.success(`${newTexts.length} barcode berhasil diproses!`)
+        
         setTimeout(() => {
           setOpen(false)
         }, 800)
+      } catch (err: any) {
+        playScannerBeep("error")
+        setScanFlash("error")
+        const errMsg = err.message || "Barang tidak valid"
+        
+        const errorScans = detectedTexts.map((code) => ({ code, status: "error" as const, message: errMsg, timestamp: new Date() }))
+        setScannedCodes((prev) => [...errorScans, ...prev].slice(0, 20))
+        toast.error(errMsg)
       }
     } catch (err) {
       console.error("Gagal mendeteksi barcode dari gambar", err)
@@ -501,14 +600,30 @@ export function CameraScanner({
               {scannedCodes.filter(c => c.status === "success").length} Berhasil
             </span>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-full px-3.5 cursor-pointer shadow-md active:scale-95 transition-all pointer-events-auto"
-            onClick={() => setOpen(false)}
-          >
-            Selesai
-          </Button>
+          <div className="flex items-center gap-2">
+            {scannedCodes.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[10px] font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-full px-3 cursor-pointer active:scale-95 transition-all pointer-events-auto"
+                onClick={() => {
+                  setScannedCodes([])
+                  scannedCodesSetRef.current.clear()
+                }}
+              >
+                Clear
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-full px-3.5 cursor-pointer shadow-md active:scale-95 transition-all pointer-events-auto"
+              onClick={() => setOpen(false)}
+            >
+              Selesai
+            </Button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 px-6 flex flex-col gap-2 pointer-events-auto">
           {scannedCodes.length === 0 ? (

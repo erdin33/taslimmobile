@@ -11,4 +11,3 @@ export function AppRoutes() {
 
 	return <DesktopRoutes />;
 }
-}

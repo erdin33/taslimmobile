@@ -412,7 +412,7 @@ export default function BarangKeluarPage() {
     const originalLoc = matchedItem.lokasiPenyimpanan || "-";
 
     const newItem: BarangKeluarItem = {
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       nomor: trimmedKode,
       merek: matchedItem.merek || "-",
       kategori: matchedItem.kategori || "-",
@@ -453,18 +453,28 @@ export default function BarangKeluarPage() {
     dbBrands,
   ]);
 
-  // Handle auto-submit if code is passed via URL query param
+  // Handle auto-submit if code is passed via URL query param  // Tangani scan dari URL parameter (via CameraScanner global)
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code && !processedCodesRef.current.has(code)) {
-      processedCodesRef.current.add(code);
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("code");
-        return next;
-      }, { replace: true });
-      
-      void handleSubmit(code);
+    if (code) {
+      const codes = code.split(',').map(c => c.trim()).filter(Boolean);
+      let processedAny = false;
+
+      for (const c of codes) {
+        if (!processedCodesRef.current.has(c)) {
+          processedCodesRef.current.add(c);
+          void handleSubmit(c);
+          processedAny = true;
+        }
+      }
+
+      if (processedAny) {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("code");
+          return next;
+        }, { replace: true });
+      }
     }
   }, [searchParams, setSearchParams]);
 
@@ -778,15 +788,35 @@ export default function BarangKeluarPage() {
           <div className="flex size-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
             <ScanLine className="size-6 animate-pulse" />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1 w-full">
             <p className="text-sm font-semibold text-foreground">Scan Barcode / QR</p>
             <p className="text-xs text-muted-foreground">Sistem akan otomatis mendeteksi pola serial number.</p>
           </div>
           <CameraScanner
-            onScan={(code) => handleSubmit(code)}
+            onScan={(code) => {
+              const codes = Array.isArray(code) ? code : [code];
+              codes.forEach(c => handleSubmit(c));
+            }}
             className="w-full max-w-[200px]"
             buttonText="Scan via Kamera"
           />
+          <div className="flex items-center gap-2 w-full mt-2">
+            <Input
+              value={kodeBarang}
+              onChange={(e) => updateKodeBarang(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder="Atau ketik SN manual..."
+              className="h-10 text-xs w-full bg-muted/20"
+            />
+            <Button size="sm" onClick={() => handleSubmit()} className="h-10 px-3">
+              OK
+            </Button>
+          </div>
         </Card>
 
         {/* Hasil Scan & Daftar Barang Keluar Sesi Ini */}
@@ -826,7 +856,12 @@ export default function BarangKeluarPage() {
                 ) : (
                   barangKeluar.map((item) => (
                     <TableRow key={item.id} className="border-b last:border-0 border-muted/20">
-                      <TableCell className="font-mono text-xs py-2 font-semibold text-foreground">{item.nomor}</TableCell>
+                      <TableCell className="py-2">
+                        <div className="font-mono text-xs font-semibold text-foreground">{item.nomor}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          {item.kategori} {item.tipe ? `• ${item.tipe}` : ""}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-xs py-2">
                         <span className="text-[10px] text-amber-400 font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">{item.merek}</span>
                       </TableCell>
@@ -1075,7 +1110,10 @@ export default function BarangKeluarPage() {
                       Sistem akan menangkap kode secara otomatis dan menambahkannya ke daftar barang keluar.
                     </p>
                     <CameraScanner
-                      onScan={(code) => handleSubmit(code)}
+                      onScan={(code) => {
+                        const codes = Array.isArray(code) ? code : [code];
+                        codes.forEach(c => handleSubmit(c));
+                      }}
                       className="mt-4 w-full max-w-[200px]"
                       buttonText="Scan / Upload Foto"
                     />

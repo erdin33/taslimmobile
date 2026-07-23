@@ -112,15 +112,15 @@ export function RequestSection({ requests, counts, isLoading, className }: Reque
                             key={kpi.label}
                             onClick={() => navigate(`/request?tab=${kpi.label}`)}
                             className={cn(
-                                "flex items-center gap-3 p-3 rounded-xl border border-input bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all"
+                                "flex flex-col sm:flex-row items-start sm:items-center gap-1.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl border border-input bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all overflow-hidden"
                             )}
                         >
-                            <div className="rounded-full p-2 bg-muted text-muted-foreground shrink-0">
-                                <kpi.icon className="w-4 h-4" />
+                            <div className="rounded-full p-1.5 sm:p-2 bg-muted text-muted-foreground shrink-0">
+                                <kpi.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-xs text-muted-foreground">{kpi.label}</span>
-                                <span className="text-xl font-bold tracking-tight mt-0.5 tabular-nums">
+                            <div className="flex flex-col min-w-0 w-full">
+                                <span className="text-[10px] sm:text-xs text-muted-foreground truncate">{kpi.label}</span>
+                                <span className="text-base sm:text-xl font-bold tracking-tight mt-0.5 tabular-nums truncate">
                                     {isLoading ? "-" : kpi.count}
                                 </span>
                             </div>

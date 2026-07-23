@@ -17,13 +17,23 @@ import {
 	Settings,
 	LogOut,
 	Sun,
-	Moon
+	Moon,
+	User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
 import { useTheme } from "@/components/shared/themeProvider";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,9 +92,41 @@ export default function AndroidLayout() {
 						{theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
 					</button>
 					<Notifications />
-					<button onClick={() => setIsLogoutDialogOpen(true)} className="p-2 text-muted-foreground hover:bg-muted rounded-full">
-						<LogOut className="w-5 h-5" />
-					</button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button className="p-1 rounded-full hover:bg-muted transition-colors focus:outline-none">
+								<Avatar size="sm">
+									<AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">
+										{user?.displayName
+											? user.displayName
+												.split(" ")
+												.map((n) => n[0])
+												.join("")
+												.toUpperCase()
+												.slice(0, 2)
+											: <User className="w-3 h-3" />}
+									</AvatarFallback>
+								</Avatar>
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-56">
+							<DropdownMenuLabel className="font-normal">
+								<div className="flex flex-col gap-1">
+									<p className="text-sm font-semibold leading-none">{user?.displayName || "User"}</p>
+									<p className="text-xs text-muted-foreground leading-none capitalize">{user?.role || "—"}</p>
+								</div>
+							</DropdownMenuLabel>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								variant="destructive"
+								onClick={() => setIsLogoutDialogOpen(true)}
+								className="cursor-pointer"
+							>
+								<LogOut className="w-4 h-4" />
+								<span>Keluar</span>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 			</header>
 
@@ -96,9 +138,7 @@ export default function AndroidLayout() {
 			{/* Floating Action Button for Scan */}
 			<div className="absolute bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-50">
 				<CameraScanner
-					showModeTabs={true}
-					defaultMode="masuk"
-					onScan={async (code, mode) => {
+					onScan={async (codeOrCodes) => {
 						try {
 							const res = await fetch(`${getBaseUrl()}/brands`, { method: "GET", headers: getHeaders() });
 							if (!res.ok) return { success: false, message: "Gagal mengambil data merek." };
@@ -108,21 +148,27 @@ export default function AndroidLayout() {
 								identifier: brand.identifier || "",
 							}));
 
-							const normalizedCode = code.trim().toUpperCase();
-							const hasMatchingBrand = brands.some((b: { identifier: string }) => {
-								const ident = b.identifier?.trim().toUpperCase();
-								return ident && normalizedCode.includes(ident);
-							});
+							const codes = Array.isArray(codeOrCodes) ? codeOrCodes : [codeOrCodes];
+							const validCodes = [];
 
-							if (!hasMatchingBrand) {
+							for (const c of codes) {
+								const normalizedCode = c.trim().toUpperCase();
+								const hasMatchingBrand = brands.some((b: { identifier: string }) => {
+									const ident = b.identifier?.trim().toUpperCase();
+									return ident && normalizedCode.includes(ident);
+								});
+								if (hasMatchingBrand) {
+									validCodes.push(c);
+								}
+							}
+
+							if (validCodes.length === 0) {
 								return { success: false, message: "Barcode tidak sesuai dengan identifier merek apa pun." };
 							}
 
-							if (mode === "masuk") {
-								navigate(`/barang-masuk?code=${encodeURIComponent(code)}`);
-							} else if (mode === "keluar") {
-								navigate(`/barang-keluar?code=${encodeURIComponent(code)}`);
-							}
+							const codeStr = validCodes.join(",");
+
+							navigate(`/barang-masuk?code=${encodeURIComponent(codeStr)}`);
 							return { success: true };
 						} catch (error) {
 							return { success: false, message: "Terjadi kesalahan sistem." };
@@ -164,17 +210,17 @@ export default function AndroidLayout() {
 					<span className="text-[10px]">Masuk</span>
 				</NavLink>
 
-				{/* Out */}
+				{/* Request */}
 				<NavLink
-					to="/barang-keluar"
+					to="/request"
 					className={({ isActive }) =>
 						cn(
 							"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
 							isActive && "text-primary font-medium"
 						)
 					}>
-					<PackageMinus className="w-5 h-5" />
-					<span className="text-[10px]">Keluar</span>
+					<HistoryIcon className="w-5 h-5" />
+					<span className="text-[10px]">Request</span>
 				</NavLink>
 
 				{/* Menu / Lainnya */}
@@ -196,7 +242,6 @@ export default function AndroidLayout() {
 								<h3 className="text-[11px] font-bold text-muted-foreground/70 mb-4 uppercase tracking-widest px-1">Operasional</h3>
 								<div className="grid grid-cols-4 gap-y-6 gap-x-2">
 									<MenuButton to="/barang-masuk" icon={<PackagePlus />} label="Brg Masuk" onClick={closeSheet} />
-									<MenuButton to="/barang-keluar" icon={<PackageMinus />} label="Brg Keluar" onClick={closeSheet} />
 									<MenuButton to="/request" icon={<HistoryIcon />} label="Request" onClick={closeSheet} />
 								</div>
 							</div>

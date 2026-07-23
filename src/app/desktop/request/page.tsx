@@ -3,8 +3,9 @@ import { DataTable } from "@/features/transactions/components/request-table"
 import { Search, EllipsisVertical, FileUp, FileDown, ListFilter, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { confirm } from "@tauri-apps/plugin-dialog"
 import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -355,6 +356,7 @@ export default function DataTransaksiPage() {
         item={selectedRequest}
         open={selectedRequest !== null}
         onClose={() => setSelectedRequest(null)}
+        onStatusChange={handleStatusChange}
       />
     </div>
   )
@@ -367,11 +369,14 @@ function RequestDetailDrawer({
   item,
   open,
   onClose,
+  onStatusChange,
 }: {
   item: DashboardRequest | null
   open: boolean
   onClose: () => void
+  onStatusChange?: (id: string, newStatus: string) => void
 }) {
+  const navigate = useNavigate()
   const [detailData, setDetailData] = useState<DashboardRequest | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -436,6 +441,26 @@ function RequestDetailDrawer({
 
   const displayItem = detailData || item
 
+  const handleAction = async (newStatus: string, requireConfirm: boolean = false) => {
+    if (!displayItem?.id || !onStatusChange) return;
+
+    if (newStatus === "Siap") {
+      onClose()
+      navigate(`/request/${displayItem.id}/prepare`)
+      return;
+    }
+
+    if (requireConfirm) {
+      const isConfirmed = await confirm("Apakah Anda yakin ingin melakukan tindakan ini pada permintaan?");
+      if (!isConfirmed) {
+        return;
+      }
+    }
+
+    onStatusChange(displayItem.id, newStatus);
+    onClose();
+  };
+
   return (
     <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
@@ -477,7 +502,7 @@ function RequestDetailDrawer({
                             <TableCell className="font-medium text-muted-foreground" title={ra.materialNumber}>{ra.materialNumber}</TableCell>
                             <TableCell>{ra.brand}</TableCell>
                             <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
-                            <TableCell className="text-right font-medium">Unit</TableCell>
+                            <TableCell className="text-right font-medium">{ra.unit}</TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -512,7 +537,7 @@ function RequestDetailDrawer({
                             <TableCell>{ri.brand}</TableCell>
                             <TableCell>{ri.model || "-"}</TableCell>
                             <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
-                            <TableCell className="text-right font-medium">Unit</TableCell>
+                            <TableCell className="text-right font-medium">{ri.unit}</TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -535,6 +560,7 @@ function RequestDetailDrawer({
                         <TableHead>Merek</TableHead>
                         <TableHead>Tipe/Model</TableHead>
                         <TableHead className="text-right">Jumlah</TableHead>
+                        <TableHead className="text-right">Satuan</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -545,6 +571,7 @@ function RequestDetailDrawer({
                           <TableCell>{ri.brand}</TableCell>
                           <TableCell>{ri.model || "-"}</TableCell>
                           <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
+                          <TableCell className="text-right font-medium">{ri.unit}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -556,10 +583,34 @@ function RequestDetailDrawer({
             </div>
           )}
         </div>
-        <DrawerFooter>
-          <DrawerClose asChild>
-            <Button variant="outline">Tutup</Button>
-          </DrawerClose>
+        <DrawerFooter className="w-full pt-2">
+          <div className="flex w-full gap-2">
+            {['MENUNGGU'].includes(displayItem.status?.toUpperCase() || "") && (
+              <>
+                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Disetujui")}>Setujui</Button>
+                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Ditolak", true)}>Batalkan Permintaan</Button>
+              </>
+            )}
+            {
+              ['DISETUJUI'].includes(displayItem.status?.toUpperCase() || "") && (
+                <>
+                  <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Siapkan</Button>
+                  <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
+                </>
+              )
+            }
+            {
+              ['SIAP'].includes(displayItem.status?.toUpperCase() || "") && (
+                <>
+                  <Button variant="default" className="flex-1 cursor-pointer" onClick={() => navigate(`/request/${displayItem.id}/prepare`)}>Edit</Button>
+                  <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
+                </>
+              )
+            }
+            <DrawerClose asChild>
+              <Button variant="outline" className="flex-1 cursor-pointer">Tutup</Button>
+            </DrawerClose>
+          </div>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

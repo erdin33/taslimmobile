@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
@@ -378,6 +379,17 @@ export default function DataTransaksiPage() {
                 </div>
               </PopoverContent>
             </Popover>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="px-2 shrink-0 h-11 cursor-pointer border-border/60 bg-card shadow-sm rounded-2xl">
+                  <EllipsisVertical className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-32 rounded-xl">
+                <DropdownMenuItem className="cursor-pointer rounded-lg"><FileUp className="mr-1 size-4" />Import</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportExcel()} className="cursor-pointer rounded-lg"><FileDown className="mr-1 size-4" />Export</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           
           {/* Scrollable Tabs */}
