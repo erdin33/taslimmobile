@@ -663,7 +663,7 @@ export default function BarangKeluarPage() {
   };
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6 overflow-y-auto">
       <div className="flex h-full flex-col gap-4 px-4 lg:px-6">
         
         {/* Smart Input Bar */}

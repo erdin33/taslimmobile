@@ -878,7 +878,7 @@ export default function BarangMasukPage() {
   };
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6 overflow-y-auto">
       <div className="grid h-full gap-4 px-4 lg:px-6 @5xl/main:grid-cols-[minmax(320px,380px)_1fr]">
         <Card className="@container/card flex flex-col @5xl/main:min-h-[calc(107svh-var(--header-height)-15rem)]">
           <Tabs
@@ -1014,7 +1014,7 @@ export default function BarangMasukPage() {
           </CardHeader>
 
           <CardContent className="flex flex-1 flex-col gap-4">
-            <div className="flex-1 overflow-hidden rounded-lg border">
+            <div className="flex-1 overflow-auto rounded-lg border">
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-muted">
                   <TableRow>
