@@ -16,11 +16,10 @@ import {
   DrawerClose,
 } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Edit, Loader2, History, Info } from "lucide-react"
-
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { BarangUnit, StatusUnit, RiwayatUnit } from "@/types/inventory"
 
@@ -30,7 +29,7 @@ interface BarangDetailDrawerProps {
   detailBarang: BarangUnit | null
   userRole?: string
   onOpenEdit: (item: BarangUnit) => void
-  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass: string }
+  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
   getBaseUrl: () => string
@@ -161,7 +160,7 @@ export function BarangDetailDrawer({
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-5xl max-h-[88vh] flex flex-col p-6 border-border/80">
           <DialogHeader className="border-b pb-3 shrink-0">
-            <div className="flex items-center justify-between pr-6">
+            <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <DialogTitle className="text-lg font-medium text-foreground">
                   Detail Material
@@ -169,11 +168,9 @@ export function BarangDetailDrawer({
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                 </div>
               </div>
-
-              <Badge variant="secondary" className="font-normal gap-1.5 px-3 py-1 text-xs">
-                <div className={`w-2 h-2 rounded-full ${badge.dotClass}`} />
-                {badge.text}
-              </Badge>
+              <div className={`flex items-center gap-2 rounded-lg px-3 py-2 ${badge.badgeClass || "bg-blue-400/10 text-blue-500"}`}>
+                <span className="font-medium text-xs leading-none">{badge.text}</span>
+              </div>
             </div>
           </DialogHeader>
 
@@ -239,16 +236,16 @@ export function BarangDetailDrawer({
           </div >
 
           {/* Desktop Footer */}
-          < DialogFooter className="shrink-0 flex-row justify-end gap-2 pt-3 border-t" >
+          < DialogFooter className="shrink-0 flex-row justify-end gap-1 pt-4 border-t" >
             {userRole === "admin" && (
               <Button
-                size="sm"
+                size="lg"
                 variant="outline"
                 onClick={() => {
                   onOpenChange(false)
                   onOpenEdit(detailBarang)
                 }}
-                className="gap-1.5 text-xs cursor-pointer"
+                className="gap-1.5 cursor-pointer"
               >
                 <Edit className="size-3.5" />
                 Edit Unit
@@ -256,7 +253,7 @@ export function BarangDetailDrawer({
             )
             }
             <DialogClose asChild>
-              <Button size="sm" variant="secondary" className="text-xs cursor-pointer">
+              <Button size="lg" variant="secondary" className="px-4 cursor-pointer">
                 Tutup
               </Button>
             </DialogClose>
@@ -279,10 +276,9 @@ export function BarangDetailDrawer({
               </DrawerTitle>
             </div>
 
-            <Badge variant="secondary" className="font-normal gap-1.5 px-3 py-1 text-xs shrink-0">
-              <div className={`w-2 h-2 rounded-full ${badge.dotClass}`} />
+            <div className={`inline-flex items-center justify-center rounded-lg px-3 py-1.5 font-semibold text-xs leading-none shrink-0 ${badge.badgeClass || "bg-blue-400/10 text-blue-500"}`}>
               {badge.text}
-            </Badge>
+            </div>
           </div>
         </DrawerHeader>
 

@@ -24,13 +24,16 @@ export type BarangMasukItem = {
   kategori: KategoriOption;
   tipe?: string;
   lokasi: LokasiOption;
-  status: "Valid" | "Invalid";
+  status: "Valid" | "Invalid" | "Rusak";
   existingItemId?: string;
   source: "KP" | "Mitra" | "Baru";
   asal?: string;
   kondisi?: string;
   replacementFor?: string;
+  catatan?: string;
+  dismantleCondition?: "good" | "bad";
 };
+
 
 export type BarangKeluarItem = {
   id: number;
@@ -98,14 +101,20 @@ export type DashboardRequest = {
   partnerCategory?: string
   itemsCount?: number
   itemsDetail?: string
+  adminRemarks?: string
   status: string
   notes: string
   requestedAt: string
+  requestedDeliveryDate?: string
   requestItems?: RequestItem[]
   requestAllocations?: RequestAllocation[]
   deliveryDocument?: {
     kpSignedById?: string | null
     picSignedById?: string | null
+    filePath?: string | null
+    finalFilePath?: string | null
+    driveFileId?: string | null
+    driveViewUrl?: string | null
   } | null
 }
 

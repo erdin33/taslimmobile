@@ -9,7 +9,6 @@ import QRCode from "qrcode";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 
-import dummyLocations from "@/data/dummy-locations.json";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,19 +87,20 @@ export default function LokasiBarangPage() {
 
   const loadLocations = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() });
+      const res = await fetch(`${getBaseUrl()}/locations`, {
+        method: "GET",
+        headers: getHeaders(),
+      });
       if (!res.ok) throw new Error("Gagal mengambil data lokasi");
-      const rawData = await res.json();
-      const locData = rawData.data || rawData;
-      setLocations((Array.isArray(locData) ? locData : []).filter(
-        (loc: any) => loc.name !== "Keluar" && loc.name !== "Diluar"
-      ));
+      const json = await res.json();
+      const data: StorageLocation[] = json.data || json || [];
+      setLocations(
+        data.filter(
+          (loc) => loc.name !== "Keluar" && loc.name !== "Diluar"
+        )
+      );
     } catch (error) {
-      console.error(error);
-      toast.error("Gagal memuat lokasi dari server.");
-      setLocations((dummyLocations as StorageLocation[]).filter(
-        loc => loc.name !== "Keluar" && loc.name !== "Diluar"
-      ));
+      toast.error("Gagal mengambil data lokasi dari server.");
     }
   };
 
@@ -558,15 +558,15 @@ export default function LokasiBarangPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6 text-foreground mx-auto w-full max-w-7xl">
+    <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full max-w-7xl">
       
       {/* ── 1. HEADER SECTION ── */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-800/60 pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-neutral-900 via-neutral-700 to-neutral-500 dark:from-neutral-50 dark:via-neutral-100 dark:to-neutral-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-neutral-50 via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
             Lokasi Penyimpanan
           </h1>
-          <p className="text-xs text-muted-foreground mt-1.5">
+          <p className="text-xs text-neutral-400 mt-1.5">
             Kelola tata letak fisik, aturan merek, dan pantau ketersediaan kapasitas rak, kardus, atau pallet.
           </p>
         </div>
@@ -692,7 +692,7 @@ export default function LokasiBarangPage() {
                 <svg width="120" height="120" viewBox="0 0 120 120" className="drop-shadow-lg" style={{ filter: `drop-shadow(0 0 10px ${glowColor})` }}>
                   {/* Track */}
                   <circle cx="60" cy="60" r={r} fill="none" stroke="#1f2937" strokeWidth="12" />
-                  {/* Progress arc */}
+                  {/* Progress arc — rotate -90° agar arc mulai dari atas (12 o'clock) */}
                   <circle
                     cx="60" cy="60" r={r}
                     fill="none"
@@ -700,7 +700,7 @@ export default function LokasiBarangPage() {
                     strokeWidth="12"
                     strokeLinecap="round"
                     strokeDasharray={`${dash} ${circ}`}
-                    strokeDashoffset={circ / 4}
+                    transform="rotate(-90 60 60)"
                     style={{ transition: "stroke-dasharray 1s cubic-bezier(0.4,0,0.2,1), stroke 0.5s ease" }}
                   />
                   {/* Center text */}

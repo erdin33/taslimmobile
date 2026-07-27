@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PenTool, Smartphone, Loader2, Eraser } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, getBaseUrl } from "@/lib/api";
 import QRCode from "qrcode";
 import { useAuth } from "@/lib/auth";
 import { getSignatureDataUrl } from "@/lib/trimCanvas";
@@ -16,6 +16,9 @@ interface DigitalSignatureDialogProps {
   description?: string;
   onSignComplete: () => void;
 }
+
+const isUnsupportedStoredSignature = (value?: string | null) =>
+  typeof value === "string" && value.startsWith("data:image/svg+xml");
 
 export function DigitalSignatureDialog({
   open,
@@ -37,12 +40,23 @@ export function DigitalSignatureDialog({
     if (open && user?.profile?.picSignatureUrl && !qrMode) {
       setTimeout(() => {
         const sigUrl = user?.profile?.picSignatureUrl;
+        if (isUnsupportedStoredSignature(sigUrl)) {
+          sigPad.current?.clear();
+          updateUser({
+            profile: {
+              ...user.profile,
+              picSignatureUrl: null,
+            },
+          });
+          return;
+        }
+
         if (sigPad.current && sigUrl) {
           sigPad.current.fromDataURL(sigUrl);
         }
       }, 150);
     }
-  }, [open, user, qrMode]);
+  }, [open, user, qrMode, updateUser]);
 
   // Clean up polling on unmount or close
   useEffect(() => {
@@ -60,9 +74,10 @@ export function DigitalSignatureDialog({
       const res = await api.post(`/signature-session`);
       const sessionId = res.data.id;
       
-      const baseFrontendUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
-      const mobileUrl = `${baseFrontendUrl}${window.location.pathname}#/mobile-sign/${sessionId}`;
+      const backendBaseUrl = getBaseUrl();
+      const mobileUrl = `${backendBaseUrl}/signature-session/${sessionId}/mobile`;
       const url = await QRCode.toDataURL(mobileUrl, { width: 300, margin: 2 });
+
       
       setQrCodeUrl(url);
       setQrMode(true);

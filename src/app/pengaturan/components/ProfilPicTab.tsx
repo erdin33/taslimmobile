@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { api } from "@/lib/api";
+import { api, getBaseUrl } from "@/lib/api";
 import QRCode from "qrcode";
 import { getSignatureDataUrl } from "@/lib/trimCanvas";
+
+const isUnsupportedStoredSignature = (value?: string | null) =>
+  typeof value === "string" && value.startsWith("data:image/svg+xml");
 
 export function ProfilPicTab() {
   const { user, updateUser } = useAuth();
@@ -28,12 +32,23 @@ export function ProfilPicTab() {
       // Need a small timeout to let the canvas render before loading data URL
       setTimeout(() => {
         const sigUrl = user.profile?.picSignatureUrl;
+        if (isUnsupportedStoredSignature(sigUrl)) {
+          sigPad.current?.clear();
+          updateUser({
+            profile: {
+              ...user.profile,
+              picSignatureUrl: null
+            }
+          });
+          return;
+        }
+
         if (sigUrl && sigPad.current) {
           sigPad.current.fromDataURL(sigUrl);
         }
       }, 100);
     }
-  }, [user]);
+  }, [user, updateUser]);
 
   const handleClear = () => {
     sigPad.current?.clear();
@@ -70,12 +85,11 @@ export function ProfilPicTab() {
 
   const startQrSession = async () => {
     try {
-      const res = await api.post(`/signature-session`);
+      const res = await api.post(`/signature-session`, { userId: user?.id });
       const sessionId = res.data.id;
       
-      // Determine the public URL. Assuming HashRouter is used based on App.tsx
-      const baseFrontendUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
-      const mobileUrl = `${baseFrontendUrl}${window.location.pathname}#/mobile-sign/${sessionId}`;
+      const backendBaseUrl = getBaseUrl();
+      const mobileUrl = `${backendBaseUrl}/signature-session/${sessionId}/mobile`;
       
       const url = await QRCode.toDataURL(mobileUrl, { width: 300, margin: 2 });
       setQrCodeUrl(url);
@@ -113,26 +127,31 @@ export function ProfilPicTab() {
   return (
     <Card className="flex flex-col shadow-sm">
       <CardHeader className="border-b pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <PenTool className="size-5 text-primary" />
-          Profil PIC & Tanda Tangan
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <PenTool className="size-5 text-indigo-500" />
+            Profil PIC & Tanda Tangan Resmi Admin
+          </CardTitle>
+          <Badge variant="outline" className="border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">
+            Pihak Pertama (Pemberi)
+          </Badge>
+        </div>
         <CardDescription className="text-sm text-muted-foreground">
-          Kelola nama penanggung jawab (Person In Charge) dan tanda tangan digital untuk keperluan BAST.
+          Tanda tangan master ini disimpan permanen pada profil Admin dan tersemat secara otomatis pada posisi Pihak Pertama di seluruh dokumen BAST yang Anda terbitkan.
         </CardDescription>
       </CardHeader>
       
       <CardContent className="pt-6 space-y-6">
         <div className="space-y-3">
-          <Label htmlFor="picName" className="font-medium">Nama PIC (Person In Charge)</Label>
+          <Label htmlFor="picName" className="font-medium">Nama Lengkap PIC Admin (Person In Charge)</Label>
           <Input 
             id="picName" 
-            placeholder="Masukkan nama lengkap" 
+            placeholder="Masukkan nama lengkap PIC Admin" 
             value={picName} 
             onChange={(e) => setPicName(e.target.value)} 
           />
           <p className="text-xs text-muted-foreground">
-            Nama ini akan dicetak di bagian bawah tanda tangan dokumen BAST.
+            Nama ini akan dicetak sebagai penanggung jawab Pihak Pertama di dokumen BAST.
           </p>
         </div>
 

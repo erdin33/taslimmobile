@@ -39,6 +39,12 @@ export function SiteHeader({ className }: { className?: string }) {
         parent = "Request"
         pageName = "Detail Permintaan"
         parentLink = "#/request"
+    } else if (path === "/partner-request/new") {
+        parent = "Operasional"
+        pageName = "Ajukan Request"
+    } else if (path === "/partner-request/history") {
+        parent = "Operasional"
+        pageName = "Histori Request"
     } else if (path === "/data-barang") {
         parent = "Inventori"
         pageName = "Data Barang"
@@ -50,7 +56,7 @@ export function SiteHeader({ className }: { className?: string }) {
         pageName = "Lokasi Barang"
     } else if (path === "/tipe-material") {
         parent = "Manajemen Data"
-        pageName = "Tipe Material"
+        pageName = "Model Material"
     } else if (path === "/kategori-barang") {
         parent = "Manajemen Data"
         pageName = "Kategori Barang"
