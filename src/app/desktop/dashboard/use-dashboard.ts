@@ -44,6 +44,7 @@ export function useDashboard() {
     const [recentTransactions, setRecentTransactions] = useState<ActivityItem[]>([]);
     const [isLoadingRequests, setIsLoadingRequests] = useState(true);
     const [isLoadingActivity, setIsLoadingActivity] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
 
     const isFetchingRef = useRef(false);
 
@@ -161,8 +162,10 @@ export function useDashboard() {
             console.error("Gagal mengambil data dashboard:", error);
             setIsLoadingRequests(false);
             setIsLoadingActivity(false);
+            setIsLoading(false);
         } finally {
             isFetchingRef.current = false;
+            setIsLoading(false);
         }
     }, [user]);
 
@@ -261,5 +264,6 @@ export function useDashboard() {
         recentTransactions,
         isLoadingRequests,
         isLoadingActivity,
+        isLoading,
     };
 }

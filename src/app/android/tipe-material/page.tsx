@@ -119,11 +119,11 @@ export default function TipeMaterialPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
+    <div className="p-6 h-full flex flex-col gap-6 text-foreground mx-auto w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-          <Input placeholder="Cari tipe material..." className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Cari tipe material..." className="w-full pl-9 bg-background border-border focus-visible:ring-1 focus-visible:ring-ring" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <Button className="w-full sm:w-auto gap-2" onClick={() => handleOpenSheet()}>
           <Plus className="w-4 h-4" /> Tambah Tipe Material
@@ -132,7 +132,7 @@ export default function TipeMaterialPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
         {filteredTypes.map(t => (
-          <Card key={t.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
+          <Card key={t.id} className="overflow-hidden relative group transition-all duration-300 hover:border-border hover:bg-muted/50">
             <CardContent className="px-5 py-5 flex flex-col gap-4">
               <div className="flex justify-between items-start">
                 <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0">
@@ -140,12 +140,12 @@ export default function TipeMaterialPage() {
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
-                    <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(t.id)}>
+                  <DropdownMenuContent align="end" className="bg-popover border-border text-foreground">
+                    <DropdownMenuItem className="cursor-pointer focus:bg-muted" onClick={() => handleOpenSheet(t.id)}>
                       <Edit className="w-4 h-4 mr-2" /> Edit Tipe
                     </DropdownMenuItem>
                     <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => setDeleteAlertData({ isOpen: true, id: t.id, name: t.nama })}>
@@ -155,37 +155,37 @@ export default function TipeMaterialPage() {
                 </DropdownMenu>
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-neutral-100 mb-1">{t.nama}</h3>
+                <h3 className="font-semibold text-lg text-foreground mb-1">{t.nama}</h3>
               </div>
             </CardContent>
           </Card>
         ))}
         {filteredTypes.length === 0 && (
           <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
-              <Search className="w-8 h-8 text-neutral-600" />
+            <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center mb-4">
+              <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium text-neutral-300 mb-1">Tipe Material Tidak Ditemukan</h3>
+            <h3 className="text-lg font-medium text-foreground mb-1">Tipe Material Tidak Ditemukan</h3>
           </div>
         )}
       </div>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">
-          <SheetHeader className="p-6 border-b border-neutral-800/60 bg-neutral-900/20">
-            <SheetTitle className="text-xl text-neutral-100">{editId ? "Edit Tipe Material" : "Tambah Tipe Material"}</SheetTitle>
-            <SheetDescription className="text-neutral-400">Kelola informasi referensi tipe material utama.</SheetDescription>
+        <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
+          <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
+            <SheetTitle className="text-xl text-foreground">{editId ? "Edit Tipe Material" : "Tambah Tipe Material"}</SheetTitle>
+            <SheetDescription className="text-muted-foreground">Kelola informasi referensi tipe material utama.</SheetDescription>
           </SheetHeader>
           <div className="p-6 flex-1 overflow-y-auto">
             <div className="grid gap-5">
               <div className="space-y-2">
                 <Label>Nama Tipe Material</Label>
-                <Input value={name} onChange={e => { setName(e.target.value); setNameError(""); }} placeholder="Contoh: Kabel Drop Wire" className={`bg-neutral-900 ${nameError ? "border-destructive" : "border-neutral-800"}`} />
+                <Input value={name} onChange={e => { setName(e.target.value); setNameError(""); }} placeholder="Contoh: Kabel Drop Wire" className={`bg-background ${nameError ? "border-destructive" : "border-border"}`} />
                 {nameError && <p className="text-xs text-destructive">{nameError}</p>}
               </div>
             </div>
           </div>
-          <SheetFooter className="p-6 border-t border-neutral-800/60 bg-neutral-900/20 flex sm:justify-end gap-3 sm:gap-2">
+          <SheetFooter className="p-6 border-t border-border/50 bg-muted/50 flex sm:justify-end gap-3 sm:gap-2">
             <Button variant="outline" onClick={() => setIsSheetOpen(false)} disabled={isSaving}>Batal</Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -199,7 +199,7 @@ export default function TipeMaterialPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
-            <AlertDialogDescription className="text-neutral-400">Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription>
+            <AlertDialogDescription className="text-muted-foreground">Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>

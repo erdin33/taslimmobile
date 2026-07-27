@@ -152,7 +152,7 @@ export default function MerekBarangPage() {
         setName(brand.nama);
         setIdentifier(brand.identifier);
         setOrigin(brand.origin);
-        setCategoryId(brand.categoryId ? String(brand.categoryId) : (brand as any).kategoriId ? String((brand as any).kategoriId) : "");
+        setCategoryId((brand as any).categoryId ? String((brand as any).categoryId) : (brand as any).kategoriId ? String((brand as any).kategoriId) : "");
         setEditId(id);
       }
     } else {

@@ -152,7 +152,7 @@ export default function MerekBarangPage() {
         setName(brand.nama);
         setIdentifier(brand.identifier);
         setOrigin(brand.origin);
-        setCategoryId(brand.categoryId ? String(brand.categoryId) : (brand as any).kategoriId ? String((brand as any).kategoriId) : "");
+        setCategoryId((brand as any).categoryId ? String((brand as any).categoryId) : (brand as any).kategoriId ? String((brand as any).kategoriId) : "");
         setEditId(id);
       }
     } else {
@@ -293,15 +293,15 @@ export default function MerekBarangPage() {
   };
 
   return (
-    <div className="p-6 min-h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full md:pt-10 md:pb-8">
+    <div className="p-6 min-h-full flex flex-col gap-6 text-foreground mx-auto w-full md:pt-10 md:pb-8">
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Cari merek atau identifier..."
-            className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700"
+            className="w-full pl-9 bg-background border-border focus-visible:ring-1 focus-visible:ring-ring"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -313,37 +313,38 @@ export default function MerekBarangPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-10">
         {filteredBrands.map(brand => (
-          <Card key={brand.id} className="overflow-hidden relative group transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/60">
-            <CardContent className="px-5 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 bg-orange-500/10 rounded-xl shrink-0">
-                  <CircleStar className="w-6 h-6 text-orange-400" />
+          <Card key={brand.id} className="overflow-hidden relative group transition-all duration-300 hover:border-border/50 hover:bg-muted/50">
+            <CardContent className="p-4 flex flex-col gap-3">
+              <div className="flex gap-3 items-center">
+                <div className="p-2 bg-orange-500/10 rounded-lg shrink-0">
+                  <CircleStar className="w-5 h-5 text-orange-400" />
                 </div>
+                
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base text-foreground truncate">{brand.nama}</h3>
+                  <p className="text-xs text-muted-foreground truncate">{brand.identifier}</p>
+                </div>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full hover:bg-muted text-muted-foreground transition-opacity">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-neutral-950 border-neutral-800 text-neutral-200">
-                    <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenSheet(brand.id)}>
+                  <DropdownMenuContent align="end" className="bg-popover border-border text-foreground">
+                    <DropdownMenuItem className="cursor-pointer focus:bg-muted" onClick={() => handleOpenSheet(brand.id)}>
                       <Edit className="w-4 h-4 mr-2" /> Edit Merek
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => requestDelete(brand.id, brand.nama)}>
+                    <DropdownMenuItem className="text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer" onClick={() => requestDelete(brand.id, brand.nama)}>
                       <Trash2 className="w-4 h-4 mr-2" /> Hapus Merek
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
-              <div>
-                <h3 className="font-semibold text-lg text-neutral-100 mb-1">{brand.nama}</h3>
-                <p className="text-sm text-neutral-500 line-clamp-1">{brand.identifier}</p>
-              </div>
-
-              <div className="mt-auto pt-4 border-t border-neutral-800/60 flex justify-between items-center">
-                <span className="text-xs font-medium text-neutral-500">Total Barang</span>
-                <span className="text-sm font-medium text-neutral-300">{brand.totalItems} Unit</span>
+              <div className="pt-3 border-t border-border/50 flex justify-between items-center">
+                <span className="text-xs font-medium text-muted-foreground">Total Barang</span>
+                <span className="text-xs font-medium text-foreground">{brand.totalItems} Unit</span>
               </div>
             </CardContent>
           </Card>
@@ -351,20 +352,20 @@ export default function MerekBarangPage() {
 
         {filteredBrands.length === 0 && (
           <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-4">
-              <Search className="w-8 h-8 text-neutral-600" />
+            <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center mb-4">
+              <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium text-neutral-300 mb-1">Merek Tidak Ditemukan</h3>
-            <p className="text-sm text-neutral-500 max-w-sm">Coba gunakan kata kunci lain atau tambahkan merek baru.</p>
+            <h3 className="text-lg font-medium text-foreground mb-1">Merek Tidak Ditemukan</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">Coba gunakan kata kunci lain atau tambahkan merek baru.</p>
           </div>
         )}
       </div>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">
-          <SheetHeader className="p-6 border-b border-neutral-800/60 bg-neutral-900/20">
-            <SheetTitle className="text-xl text-neutral-100">{editId ? "Edit Merek" : "Tambah Merek Baru"}</SheetTitle>
-            <SheetDescription className="text-neutral-400">
+        <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
+          <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
+            <SheetTitle className="text-xl text-foreground">{editId ? "Edit Merek" : "Tambah Merek Baru"}</SheetTitle>
+            <SheetDescription className="text-muted-foreground">
               Isi formulir di bawah ini untuk mengelola informasi merek barang.
             </SheetDescription>
           </SheetHeader>
@@ -379,7 +380,7 @@ export default function MerekBarangPage() {
                     setFormErrors(current => ({ ...current, name: "" }))
                   }}
                   placeholder="Contoh: Cisco"
-                  className={`bg-neutral-900 ${formErrors.name ? "border-destructive" : "border-neutral-800"}`}
+                  className={`bg-background ${formErrors.name ? "border-destructive" : "border-border"}`}
                 />
                 {formErrors.name && (
                   <p className="text-xs text-destructive">{formErrors.name}</p>
@@ -394,7 +395,7 @@ export default function MerekBarangPage() {
                     setFormErrors(current => ({ ...current, identifier: "" }))
                   }}
                   placeholder="Contoh: CIS"
-                  className={`bg-neutral-900 font-mono uppercase ${formErrors.identifier ? "border-destructive" : "border-neutral-800"}`}
+                  className={`bg-background font-mono uppercase ${formErrors.identifier ? "border-destructive" : "border-border"}`}
                 />
                 {formErrors.identifier && (
                   <p className="text-xs text-destructive">{formErrors.identifier}</p>
@@ -409,10 +410,10 @@ export default function MerekBarangPage() {
                     setFormErrors(current => ({ ...current, category: "" }))
                   }}
                 >
-                  <SelectTrigger className="bg-neutral-900 border-neutral-800">
+                  <SelectTrigger className="bg-background border-border">
                     <SelectValue placeholder="Pilih Kategori" />
                   </SelectTrigger>
-                  <SelectContent className="bg-neutral-900 border-neutral-800 z-[100]" position="popper">
+                  <SelectContent className="bg-background border-border z-[100]" position="popper">
                     {categories.length > 0 ? (
                       categories.map(category => (
                         <SelectItem key={category.id} value={category.id}>
@@ -429,12 +430,12 @@ export default function MerekBarangPage() {
               </div>
               <div className="space-y-2">
                 <Label>Asal</Label>
-                <Input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="Contoh: Amerika Serikat" className="bg-neutral-900 border-neutral-800" />
+                <Input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="Contoh: Amerika Serikat" className="bg-background border-border" />
               </div>
             </div>
           </div>
-          <SheetFooter className="p-6 border-t border-neutral-800/60 bg-neutral-900/20 flex sm:justify-end gap-3 sm:gap-2">
-            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="hover:bg-neutral-800 text-neutral-300" disabled={isSaving}>Batal</Button>
+          <SheetFooter className="p-6 border-t border-border/50 bg-muted/50 flex sm:justify-end gap-3 sm:gap-2">
+            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="hover:bg-muted text-foreground" disabled={isSaving}>Batal</Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Simpan Perubahan
@@ -447,7 +448,7 @@ export default function MerekBarangPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
-            <AlertDialogDescription className="text-neutral-400">
+            <AlertDialogDescription className="text-muted-foreground">
               Tindakan ini tidak dapat dibatalkan dan semua data terkait akan dihapus.
             </AlertDialogDescription>
           </AlertDialogHeader>

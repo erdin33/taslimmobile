@@ -64,6 +64,7 @@ interface CameraScannerProps {
   showModeTabs?: boolean
   defaultMode?: "masuk" | "keluar"
   onOpenChange?: (open: boolean) => void
+  open?: boolean
 }
 
 export function CameraScanner({
@@ -74,8 +75,16 @@ export function CameraScanner({
   showModeTabs = false,
   defaultMode = "masuk",
   onOpenChange,
+  open: controlledOpen,
 }: CameraScannerProps) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(controlledOpen ?? false)
+  
+  React.useEffect(() => {
+    if (controlledOpen !== undefined) {
+      setOpen(controlledOpen)
+    }
+  }, [controlledOpen])
+
   const [activeMode, setActiveMode] = React.useState<"masuk" | "keluar">(defaultMode)
   const [scannedCodes, setScannedCodes] = React.useState<{ code: string; status: "success" | "error"; message?: string; timestamp: Date }[]>([])
   const [isTorchOn, setIsTorchOn] = React.useState(false)
@@ -84,7 +93,9 @@ export function CameraScanner({
   const [scanFlash, setScanFlash] = React.useState<"success" | "error" | null>(null)
 
   const handleOpen = (val: boolean) => {
-    setOpen(val)
+    if (controlledOpen === undefined) {
+      setOpen(val)
+    }
     onOpenChange?.(val)
   }
 

@@ -19,8 +19,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Edit, Loader2, History, Copy, Check, Info } from "lucide-react"
-import { toast } from "sonner"
+import { Edit, Loader2, History, Info } from "lucide-react"
+
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { BarangUnit, StatusUnit, RiwayatUnit } from "@/types/inventory"
 
@@ -52,7 +52,6 @@ export function BarangDetailDrawer({
   const isMobile = useIsMobile()
   const [history, setHistory] = useState<RiwayatUnit[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-  const [isCopied, setIsCopied] = useState(false)
 
   useEffect(() => {
     if (!isOpen || !detailBarang) return
@@ -85,14 +84,6 @@ export function BarangDetailDrawer({
   if (!detailBarang) return null
 
   const badge = getStatusBadgeProps(detailBarang.status)
-
-  const handleCopySN = () => {
-    if (!detailBarang) return
-    navigator.clipboard.writeText(detailBarang.serialNumber)
-    setIsCopied(true)
-    toast.success(`SN ${detailBarang.serialNumber} tersalin ke clipboard!`)
-    setTimeout(() => setIsCopied(false), 2000)
-  }
 
 
 

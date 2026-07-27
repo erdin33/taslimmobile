@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { PackagePlus, ScanLine, X, Loader2, Wrench, Lock } from "lucide-react";
+import { PackagePlus, X, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -22,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -32,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
-import type { BrandOption, BrandDefinition, KategoriOption, LokasiOption, LocationDefinition, InventoryItem, KodeBarangUpdate } from "@/types/inventory";
+import type { BrandOption, BrandDefinition, LokasiOption, LocationDefinition, InventoryItem, KodeBarangUpdate } from "@/types/inventory";
 import type { BarangMasukItem } from "@/types/transaction";
 import type { Partner } from "@/types/partner";
 
@@ -287,7 +286,13 @@ export default function BarangMasukPage() {
 
         const resModels = await fetch(`${getBaseUrl()}/material-models`, { method: "GET", headers: getHeaders() });
         const rawModels = await resModels.json();
-        setDbModels(Array.isArray(rawModels.data || rawModels) ? (rawModels.data || rawModels) : []);
+        const modelsArray = Array.isArray(rawModels.data || rawModels) ? (rawModels.data || rawModels) : [];
+        setDbModels(modelsArray);
+        // Do not auto-select model even if there is only 1, 
+        // to ensure SN brand auto-detection works by default.
+        // if (modelsArray.length === 1) {
+        //   setTipeBarang(modelsArray[0].nama);
+        // }
 
         const items = await refreshInventoryItems();
 
@@ -367,9 +372,6 @@ export default function BarangMasukPage() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshInventoryItems]);
-
-  const totalKuotaTersedia = Object.values(kuota).reduce((total, value) => total + value, 0);
-  const validItems = barangMasuk.filter((item) => item.status === "Valid").length;
 
   const updateKodeBarang = useCallback((value: KodeBarangUpdate) => {
     const nextValue = typeof value === "function" ? value(kodeBarangRef.current) : value;
@@ -476,10 +478,12 @@ export default function BarangMasukPage() {
       : null;
 
     // Tentukan Merek untuk rekomendasi lokasi
+    const detectedBrand = detectBrandFromCode(trimmedKode, dbBrands);
+    const modelBrand = selectedModelInfo?.brand?.nama || selectedModelInfo?.brand?.name;
     const itemBrand =
       existingItem?.merek ||
-      (selectedModelInfo?.brand?.nama || selectedModelInfo?.brand?.name) ||
-      detectBrandFromCode(trimmedKode, dbBrands) ||
+      detectedBrand ||
+      modelBrand ||
       "";
 
     // Rekomendasi Lokasi Otomatis (Smart Routing)
@@ -929,9 +933,9 @@ export default function BarangMasukPage() {
 
                 {kondisiBarang === "Baru" && (
                   <Select
-                    value={tipeBarang}
+                    value={tipeBarang || "none"}
                     onValueChange={(value) => {
-                      setTipeBarang(value);
+                      setTipeBarang(value === "none" ? "" : value);
                       focusKodeBarangInput();
                     }}
                   >
@@ -942,6 +946,9 @@ export default function BarangMasukPage() {
                     <Label htmlFor="kode-barang-manual">Kode / SN</Label>
                     <SelectContent>
                       <SelectGroup>
+                        <SelectItem value="none" className="italic text-muted-foreground">
+                          -- Tanpa Model (Deteksi SN otomatis) --
+                        </SelectItem>
                         {dbModels.map((model) => (
                           <SelectItem key={model.id} value={model.nama}>
                             {model.nama} ({model.brand?.nama || model.brand?.name || "Tanpa Merek"})
@@ -1039,7 +1046,7 @@ export default function BarangMasukPage() {
                             <Select value={item.tipe} onValueChange={(val) => handleUpdateInline(item.id, "tipe", val)}>
                               <SelectTrigger className={`w-[140px] h-8 text-xs ${!item.tipe ? "border-destructive text-destructive" : ""}`}><SelectValue placeholder="Pilih Model" /></SelectTrigger>
                               <SelectContent>
-                                {dbModels.filter(m => (m.brand?.nama || m.brand?.name || "").toLowerCase() === item.merek.toLowerCase()).map(m => <SelectItem key={m.id} value={m.nama}>{m.nama}</SelectItem>)}
+                                {dbModels.map(m => <SelectItem key={m.id} value={m.nama}>{m.nama}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           ) : (

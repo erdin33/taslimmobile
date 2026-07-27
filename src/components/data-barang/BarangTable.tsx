@@ -1,4 +1,3 @@
-import React from "react"
 import { MoreVertical, Edit, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -48,7 +47,7 @@ export function BarangTable({
   currentPage,
   pageSize,
   getStatusBadgeProps,
-  formatTanggal,
+  formatTanggal: _formatTanggal,
   ADMIN_LOCATION,
 }: BarangTableProps) {
   const isAllSelected =

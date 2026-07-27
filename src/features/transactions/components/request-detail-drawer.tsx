@@ -104,7 +104,7 @@ export function RequestDetailDrawer({
   onClose: () => void
   onStatusChange?: (id: string, newStatus: string) => void
 }) {
-  const { user } = useAuth()
+  useAuth()
   const navigate = useNavigate()
   const [detailData, setDetailData] = useState<DashboardRequest | null>(null)
   const [isLoading, setIsLoading] = useState(false)

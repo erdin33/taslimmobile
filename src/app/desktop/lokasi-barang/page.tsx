@@ -87,10 +87,22 @@ export default function LokasiBarangPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const loadLocations = async () => {
-  setLocations((dummyLocations as StorageLocation[]).filter(
-    loc => loc.name !== "Keluar" && loc.name !== "Diluar"
-  ));
-};
+    try {
+      const res = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() });
+      if (!res.ok) throw new Error("Gagal mengambil data lokasi");
+      const rawData = await res.json();
+      const locData = rawData.data || rawData;
+      setLocations((Array.isArray(locData) ? locData : []).filter(
+        (loc: any) => loc.name !== "Keluar" && loc.name !== "Diluar"
+      ));
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal memuat lokasi dari server.");
+      setLocations((dummyLocations as StorageLocation[]).filter(
+        loc => loc.name !== "Keluar" && loc.name !== "Diluar"
+      ));
+    }
+  };
 
 
   const loadBrands = async () => {
@@ -546,15 +558,15 @@ export default function LokasiBarangPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full max-w-7xl">
+    <div className="p-6 h-full flex flex-col gap-6 text-foreground mx-auto w-full max-w-7xl">
       
       {/* ── 1. HEADER SECTION ── */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-800/60 pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-neutral-50 via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-neutral-900 via-neutral-700 to-neutral-500 dark:from-neutral-50 dark:via-neutral-100 dark:to-neutral-400 bg-clip-text text-transparent">
             Lokasi Penyimpanan
           </h1>
-          <p className="text-xs text-neutral-400 mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             Kelola tata letak fisik, aturan merek, dan pantau ketersediaan kapasitas rak, kardus, atau pallet.
           </p>
         </div>

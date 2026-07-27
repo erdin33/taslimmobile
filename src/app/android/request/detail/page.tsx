@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { DashboardRequest } from "@/types/transaction";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -115,8 +115,6 @@ export default function RequestDetailPage() {
     );
   }
 
-  const status = request.status?.toLowerCase() || "";
-
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full print:p-0 print:m-0 print:block print:max-w-none">
       <div className="flex items-center gap-4 border-b pb-4 print:hidden">
@@ -191,7 +189,7 @@ export default function RequestDetailPage() {
               {['SIAP', 'SELESAI', 'DITERIMA'].includes(request.status?.toUpperCase() || "") ? (
                 <div className="flex flex-col gap-3">
                   {request.requestAllocations && request.requestAllocations.length > 0 ? (
-                    request.requestAllocations.map((ra, idx) => (
+                    request.requestAllocations.map((ra) => (
                       <div key={ra.id} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/10 flex flex-col gap-3">
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex flex-col gap-0.5">
@@ -214,7 +212,7 @@ export default function RequestDetailPage() {
               ) : request.status?.toUpperCase() === 'DISETUJUI' ? (
                 <div className="flex flex-col gap-3">
                   {request.requestItems && request.requestItems.length > 0 ? (
-                    request.requestItems.map((ri, idx) => (
+                    request.requestItems.map((ri) => (
                       <div key={ri.id} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/10 flex flex-col gap-3">
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex flex-col gap-0.5">
@@ -236,7 +234,7 @@ export default function RequestDetailPage() {
                 </div>
               ) : request.requestItems && request.requestItems.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {request.requestItems.map((ri, idx) => (
+                  {request.requestItems.map((ri) => (
                     <div key={ri.id} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/10 flex flex-col gap-3">
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex flex-col gap-0.5">

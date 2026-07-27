@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Archive, BadgeCheck, Boxes, PackageMinus, ScanLine, X, Loader2, ArrowRight } from "lucide-react";
+import { Archive, PackageMinus, ScanLine, X, Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
@@ -9,7 +9,6 @@ import { CameraScanner } from "@/components/camera-scanner";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -23,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -166,9 +164,10 @@ function EmptyScanTableState() {
  * @returns {JSX.Element} Antarmuka halaman barang keluar.
  */
 export default function BarangKeluarPage() {
+  const initScanDone = useRef(false);
   const { user } = useAuth();
   const [kodeBarang, setKodeBarang] = useState("");
-  const [inputMode, setInputMode] = useState<"auto" | "manual">("auto");
+  const [_inputMode, _setInputMode] = useState<"auto" | "manual">("auto");
   const [barangKeluar, setBarangKeluar] = useState<BarangKeluarItem[]>([]);
   const [kuota, setKuota] = useState<Record<string, number>>({});
   const [openScanner, setOpenScanner] = useState(false);
@@ -282,13 +281,14 @@ export default function BarangKeluarPage() {
 
   const focusKodeBarangInput = useCallback(() => {
     if (!openScanner) {
-      setTimeout(() => inputRef.current?.focus(), 0);
+      // Dinonaktifkan di mobile agar soft keyboard tidak sering muncul otomatis
+      // setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [openScanner]);
 
-  // Auto-focus pada input ketika component mount
+  // Auto-focus dinonaktifkan di mobile saat mount
   useEffect(() => {
-    inputRef.current?.focus();
+    // inputRef.current?.focus();
   }, []);
 
   /**
@@ -406,12 +406,24 @@ export default function BarangKeluarPage() {
     user,
   ]);
 
-  const handleScanSuccess = useCallback((scannedCode: string | string[]) => {
-    const codeToProcess = Array.isArray(scannedCode) ? scannedCode[0] : scannedCode;
-    if (processedCodesRef.current.has(codeToProcess)) return { success: false, ignored: true, message: "Sudah discan di sesi ini" };
-    processedCodesRef.current.add(codeToProcess);
-    setTimeout(() => { processedCodesRef.current.delete(codeToProcess); }, 2000);
-    return handleSubmit(codeToProcess);
+  const handleScanSuccess = useCallback(async (scannedCode: string | string[]) => {
+    if (Array.isArray(scannedCode)) {
+      let count = 0;
+      for (const code of scannedCode) {
+        if (processedCodesRef.current.has(code)) continue;
+        processedCodesRef.current.add(code);
+        setTimeout(() => { processedCodesRef.current.delete(code); }, 2000);
+        await handleSubmit(code);
+        count++;
+      }
+      return { success: count > 0, message: count > 0 ? `Berhasil memproses ${count} barcode.` : "Tidak ada barcode baru." };
+    } else {
+      const codeToProcess = scannedCode;
+      if (processedCodesRef.current.has(codeToProcess)) return { success: false, ignored: true, message: "Sudah discan di sesi ini" };
+      processedCodesRef.current.add(codeToProcess);
+      setTimeout(() => { processedCodesRef.current.delete(codeToProcess); }, 2000);
+      return handleSubmit(codeToProcess);
+    }
   }, [handleSubmit]);
 
   /**
@@ -662,9 +674,31 @@ export default function BarangKeluarPage() {
     }
   };
 
+  // Auto-process scan from global scanner (via sessionStorage)
+  useEffect(() => {
+    const processGlobalScan = () => {
+      const stored = sessionStorage.getItem("global-scan-keluar");
+      if (stored) {
+        initScanDone.current = true;
+        sessionStorage.removeItem("global-scan-keluar");
+        const codes = stored.includes(',') ? stored.split(',') : stored;
+        handleScanSuccess(codes);
+      }
+    };
+
+    if (!initScanDone.current) {
+      processGlobalScan();
+    }
+
+    window.addEventListener("global-scan-keluar-updated", processGlobalScan);
+    return () => {
+      window.removeEventListener("global-scan-keluar-updated", processGlobalScan);
+    };
+  }, [handleScanSuccess]);
+
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6 overflow-y-auto">
-      <div className="flex h-full flex-col gap-4 px-4 lg:px-6">
+    <div className="@container/main flex min-h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6 @5xl/main:h-full @5xl/main:overflow-y-hidden">
+      <div className="flex flex-col gap-4 px-4 lg:px-6 @5xl/main:h-full">
         
         {/* Smart Input Bar */}
         <Card className="shrink-0 border-primary/20 shadow-sm">
@@ -766,7 +800,7 @@ export default function BarangKeluarPage() {
         </Card>
 
         {/* Tabel Layar Penuh */}
-        <Card className="flex flex-1 flex-col overflow-hidden">
+        <Card className="flex flex-col @5xl/main:flex-1 @5xl/main:overflow-hidden">
           <CardHeader className="shrink-0 flex-row items-center justify-between border-b pb-4">
             <CardTitle>Daftar Barang Keluar</CardTitle>
             <Badge variant="outline" className="w-fit">
@@ -774,83 +808,14 @@ export default function BarangKeluarPage() {
             </Badge>
           </CardHeader>
 
-          <CardContent className="relative flex-1 overflow-auto p-4 max-h-[60vh] md:max-h-none">
+          <CardContent className="relative flex flex-col flex-1 p-0 @5xl/main:overflow-hidden">
             {barangKeluar.length === 0 ? (
               <div className="rounded-lg border bg-card text-card-foreground shadow-sm my-auto">
                 <EmptyScanTableState />
               </div>
             ) : (
               <>
-                {/* Mobile View Cards (md:hidden) */}
-                <div className="flex flex-col gap-3 md:hidden">
-                  {barangKeluar.map((item, index) => (
-                    <Card key={item.id} className="p-3.5 space-y-2.5 border-border/80 shadow-xs">
-                      <div className="flex items-center justify-between gap-2 border-b pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-                            {index + 1}
-                          </span>
-                          <span className="font-mono text-sm font-semibold tracking-tight">{item.nomor}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="secondary" className="gap-1.5 font-normal px-2 py-0.5 text-[10px]">
-                            <div className={`size-1.5 rounded-full ${user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"}`} />
-                            {user?.role === "mitra" ? "Diluar" : item.status}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="size-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteItem(item.id)}
-                          >
-                            <X className="size-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-muted-foreground block text-[10px]">Merek</span>
-                          <div className="font-medium truncate">{item.merek}</div>
-                        </div>
-
-                        <div>
-                          <span className="text-muted-foreground block text-[10px]">Kategori</span>
-                          <Badge variant="secondary" className="font-normal text-[10px] px-2 py-0.5">
-                            {item.kategori}
-                          </Badge>
-                        </div>
-
-                        <div>
-                          <span className="text-muted-foreground block text-[10px]">Model</span>
-                          <div className="font-medium truncate">{item.tipe || "-"}</div>
-                        </div>
-
-                        <div>
-                          <span className="text-muted-foreground block text-[10px]">Asal Lokasi</span>
-                          <div className="font-medium truncate">{item.lokasi}</div>
-                        </div>
-
-                        {user?.role !== "mitra" && (
-                          <div>
-                            <span className="text-muted-foreground block text-[10px]">Mitra</span>
-                            <div className="font-medium truncate">{item.mitra}</div>
-                          </div>
-                        )}
-
-                        {user?.role === "mitra" && (
-                          <div>
-                            <span className="text-muted-foreground block text-[10px]">PA / Keterangan</span>
-                            <div className="font-medium truncate">{item.keterangan || "-"}</div>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-
-                {/* Desktop View Table (hidden md:block) */}
-                <div className="hidden md:block flex-1 overflow-auto rounded-lg border">
+                <div className="flex-1 overflow-x-auto rounded-lg border @5xl/main:overflow-auto">
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
                       <TableRow>

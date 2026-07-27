@@ -24,12 +24,10 @@ import { Badge } from "@/components/ui/badge"
 import {
     IconPackage,
     IconLoader,
-    IconDotsVertical,
     IconCircleCheck,
     IconX,
     IconBan,
     IconFileText,
-    IconSignature,
     IconChevronsLeft,
     IconChevronLeft,
     IconChevronRight,
@@ -40,16 +38,9 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { api, getBaseUrl } from "@/lib/api"
 import { openUrl } from "@tauri-apps/plugin-opener"
-import {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import { useNavigate } from "react-router-dom"
+
 import type { DashboardRequest } from "@/types/transaction"
-import { Check, Edit, Pencil, PencilIcon, ArrowUpDown } from "lucide-react"
+import { Check, Pencil, ArrowUpDown } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { Label } from "@/components/ui/label"
 import {
@@ -277,101 +268,7 @@ function DocumentMenu({
     )
 }
 
-function ActionMenu({
-    row,
-    table,
-}: {
-    row: { original: DashboardRequest }
-    table: TanstackTable<DashboardRequest>
-}) {
-    const status = row.original.status?.toUpperCase()?.trim()
-    const meta = table.options.meta as TableMeta | undefined
 
-    const navigate = useNavigate()
-
-    const handleStatusChange = React.useCallback(
-        (e: React.MouseEvent, newStatus: string) => {
-            e.stopPropagation()
-            meta?.onStatusChange?.(row.original.id, newStatus)
-        },
-        [meta, row.original.id]
-    )
-
-    const handleNavigateToPrepare = React.useCallback(
-        (e: React.MouseEvent) => {
-            e.stopPropagation()
-            navigate(`/request/${row.original.id}/prepare`)
-        },
-        [navigate, row.original.id]
-    )
-
-    return (
-        <div className="flex items-center gap-1 justify-center">
-            {status === "DISETUJUI" && (
-                <>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-amber-600 cursor-pointer"
-                        onClick={handleNavigateToPrepare}
-                    >
-                        <IconPackage size={18} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Dibatalkan")}
-                    >
-                        <IconBan size={18} />
-                    </Button>
-                </>
-            )}
-
-            {status === "MENUNGGU" && (
-                <>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-emerald-700 cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Disetujui")}
-                    >
-                        <Check size={18} className="" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Ditolak")}
-                    >
-                        <IconX size={18} className="" />
-                    </Button>
-                </>
-            )}
-
-            {status === "SIAP" && (
-                <div>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-blue-600 cursor-pointer"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <Edit strokeWidth={2} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon-lg"
-                        className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Dibatalkan")}
-                    >
-                        <IconBan strokeWidth={2} />
-                    </Button>
-                </div>
-            )}
-        </div>
-    )
-}
 
 // ─────────────────────────────────────────────
 // Column Definitions (factory function agar columns tidak berisi closure meta)

@@ -1,4 +1,3 @@
-import React from "react"
 import { Search, Trash2, Download, Plus, RotateCcw } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"

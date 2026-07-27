@@ -33,7 +33,6 @@ import {
   LayoutGrid,
   LogOut,
   MapPinHouse,
-  PackageMinus,
   PackagePlus,
   Settings,
   Shapes,

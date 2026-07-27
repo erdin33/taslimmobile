@@ -87,10 +87,22 @@ export default function LokasiBarangPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const loadLocations = async () => {
-  setLocations((dummyLocations as StorageLocation[]).filter(
-    loc => loc.name !== "Keluar" && loc.name !== "Diluar"
-  ));
-};
+    try {
+      const res = await fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() });
+      if (!res.ok) throw new Error("Gagal mengambil data lokasi");
+      const rawData = await res.json();
+      const locData = rawData.data || rawData;
+      setLocations((Array.isArray(locData) ? locData : []).filter(
+        (loc: any) => loc.name !== "Keluar" && loc.name !== "Diluar"
+      ));
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal memuat lokasi dari server.");
+      setLocations((dummyLocations as StorageLocation[]).filter(
+        loc => loc.name !== "Keluar" && loc.name !== "Diluar"
+      ));
+    }
+  };
 
 
   const loadBrands = async () => {
@@ -428,11 +440,11 @@ export default function LokasiBarangPage() {
   };
 
   const renderCapacityInput = () => (
-    <div className="space-y-2 rounded-xl border border-neutral-850 bg-neutral-900/20 p-4">
+    <div className="space-y-2 rounded-xl border border-border bg-muted/50 p-4">
       <div className="space-y-1.5">
-        <Label htmlFor="loc-capacity" className="text-xs font-semibold text-neutral-300 flex justify-between items-center">
+        <Label htmlFor="loc-capacity" className="text-xs font-semibold text-foreground flex justify-between items-center">
           <span>Kapasitas Maksimal</span>
-          <span className="text-[10px] text-neutral-500 font-normal italic">(Dapat diubah secara manual)</span>
+          <span className="text-[10px] text-muted-foreground font-normal italic">(Dapat diubah secara manual)</span>
         </Label>
         <div className="relative">
           <Input
@@ -442,9 +454,9 @@ export default function LokasiBarangPage() {
             value={locCapacity}
             onChange={e => setLocCapacity(e.target.value)}
             placeholder="Masukkan total kapasitas"
-            className="bg-neutral-950 border-neutral-800 pr-12 text-sm font-semibold text-blue-400 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="bg-popover border-border pr-12 text-sm font-semibold text-blue-400 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-neutral-500 select-none">Unit</span>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground select-none">Unit</span>
         </div>
       </div>
     </div>
@@ -454,13 +466,13 @@ export default function LokasiBarangPage() {
     if (sheetMode === "add-rak" || sheetMode === "edit-rak") return (
       <>
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-neutral-300">Nama Rak</Label>
-          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Rak A1" className="bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" />
+          <Label className="text-xs font-semibold text-foreground">Nama Rak</Label>
+          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Rak A1" className="bg-background border-border focus-visible:ring-1 focus-visible:ring-ring" />
         </div>
         {sheetMode === "add-rak" && (
           <div className="space-y-2">
-            <Label className="text-xs font-semibold text-neutral-300">Jumlah Level Awal</Label>
-            <Input type="number" min="1" value={locLevelsCount} onChange={e => setLocLevelsCount(e.target.value)} placeholder="Masukkan Total Level" className="bg-neutral-900 border-neutral-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            <Label className="text-xs font-semibold text-foreground">Jumlah Level Awal</Label>
+            <Input type="number" min="1" value={locLevelsCount} onChange={e => setLocLevelsCount(e.target.value)} placeholder="Masukkan Total Level" className="bg-background border-border [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
           </div>
         )}
       </>
@@ -468,16 +480,16 @@ export default function LokasiBarangPage() {
     if (sheetMode === "add-kardus" || sheetMode === "edit-kardus") return (
       <>
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-neutral-300">Nama Kardus</Label>
-          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Kardus K-01" className="bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" />
+          <Label className="text-xs font-semibold text-foreground">Nama Kardus</Label>
+          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Kardus K-01" className="bg-background border-border focus-visible:ring-1 focus-visible:ring-ring" />
         </div>
         {renderCapacityInput()}
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-neutral-300">Aturan Merek</Label>
+          <Label className="text-xs font-semibold text-foreground">Aturan Merek</Label>
           <Select value={locBrand} onValueChange={setLocBrand}>
-            <SelectTrigger className="justify-start bg-neutral-900 border-neutral-800 focus:ring-1 focus:ring-neutral-700"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
-            <SelectContent className="bg-neutral-950 border-neutral-800 text-neutral-200">
-              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-neutral-800">{b}</SelectItem>)}
+            <SelectTrigger className="justify-start bg-background border-border focus:ring-1 focus:ring-ring"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
+            <SelectContent className="bg-popover border-border text-foreground">
+              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-muted">{b}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -486,16 +498,16 @@ export default function LokasiBarangPage() {
     if (sheetMode === "add-pallet" || sheetMode === "edit-pallet") return (
       <>
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-neutral-300">Nama Pallet</Label>
-          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Pallet P-01" className="bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" />
+          <Label className="text-xs font-semibold text-foreground">Nama Pallet</Label>
+          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Pallet P-01" className="bg-background border-border focus-visible:ring-1 focus-visible:ring-ring" />
         </div>
         {renderCapacityInput()}
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-neutral-300">Aturan Merek</Label>
+          <Label className="text-xs font-semibold text-foreground">Aturan Merek</Label>
           <Select value={locBrand} onValueChange={setLocBrand}>
-            <SelectTrigger className="justify-start bg-neutral-900 border-neutral-800 focus:ring-1 focus:ring-neutral-700"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
-            <SelectContent className="bg-neutral-950 border-neutral-800 text-neutral-200">
-              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-neutral-800">{b}</SelectItem>)}
+            <SelectTrigger className="justify-start bg-background border-border focus:ring-1 focus:ring-ring"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
+            <SelectContent className="bg-popover border-border text-foreground">
+              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-muted">{b}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -504,16 +516,16 @@ export default function LokasiBarangPage() {
     if (sheetMode === "add-level" || sheetMode === "edit-level") return (
       <>
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-neutral-300">Nama Level</Label>
-          <Input value={levelName} onChange={e => setLevelName(e.target.value)} placeholder="Contoh: Level 1" className="bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700" />
+          <Label className="text-xs font-semibold text-foreground">Nama Level</Label>
+          <Input value={levelName} onChange={e => setLevelName(e.target.value)} placeholder="Contoh: Level 1" className="bg-background border-border focus-visible:ring-1 focus-visible:ring-ring" />
         </div>
         {renderCapacityInput()}
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-neutral-300">Aturan Merek</Label>
+          <Label className="text-xs font-semibold text-foreground">Aturan Merek</Label>
           <Select value={locBrand} onValueChange={setLocBrand}>
-            <SelectTrigger className="bg-neutral-900 border-neutral-800 focus:ring-1 focus:ring-neutral-700"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
-            <SelectContent className="bg-neutral-950 border-neutral-800 text-neutral-200">
-              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-neutral-800">{b}</SelectItem>)}
+            <SelectTrigger className="bg-background border-border focus:ring-1 focus:ring-ring"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
+            <SelectContent className="bg-popover border-border text-foreground">
+              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-muted">{b}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -531,10 +543,10 @@ export default function LokasiBarangPage() {
 
   // Helper for progress colors
   const getProgressStyles = (used: number, cap: number, baseColor: string) => {
-    if (cap <= 0) return { barClass: "bg-neutral-800", textClass: "text-neutral-500", label: "0%", pct: 0 };
+    if (cap <= 0) return { barClass: "bg-muted", textClass: "text-muted-foreground", label: "0%", pct: 0 };
     const pct = Math.min(100, Math.round((used / cap) * 100));
     let barClass = baseColor;
-    let textClass = "text-neutral-300";
+    let textClass = "text-foreground";
     if (pct >= 100) {
       barClass = "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]";
       textClass = "text-red-400 font-bold";
@@ -546,15 +558,15 @@ export default function LokasiBarangPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full max-w-7xl">
+    <div className="p-6 h-full flex flex-col gap-6 text-foreground mx-auto w-full max-w-7xl">
       
       {/* ── 1. HEADER SECTION ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-800/60 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/50 pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-neutral-50 via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
             Lokasi Penyimpanan
           </h1>
-          <p className="text-xs text-neutral-400 mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             Kelola tata letak fisik, aturan merek, dan pantau ketersediaan kapasitas rak, kardus, atau pallet.
           </p>
         </div>
@@ -564,14 +576,14 @@ export default function LokasiBarangPage() {
               <Plus className="w-4 h-4 mr-1.5" /> Tambah Lokasi
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-neutral-950 border-neutral-800 text-neutral-200">
-            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-rak")}>
+          <DropdownMenuContent align="end" className="w-48 bg-popover border-border text-foreground">
+            <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("add-rak")}>
               <Layers className="w-4 h-4 mr-2 text-blue-400" /> Tambah Rak
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-kardus")}>
+            <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("add-kardus")}>
               <Archive className="w-4 h-4 mr-2 text-amber-400" /> Tambah Kardus
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-pallet")}>
+            <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("add-pallet")}>
               <Package className="w-4 h-4 mr-2 text-emerald-400" /> Tambah Pallet
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -581,16 +593,16 @@ export default function LokasiBarangPage() {
       {/* ── 2. WAREHOUSE STATISTICS BANNER ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Card 1: Warehouse occupancy tracker */}
-        <Card className="lg:col-span-2 bg-neutral-900/20 border-neutral-800 backdrop-blur-xs p-6 flex flex-col md:flex-row gap-6 justify-between relative overflow-hidden">
+        <Card className="lg:col-span-2 bg-muted/50 border-border backdrop-blur-xs p-6 flex flex-col md:flex-row gap-6 justify-between relative overflow-hidden">
           <div className="flex-1 flex flex-col justify-between z-10">
             <div>
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <CardTitle className="text-sm font-bold text-neutral-300 flex items-center gap-2">
+                  <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
                     Okupansi Kapasitas Gudang
                   </CardTitle>
-                  <CardDescription className="text-xs text-neutral-500 mt-1">
+                  <CardDescription className="text-xs text-muted-foreground mt-1">
                     Status pemakaian kapasitas total di semua lokasi (Rak, Kardus, Pallet)
                   </CardDescription>
                 </div>
@@ -610,12 +622,12 @@ export default function LokasiBarangPage() {
                   { label: "Rak",    pct: rakPct,    color: "bg-blue-500",    glow: "rgba(59,130,246,0.45)" },
                   { label: "Kardus", pct: kardusPct, color: "bg-amber-400",   glow: "rgba(251,191,36,0.45)" },
                   { label: "Pallet", pct: palletPct, color: "bg-emerald-500", glow: "rgba(16,185,129,0.45)" },
-                  { label: "Kosong", pct: freePct,   color: "bg-neutral-800", glow: "" },
+                  { label: "Kosong", pct: freePct,   color: "bg-muted", glow: "" },
                 ];
                 return (
                   <div className="mt-4 space-y-3">
                     {/* Stacked bar */}
-                    <div className="w-full h-5 rounded-full overflow-hidden flex bg-neutral-950 shadow-inner">
+                    <div className="w-full h-5 rounded-full overflow-hidden flex bg-popover shadow-inner">
                       {segments.map((s) =>
                         s.pct > 0 ? (
                           <div
@@ -635,8 +647,8 @@ export default function LokasiBarangPage() {
                       {segments.map((s) => (
                         <div key={s.label} className="flex items-center gap-1.5">
                           <span className={`h-2 w-2 rounded-full ${s.color} shrink-0`} />
-                          <span className="text-[11px] text-neutral-500">{s.label}</span>
-                          <span className="text-[11px] font-semibold text-neutral-300">{s.pct}%</span>
+                          <span className="text-[11px] text-muted-foreground">{s.label}</span>
+                          <span className="text-[11px] font-semibold text-foreground">{s.pct}%</span>
                         </div>
                       ))}
                     </div>
@@ -645,21 +657,21 @@ export default function LokasiBarangPage() {
               })()}
             </div>
             
-            <div className="flex flex-wrap justify-between items-center gap-4 border-t border-neutral-800/40 pt-4 mt-2">
+            <div className="flex flex-wrap justify-between items-center gap-4 border-t border-border/50 pt-4 mt-2">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-blue-500" />
-                <span className="text-xs text-neutral-500">Terpakai:</span>
-                <span className="text-xs font-semibold text-neutral-300"><AnimatedNumber value={stats.usedCapacity} /> Unit</span>
+                <span className="text-xs text-muted-foreground">Terpakai:</span>
+                <span className="text-xs font-semibold text-foreground"><AnimatedNumber value={stats.usedCapacity} /> Unit</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="text-xs text-neutral-500">Tersedia:</span>
-                <span className="text-xs font-semibold text-neutral-300"><AnimatedNumber value={Math.max(0, stats.maxCapacity - stats.usedCapacity)} /> Unit</span>
+                <span className="text-xs text-muted-foreground">Tersedia:</span>
+                <span className="text-xs font-semibold text-foreground"><AnimatedNumber value={Math.max(0, stats.maxCapacity - stats.usedCapacity)} /> Unit</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-neutral-600" />
-                <span className="text-xs text-neutral-500">Total Kapasitas:</span>
-                <span className="text-xs font-semibold text-neutral-300"><AnimatedNumber value={stats.maxCapacity} /> Unit</span>
+                <span className="text-xs text-muted-foreground">Total Kapasitas:</span>
+                <span className="text-xs font-semibold text-foreground"><AnimatedNumber value={stats.maxCapacity} /> Unit</span>
               </div>
             </div>
           </div>
@@ -705,42 +717,42 @@ export default function LokasiBarangPage() {
         </Card>
 
         {/* Card 2: Physical type summary counts */}
-        <Card className="bg-neutral-900/20 border-neutral-800 backdrop-blur-xs p-6 flex flex-col justify-between gap-4">
+        <Card className="bg-muted/50 border-border backdrop-blur-xs p-6 flex flex-col justify-between gap-4">
           <div>
-            <CardTitle className="text-sm font-semibold text-neutral-300">Tipe Penyimpanan</CardTitle>
-            <CardDescription className="text-xs text-neutral-500 mt-1">
+            <CardTitle className="text-sm font-semibold text-foreground">Tipe Penyimpanan</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground mt-1">
               Jumlah lokasi aktif dan terdaftar berdasarkan kategori
             </CardDescription>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-neutral-950/40 border border-neutral-850 rounded-xl p-3 text-center transition-all duration-350 hover:border-neutral-800">
+            <div className="bg-popover/40 border border-border rounded-xl p-3 text-center transition-all duration-350 hover:border-border">
               <div className="p-1.5 bg-blue-500/10 rounded-lg w-fit mx-auto mb-2"><Layers className="w-4 h-4 text-blue-400" /></div>
-              <div className="text-[10px] text-neutral-500 font-medium">Rak</div>
-              <div className="text-lg font-bold text-neutral-100 mt-0.5"><AnimatedNumber value={stats.totalRak} /></div>
+              <div className="text-[10px] text-muted-foreground font-medium">Rak</div>
+              <div className="text-lg font-bold text-foreground mt-0.5"><AnimatedNumber value={stats.totalRak} /></div>
             </div>
-            <div className="bg-neutral-950/40 border border-neutral-850 rounded-xl p-3 text-center transition-all duration-350 hover:border-neutral-800">
+            <div className="bg-popover/40 border border-border rounded-xl p-3 text-center transition-all duration-350 hover:border-border">
               <div className="p-1.5 bg-amber-500/10 rounded-lg w-fit mx-auto mb-2"><Archive className="w-4 h-4 text-amber-400" /></div>
-              <div className="text-[10px] text-neutral-500 font-medium">Kardus</div>
-              <div className="text-lg font-bold text-neutral-100 mt-0.5"><AnimatedNumber value={stats.totalKardus} /></div>
+              <div className="text-[10px] text-muted-foreground font-medium">Kardus</div>
+              <div className="text-lg font-bold text-foreground mt-0.5"><AnimatedNumber value={stats.totalKardus} /></div>
             </div>
-            <div className="bg-neutral-950/40 border border-neutral-850 rounded-xl p-3 text-center transition-all duration-350 hover:border-neutral-800">
+            <div className="bg-popover/40 border border-border rounded-xl p-3 text-center transition-all duration-350 hover:border-border">
               <div className="p-1.5 bg-emerald-500/10 rounded-lg w-fit mx-auto mb-2"><Package className="w-4 h-4 text-emerald-400" /></div>
-              <div className="text-[10px] text-neutral-500 font-medium">Pallet</div>
-              <div className="text-lg font-bold text-neutral-100 mt-0.5"><AnimatedNumber value={stats.totalPallet} /></div>
+              <div className="text-[10px] text-muted-foreground font-medium">Pallet</div>
+              <div className="text-lg font-bold text-foreground mt-0.5"><AnimatedNumber value={stats.totalPallet} /></div>
             </div>
           </div>
         </Card>
       </div>
 
       {/* ── 3. INTEGRATED SEARCH & FILTERS ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-neutral-900/10 border border-neutral-800/80 rounded-2xl p-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-muted/50 border border-border/50 rounded-2xl p-4">
         {/* Search */}
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Cari nama lokasi atau aturan merek..."
-            className="w-full pl-9 bg-neutral-955 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700"
+            className="w-full pl-9 bg-neutral-955 border-border focus-visible:ring-1 focus-visible:ring-ring"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -749,7 +761,7 @@ export default function LokasiBarangPage() {
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Category badges */}
-          <div className="flex items-center gap-1.5 bg-neutral-955/60 p-1 rounded-xl border border-neutral-800">
+          <div className="flex items-center gap-1.5 bg-neutral-955/60 p-1 rounded-xl border border-border">
             {([
               { key: "rak", label: "Rak" },
               { key: "kardus", label: "Kardus" },
@@ -760,8 +772,8 @@ export default function LokasiBarangPage() {
                 onClick={() => setFilterType(key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
                   filterType === key
-                    ? "bg-neutral-800 text-neutral-100 border border-neutral-750 shadow-inner"
-                    : "text-neutral-500 hover:text-neutral-350 border border-transparent"
+                    ? "bg-muted text-foreground border border-neutral-750 shadow-inner"
+                    : "text-muted-foreground hover:text-neutral-350 border border-transparent"
                 }`}
               >
                 {label}
@@ -769,19 +781,19 @@ export default function LokasiBarangPage() {
             ))}
           </div>
 
-          <span className="w-px h-6 bg-neutral-800 hidden md:block" />
+          <span className="w-px h-6 bg-muted hidden md:block" />
 
           {/* Sort Dropdown */}
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-500" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
             <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
-              <SelectTrigger className="w-40 bg-neutral-955 border-neutral-800 text-xs font-semibold text-neutral-300 focus:ring-1 focus:ring-neutral-700 cursor-pointer">
+              <SelectTrigger className="w-40 bg-neutral-955 border-border text-xs font-semibold text-foreground focus:ring-1 focus:ring-ring cursor-pointer">
                 <SelectValue placeholder="Urutkan..." />
               </SelectTrigger>
-              <SelectContent className="bg-neutral-955 border-neutral-800 text-neutral-200 text-xs">
-                <SelectItem value="name" className="focus:bg-neutral-800 text-xs font-medium cursor-pointer">Nama (A-Z)</SelectItem>
-                <SelectItem value="util-desc" className="focus:bg-neutral-800 text-xs font-medium cursor-pointer">Terisi Tertinggi</SelectItem>
-                <SelectItem value="util-asc" className="focus:bg-neutral-800 text-xs font-medium cursor-pointer">Terisi Terendah</SelectItem>
+              <SelectContent className="bg-neutral-955 border-border text-foreground text-xs">
+                <SelectItem value="name" className="focus:bg-muted text-xs font-medium cursor-pointer">Nama (A-Z)</SelectItem>
+                <SelectItem value="util-desc" className="focus:bg-muted text-xs font-medium cursor-pointer">Terisi Tertinggi</SelectItem>
+                <SelectItem value="util-asc" className="focus:bg-muted text-xs font-medium cursor-pointer">Terisi Terendah</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -797,30 +809,30 @@ export default function LokasiBarangPage() {
             return (
               <Card
                 key={loc.id}
-                className={`border-neutral-800 bg-neutral-900/10 flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-lg hover:shadow-black/20 ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
+                className={`border-border bg-muted/50 flex flex-col relative group transition-all duration-300 hover:border-border/50 hover:bg-muted/50 hover:shadow-lg hover:shadow-black/20 ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
               >
                 {/* Header */}
-                <CardHeader className="pb-3 border-b border-neutral-800/40 bg-neutral-900/5 px-4 pt-4 flex flex-row items-start justify-between">
+                <CardHeader className="pb-3 border-b border-border/50 bg-muted/50 px-4 pt-4 flex flex-row items-start justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="p-1.5 bg-blue-500/10 rounded-lg"><Layers className="w-4 h-4 text-blue-400" /></div>
                     <div>
-                      <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+                      <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
                         {loc.name}
-                        {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
+                        {!isLocActive && <span className="text-[10px] bg-neutral-850 text-muted-foreground border border-border px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
                       </CardTitle>
-                      <CardDescription className="text-[10px] text-neutral-500 mt-0.5">{loc.levels?.length || 0} Level Penyimpanan</CardDescription>
+                      <CardDescription className="text-[10px] text-muted-foreground mt-0.5">{loc.levels?.length || 0} Level Penyimpanan</CardDescription>
                     </div>
                   </div>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-muted text-muted-foreground cursor-pointer"><MoreVertical className="w-4 h-4" /></Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                      <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-rak", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Nama Rak</DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("add-level", { parentId: loc.id })}><Plus className="w-3.5 h-3.5 mr-2" /> Tambah Level</DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-neutral-800" />
-                      <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Rak" : "Aktifkan Rak"}</DropdownMenuItem>
+                    <DropdownMenuContent align="end" className="bg-neutral-955 border-border text-foreground">
+                      <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("edit-rak", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Nama Rak</DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("add-level", { parentId: loc.id })}><Plus className="w-3.5 h-3.5 mr-2" /> Tambah Level</DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-muted" />
+                      <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Rak" : "Aktifkan Rak"}</DropdownMenuItem>
                       <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Rak</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -838,14 +850,14 @@ export default function LokasiBarangPage() {
                         onClick={() => navigate(`/data-barang?search=${encodeURIComponent(`${loc.name} - ${lvl.name}`)}`)}
                         className={`p-2.5 rounded-xl border transition-all ${
                           isLvlEffectiveActive 
-                            ? 'border-neutral-800/80 bg-neutral-955/20 hover:border-neutral-700/60 hover:bg-neutral-955/40 cursor-pointer' 
-                            : 'border-neutral-850/50 bg-neutral-900/5 opacity-55'
+                            ? 'border-border/50 bg-neutral-955/20 hover:border-border/50 hover:bg-neutral-955/40 cursor-pointer' 
+                            : 'border-border/50 bg-muted/50 opacity-55'
                         } flex flex-col gap-2 group/level`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-semibold text-xs text-neutral-200">{lvl.name}</span>
+                          <span className="font-semibold text-xs text-foreground">{lvl.name}</span>
                           <div className="flex gap-1.5 items-center" onClick={e => e.stopPropagation()}>
-                            <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 max-w-[90px] truncate font-medium">
+                            <span className="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] text-muted-foreground max-w-[90px] truncate font-medium">
                               {lvl.brandRule}
                             </span>
                             <DropdownMenu>
@@ -853,16 +865,16 @@ export default function LokasiBarangPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-6 w-6 rounded-full opacity-60 group-hover/level:opacity-100 transition-opacity hover:bg-neutral-800 text-neutral-400 cursor-pointer"
+                                  className="h-6 w-6 rounded-full opacity-60 group-hover/level:opacity-100 transition-opacity hover:bg-muted text-muted-foreground cursor-pointer"
                                 >
                                   <MoreVertical className="w-3 h-3" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                                <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-level", { parentId: loc.id, levelId: lvl.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Level</DropdownMenuItem>
-                                <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(lvl.sheetUrl, `${loc.name} - ${lvl.name}`)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-neutral-800" />
-                                <DropdownMenuItem disabled={!isLocActive || isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLevel(loc.id, lvl.id)}><Power className="w-3.5 h-3.5 mr-2" /> {lvl.isActive ? "Nonaktifkan Level" : "Aktifkan Level"}</DropdownMenuItem>
+                              <DropdownMenuContent align="end" className="bg-neutral-955 border-border text-foreground">
+                                <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("edit-level", { parentId: loc.id, levelId: lvl.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Level</DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleDownloadQrCode(lvl.sheetUrl, `${loc.name} - ${lvl.name}`)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-muted" />
+                                <DropdownMenuItem disabled={!isLocActive || isToggling} className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleToggleLevel(loc.id, lvl.id)}><Power className="w-3.5 h-3.5 mr-2" /> {lvl.isActive ? "Nonaktifkan Level" : "Aktifkan Level"}</DropdownMenuItem>
                                 <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLevel(lvl.id, lvl.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Level</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -870,15 +882,15 @@ export default function LokasiBarangPage() {
                         </div>
 
                         {/* Progress Bar & Details */}
-                        <div className="flex justify-between items-center text-[10px] text-neutral-500 font-medium">
+                        <div className="flex justify-between items-center text-[10px] text-muted-foreground font-medium">
                           <span>Kapasitas</span>
                           <span>
-                            <strong className="text-neutral-300">{lvl.usedCapacity}</strong>
-                            <span className="text-neutral-600 font-normal"> / {lvl.capacity} Unit</span>
+                            <strong className="text-foreground">{lvl.usedCapacity}</strong>
+                            <span className="text-muted-foreground font-normal"> / {lvl.capacity} Unit</span>
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
+                          <div className="flex-1 h-1.5 bg-popover rounded-full overflow-hidden shadow-inner">
                             <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
                           </div>
                           <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
@@ -887,7 +899,7 @@ export default function LokasiBarangPage() {
                     );
                   })}
                   {(!loc.levels || loc.levels.length === 0) && (
-                    <div className="text-center p-4 border border-dashed border-neutral-800/80 rounded-xl text-neutral-500 text-xs flex flex-col items-center justify-center gap-1.5 py-8">
+                    <div className="text-center p-4 border border-dashed border-border/50 rounded-xl text-muted-foreground text-xs flex flex-col items-center justify-center gap-1.5 py-8">
                       <Box className="w-6 h-6 text-neutral-800 mb-1" />
                       <p>Belum memiliki level.</p>
                       <Button variant="link" className="text-blue-400 text-[11px] h-auto p-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleOpenSheet("add-level", { parentId: loc.id }); }}>
@@ -906,7 +918,7 @@ export default function LokasiBarangPage() {
             return (
               <Card
                 key={loc.id}
-                className={`border-neutral-800 bg-neutral-900/10 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
+                className={`border-border bg-muted/50 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-border/50 hover:bg-muted/50 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
                 onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
               >
                 <CardContent className="p-4 flex flex-col gap-3">
@@ -914,27 +926,27 @@ export default function LokasiBarangPage() {
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-amber-500/10 rounded-lg shrink-0"><Archive className="w-4 h-4 text-amber-400" /></div>
                       <div>
-                        <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+                        <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
                           {loc.name}
-                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
+                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-muted-foreground border border-border px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
                         </CardTitle>
-                        <CardDescription className="text-[10px] text-neutral-500 mt-0.5">Penyimpanan Kardus</CardDescription>
+                        <CardDescription className="text-[10px] text-muted-foreground mt-0.5">Penyimpanan Kardus</CardDescription>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 font-medium">
+                      <span className="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] text-muted-foreground font-medium">
                         {loc.brandRule || "Campuran"}
                       </span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-muted text-muted-foreground cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-kardus", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Kardus</DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-neutral-800" />
-                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Kardus" : "Aktifkan Kardus"}</DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="bg-neutral-955 border-border text-foreground">
+                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("edit-kardus", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Kardus</DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-muted" />
+                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Kardus" : "Aktifkan Kardus"}</DropdownMenuItem>
                           <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Kardus</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -942,15 +954,15 @@ export default function LokasiBarangPage() {
                   </div>
 
                   <div className="space-y-1.5 mt-auto">
-                    <div className="flex justify-between items-center text-[10px] font-medium text-neutral-500">
+                    <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
                       <span>Kapasitas</span>
                       <span>
-                        <strong className="text-neutral-300">{loc.usedCapacity || 0}</strong>
-                        <span className="text-neutral-600 font-normal"> / {loc.capacity || 0} Unit</span>
+                        <strong className="text-foreground">{loc.usedCapacity || 0}</strong>
+                        <span className="text-muted-foreground font-normal"> / {loc.capacity || 0} Unit</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
+                      <div className="flex-1 h-1.5 bg-popover rounded-full overflow-hidden shadow-inner">
                         <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
                       </div>
                       <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
@@ -968,7 +980,7 @@ export default function LokasiBarangPage() {
             return (
               <Card
                 key={loc.id}
-                className={`border-neutral-800 bg-neutral-900/10 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-neutral-700/80 hover:bg-neutral-900/20 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
+                className={`border-border bg-muted/50 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-border/50 hover:bg-muted/50 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
                 onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
               >
                 <CardContent className="p-4 flex flex-col gap-3">
@@ -976,27 +988,27 @@ export default function LokasiBarangPage() {
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-emerald-500/10 rounded-lg shrink-0"><Package className="w-4 h-4 text-emerald-400" /></div>
                       <div>
-                        <CardTitle className="text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+                        <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
                           {loc.name}
-                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-neutral-500 border border-neutral-800 px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
+                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-muted-foreground border border-border px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
                         </CardTitle>
-                        <CardDescription className="text-[10px] text-neutral-500 mt-0.5">Penyimpanan Pallet</CardDescription>
+                        <CardDescription className="text-[10px] text-muted-foreground mt-0.5">Penyimpanan Pallet</CardDescription>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-850 text-[10px] text-neutral-400 font-medium">
+                      <span className="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] text-muted-foreground font-medium">
                         {loc.brandRule || "Campuran"}
                       </span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-neutral-800 text-neutral-400 cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-muted text-muted-foreground cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-neutral-955 border-neutral-800 text-neutral-200">
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleOpenSheet("edit-pallet", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Pallet</DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-neutral-800" />
-                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-neutral-800 text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Pallet" : "Aktifkan Pallet"}</DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="bg-neutral-955 border-border text-foreground">
+                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("edit-pallet", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Pallet</DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-muted" />
+                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Pallet" : "Aktifkan Pallet"}</DropdownMenuItem>
                           <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Pallet</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -1004,15 +1016,15 @@ export default function LokasiBarangPage() {
                   </div>
 
                   <div className="space-y-1.5 mt-auto">
-                    <div className="flex justify-between items-center text-[10px] font-medium text-neutral-500">
+                    <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
                       <span>Kapasitas</span>
                       <span>
-                        <strong className="text-neutral-300">{loc.usedCapacity || 0}</strong>
-                        <span className="text-neutral-600 font-normal"> / {loc.capacity || 0} Unit</span>
+                        <strong className="text-foreground">{loc.usedCapacity || 0}</strong>
+                        <span className="text-muted-foreground font-normal"> / {loc.capacity || 0} Unit</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden shadow-inner">
+                      <div className="flex-1 h-1.5 bg-popover rounded-full overflow-hidden shadow-inner">
                         <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
                       </div>
                       <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
@@ -1027,23 +1039,23 @@ export default function LokasiBarangPage() {
         })}
         {filteredAndSortedLocations.length === 0 && (
           <div className="col-span-full py-24 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-neutral-900 border border-neutral-800 rounded-2xl flex items-center justify-center mb-4"><Search className="w-8 h-8 text-neutral-600" /></div>
-            <h3 className="text-lg font-bold text-neutral-200">Tidak Ada Lokasi</h3>
-            <p className="text-neutral-500 text-xs max-w-sm mt-1">Kami tidak menemukan lokasi penyimpanan yang sesuai dengan kata kunci atau filter tipe Anda.</p>
+            <div className="w-16 h-16 bg-background border border-border rounded-2xl flex items-center justify-center mb-4"><Search className="w-8 h-8 text-muted-foreground" /></div>
+            <h3 className="text-lg font-bold text-foreground">Tidak Ada Lokasi</h3>
+            <p className="text-muted-foreground text-xs max-w-sm mt-1">Kami tidak menemukan lokasi penyimpanan yang sesuai dengan kata kunci atau filter tipe Anda.</p>
           </div>
         )}
       </div>
 
       {/* ── 5. FORM SHEET ── */}
       <Sheet open={sheetMode !== "closed"} onOpenChange={(open) => !open && setSheetMode("closed")}>
-        <SheetContent className="sm:max-w-md border-neutral-800 bg-neutral-950 p-0 flex flex-col text-neutral-200">
-          <SheetHeader className="p-6 border-b border-neutral-800/60 bg-neutral-900/10">
-            <SheetTitle className="text-lg text-neutral-100">{sheetTitles[sheetMode] || ""}</SheetTitle>
-            <SheetDescription className="text-xs text-neutral-400">Silakan isi formulir di bawah ini untuk mengelola detail lokasi penyimpanan.</SheetDescription>
+        <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
+          <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
+            <SheetTitle className="text-lg text-foreground">{sheetTitles[sheetMode] || ""}</SheetTitle>
+            <SheetDescription className="text-xs text-muted-foreground">Silakan isi formulir di bawah ini untuk mengelola detail lokasi penyimpanan.</SheetDescription>
           </SheetHeader>
           <div className="p-6 flex-1 overflow-y-auto"><div className="grid gap-5">{renderForm()}</div></div>
-          <SheetFooter className="p-6 border-t border-neutral-850 bg-neutral-900/10 flex sm:justify-end gap-3 sm:gap-2">
-            <Button variant="outline" onClick={() => setSheetMode("closed")} disabled={isSaving} className="hover:bg-neutral-800 text-neutral-300 text-xs font-semibold cursor-pointer">Batal</Button>
+          <SheetFooter className="p-6 border-t border-border bg-muted/50 flex sm:justify-end gap-3 sm:gap-2">
+            <Button variant="outline" onClick={() => setSheetMode("closed")} disabled={isSaving} className="hover:bg-muted text-foreground text-xs font-semibold cursor-pointer">Batal</Button>
             <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold cursor-pointer">
               {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menyimpan...</> : "Simpan Perubahan"}
             </Button>
@@ -1053,15 +1065,15 @@ export default function LokasiBarangPage() {
 
       {/* ── 6. ALERT DIALOG DELETE ── */}
       <AlertDialog open={deleteAlertData.isOpen} onOpenChange={(open) => !open && setDeleteAlertData({ ...deleteAlertData, isOpen: false })}>
-        <AlertDialogContent className="bg-neutral-950 border border-neutral-800 text-neutral-200">
+        <AlertDialogContent className="bg-popover border border-border text-foreground">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-neutral-100 text-base">Hapus {deleteAlertData.type === "location" ? "Lokasi" : "Level"}?</AlertDialogTitle>
-            <AlertDialogDescription className="text-neutral-400 text-xs">
+            <AlertDialogTitle className="text-foreground text-base">Hapus {deleteAlertData.type === "location" ? "Lokasi" : "Level"}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground text-xs">
               Tindakan ini akan menghapus permanen <strong>{deleteAlertData.name}</strong> beserta seluruh data terkait di dalamnya. Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel disabled={isDeleting} className="hover:bg-neutral-800 text-neutral-300 border-neutral-800 text-xs cursor-pointer">Batal</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting} className="hover:bg-muted text-foreground border-border text-xs cursor-pointer">Batal</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-500 text-white text-xs cursor-pointer">
               {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menghapus...</> : "Hapus Data"}
             </AlertDialogAction>

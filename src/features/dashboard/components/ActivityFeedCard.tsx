@@ -82,7 +82,7 @@ export function ActivityFeedCard({ activities, isLoading, className }: ActivityF
           <ArrowUpRight size={14} className="text-muted-foreground" />
         </div>
       </CardHeader>
-      <div className="relative flex-1 min-h-0 max-h-[368px]">
+      <div className="relative flex-1 min-h-0 max-h-[368px] flex flex-col">
         {/* Top Gradient Overlay */}
         <div
           className={cn(
@@ -95,7 +95,7 @@ export function ActivityFeedCard({ activities, isLoading, className }: ActivityF
           data-slot="card-content"
           ref={scrollRef}
           onScroll={checkScroll}
-          className="p-0 h-full overflow-y-auto"
+          className="p-0 flex-1 overflow-y-auto"
         >
           {isLoading ? (
             <div className="flex flex-col gap-0 px-4 py-4">

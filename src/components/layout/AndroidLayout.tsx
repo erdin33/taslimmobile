@@ -1,10 +1,9 @@
 import { Outlet, NavLink } from "react-router-dom";
 import { Notifications } from "@/features/dashboard/components/notifications";
-import { CameraScanner } from "@/components/camera-scanner";
 import { 
 	Home, 
 	PackagePlus, 
-	PackageMinus, 
+	
 	ScanBarcode, 
 	Menu,
 	Database,
@@ -46,21 +45,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useNavigate } from "react-router-dom"
 
-const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
-  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-};
-
-const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers["Authorization"] = `${token}`;
-  }
-  return headers;
-};
 
 export default function AndroidLayout() {
 	const { user, logout } = useAuth();
@@ -137,48 +121,12 @@ export default function AndroidLayout() {
 
 			{/* Floating Action Button for Scan */}
 			<div className="absolute bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-50">
-				<CameraScanner
-					onScan={async (codeOrCodes) => {
-						try {
-							const res = await fetch(`${getBaseUrl()}/brands`, { method: "GET", headers: getHeaders() });
-							if (!res.ok) return { success: false, message: "Gagal mengambil data merek." };
-							const rawBrands = await res.json();
-							const data = rawBrands.data || rawBrands;
-							const brands = (Array.isArray(data) ? data : []).map((brand: any) => ({
-								identifier: brand.identifier || "",
-							}));
-
-							const codes = Array.isArray(codeOrCodes) ? codeOrCodes : [codeOrCodes];
-							const validCodes = [];
-
-							for (const c of codes) {
-								const normalizedCode = c.trim().toUpperCase();
-								const hasMatchingBrand = brands.some((b: { identifier: string }) => {
-									const ident = b.identifier?.trim().toUpperCase();
-									return ident && normalizedCode.includes(ident);
-								});
-								if (hasMatchingBrand) {
-									validCodes.push(c);
-								}
-							}
-
-							if (validCodes.length === 0) {
-								return { success: false, message: "Barcode tidak sesuai dengan identifier merek apa pun." };
-							}
-
-							const codeStr = validCodes.join(",");
-
-							navigate(`/barang-masuk?code=${encodeURIComponent(codeStr)}`);
-							return { success: true };
-						} catch (error) {
-							return { success: false, message: "Terjadi kesalahan sistem." };
-						}
-					}}
+				<button 
+					onClick={() => navigate('/barang-masuk', { state: { autoScan: true } })}
+					className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all"
 				>
-					<button className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all">
-						<ScanBarcode className="w-6 h-6" />
-					</button>
-				</CameraScanner>
+					<ScanBarcode className="w-6 h-6" />
+				</button>
 			</div>
 
 			{/* Bottom Navigation Bar */}

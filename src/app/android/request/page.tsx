@@ -246,7 +246,7 @@ export default function DataTransaksiPage() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
           <div className="flex items-center w-full overflow-x-auto pb-1 scrollbar-hide">
-            <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex h-auto w-full lg:w-auto">
+            <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex h-auto w-max lg:w-auto">
               <TabsTrigger value="Menunggu" className="cursor-pointer">
                 Menunggu <Badge variant="secondary">3</Badge>
               </TabsTrigger>

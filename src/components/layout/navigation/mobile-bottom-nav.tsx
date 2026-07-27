@@ -137,25 +137,34 @@ export function MobileBottomNav() {
               }
 
               // Validasi kode harus sesuai dengan salah satu identifier merek
-              const normalizedCode = code.trim().toUpperCase()
-              const hasMatchingBrand = currentBrands.some((b) => {
-                const ident = b.identifier?.trim().toUpperCase()
-                return ident && normalizedCode.includes(ident)
+              const codeArray = Array.isArray(code) ? code : [code]
+              const validCodes = codeArray.filter(c => {
+                const normalizedCode = c.trim().toUpperCase()
+                return currentBrands.some((b) => {
+                  const ident = b.identifier?.trim().toUpperCase()
+                  return ident && normalizedCode.includes(ident)
+                })
               })
 
-              if (!hasMatchingBrand) {
+              if (validCodes.length === 0) {
                 return { 
                   success: false, 
                   message: "Barcode tidak sesuai dengan identifier merek apa pun." 
                 }
               }
+              
+              const codeStr = validCodes.join(',')
 
               if (mode === "masuk") {
-                navigate(`/barang-masuk?code=${encodeURIComponent(code)}`)
+                sessionStorage.setItem("global-scan-masuk", codeStr)
+                window.dispatchEvent(new Event("global-scan-masuk-updated"))
+                navigate("/barang-masuk")
               } else if (mode === "keluar") {
-                navigate(`/barang-keluar?code=${encodeURIComponent(code)}`)
+                sessionStorage.setItem("global-scan-keluar", codeStr)
+                window.dispatchEvent(new Event("global-scan-keluar-updated"))
+                navigate("/barang-keluar")
               }
-              return { success: true }
+              return { success: true, message: `Memproses ${validCodes.length} barcode` }
             }}
           >
             <button

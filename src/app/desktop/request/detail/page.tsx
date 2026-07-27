@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { DashboardRequest } from "@/types/transaction";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -122,8 +122,6 @@ export default function RequestDetailPage() {
       </div>
     );
   }
-
-  const status = request.status?.toLowerCase() || "";
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full print:p-0 print:m-0 print:block print:max-w-none">
