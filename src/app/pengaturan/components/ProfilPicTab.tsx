@@ -168,21 +168,29 @@ export function ProfilPicTab() {
             </div>
           </div>
           
-          <div className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white overflow-hidden h-[250px] relative">
-            <SignatureCanvas 
-              ref={sigPad}
-              penColor="black"
-              canvasProps={{
-                width: 600,
-                height: 250,
-                style: { width: "100%", height: "100%" },
-                className: "cursor-crosshair"
-              }}
-            />
-            <div className="absolute inset-0 pointer-events-none border border-dashed border-zinc-300 dark:border-zinc-700 m-4 rounded-sm opacity-50 flex items-center justify-center">
+          <div 
+            className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white overflow-hidden h-[250px] relative select-none"
+            style={{ touchAction: "none" }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <div className="absolute inset-0 pointer-events-none border border-dashed border-zinc-300 dark:border-zinc-700 m-4 rounded-sm opacity-50 flex items-center justify-center z-0">
               <span className="text-zinc-300 dark:text-zinc-700 select-none uppercase tracking-widest text-sm font-semibold opacity-50">
                 Area Tanda Tangan
               </span>
+            </div>
+            
+            <div className="absolute inset-0 z-10">
+              <SignatureCanvas 
+                ref={sigPad}
+                penColor="black"
+                canvasProps={{
+                  width: 600,
+                  height: 250,
+                  style: { width: "100%", height: "100%", touchAction: "none" },
+                  className: "cursor-crosshair"
+                }}
+              />
             </div>
           </div>
         </div>

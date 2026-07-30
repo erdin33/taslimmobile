@@ -14,7 +14,7 @@ interface DigitalSignatureDialogProps {
   onOpenChange: (open: boolean) => void;
   title?: string;
   description?: string;
-  onSignComplete: () => void;
+  onSignComplete: (signatureDataUrl?: string) => void;
 }
 
 const isUnsupportedStoredSignature = (value?: string | null) =>
@@ -138,18 +138,22 @@ export function DigitalSignatureDialog({
       const signatureDataUrl = getSignatureDataUrl(sigPad.current!);
       
       if (user) {
-        await api.put(`/users/${user.id}`, { 
-          picSignatureUrl: signatureDataUrl 
-        });
-        updateUser({
-          profile: {
-            ...user.profile,
-            picSignatureUrl: signatureDataUrl
-          }
-        });
+        try {
+          await api.put(`/users/${user.id}`, { 
+            picSignatureUrl: signatureDataUrl 
+          });
+          updateUser({
+            profile: {
+              ...user.profile,
+              picSignatureUrl: signatureDataUrl
+            }
+          });
+        } catch (saveErr) {
+          console.warn("Gagal menyimpan tanda tangan ke profil, melanjutkan proses...", saveErr);
+        }
       }
       
-      onSignComplete();
+      onSignComplete(signatureDataUrl);
       
     } catch (error) {
       toast.error("Gagal memproses tanda tangan");
@@ -204,21 +208,30 @@ export function DigitalSignatureDialog({
               </div>
             </div>
             
-            <div className="rounded-md border bg-white dark:bg-zinc-950 overflow-hidden h-[200px] relative">
-              <SignatureCanvas 
-                ref={sigPad}
-                penColor="black"
-                canvasProps={{
-                  width: 600,
-                  height: 200,
-                  style: { width: "100%", height: "100%" },
-                  className: "cursor-crosshair"
-                }}
-              />
-              <div className="absolute inset-0 pointer-events-none border border-dashed border-zinc-300 dark:border-zinc-700 m-2 rounded-sm opacity-50 flex items-center justify-center">
+            <div 
+              className="rounded-md border bg-white dark:bg-zinc-950 overflow-hidden h-[200px] relative select-none"
+              style={{ touchAction: "none" }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              {/* Overlay ditempatkan SEBELUM canvas agar tidak memblokir event sentuhan (watermark) */}
+              <div className="absolute inset-0 pointer-events-none border border-dashed border-zinc-300 dark:border-zinc-700 m-2 rounded-sm opacity-50 flex items-center justify-center z-0">
                 <span className="text-zinc-300 dark:text-zinc-700 select-none uppercase tracking-widest text-sm font-semibold opacity-50">
                   Tanda Tangan Disini
                 </span>
+              </div>
+              
+              <div className="absolute inset-0 z-10">
+                <SignatureCanvas 
+                  ref={sigPad}
+                  penColor="black"
+                  canvasProps={{
+                    width: 600,
+                    height: 200,
+                    style: { width: "100%", height: "100%", touchAction: "none" },
+                    className: "cursor-crosshair"
+                  }}
+                />
               </div>
             </div>
             <p className="text-xs text-muted-foreground">

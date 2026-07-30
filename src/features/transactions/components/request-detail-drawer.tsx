@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { confirm } from "@tauri-apps/plugin-dialog"
 import { useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -108,6 +109,8 @@ export function RequestDetailDrawer({
   const navigate = useNavigate()
   const [detailData, setDetailData] = useState<DashboardRequest | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
 
   useEffect(() => {
     if (!open || !item?.id) {
@@ -191,6 +194,8 @@ export function RequestDetailDrawer({
     onClose();
   };
 
+  const isSelesai = displayItem.status?.toUpperCase() === 'SELESAI';
+
   return (
     <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
@@ -218,6 +223,7 @@ export function RequestDetailDrawer({
                         <TableHead>No. Material</TableHead>
                         <TableHead>Nama Material</TableHead>
                         <TableHead>Merek</TableHead>
+                        {isSelesai && <TableHead>SN</TableHead>}
                         <TableHead className="text-right">Jumlah</TableHead>
                         <TableHead className="text-right">Satuan</TableHead>
                       </TableRow>
@@ -231,6 +237,11 @@ export function RequestDetailDrawer({
                             <TableCell className="font-medium text-muted-foreground" title={ra.materialNumber}>{ra.materialNumber}</TableCell>
                             <TableCell className="truncate max-w-50" title={ra.materialName}>{ra.materialName}</TableCell>
                             <TableCell>{ra.brand}</TableCell>
+                            {isSelesai && (
+                              <TableCell>
+                                {ra.serialNumber || "-"}
+                              </TableCell>
+                            )}
                             <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
                             <TableCell className="text-right font-medium">{ra.unit || "Unit"}</TableCell>
                           </TableRow>
@@ -318,14 +329,14 @@ export function RequestDetailDrawer({
         </div>
         <DrawerFooter className="w-full pt-2">
           <div className="flex w-full gap-2">
-            {['MENUNGGU'].includes(displayItem.status?.toUpperCase() || "") && (
+            {isAdmin && ['MENUNGGU'].includes(displayItem.status?.toUpperCase() || "") && (
               <>
                 <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Disetujui")}>Setujui</Button>
                 <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Ditolak", true)}>Batalkan Permintaan</Button>
               </>
             )}
             {
-              ['DISETUJUI'].includes(displayItem.status?.toUpperCase() || "") && (
+              isAdmin && ['DISETUJUI'].includes(displayItem.status?.toUpperCase() || "") && (
                 <>
                   <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Siapkan</Button>
                   <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
@@ -333,7 +344,7 @@ export function RequestDetailDrawer({
               )
             }
             {
-              ['SIAP'].includes(displayItem.status?.toUpperCase() || "") && (
+              isAdmin && ['SIAP'].includes(displayItem.status?.toUpperCase() || "") && (
                 <>
                   <Button variant="default" className="flex-1 cursor-pointer" onClick={() => navigate(`/request/${displayItem.id}/prepare`)}>Edit</Button>
                   <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
@@ -26,14 +27,25 @@ const getHeaders = () => {
 
 export default function TipeMaterialPage() {
   const [types, setTypes] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteAlertData, setDeleteAlertData] = useState({ isOpen: false, id: "", name: "" });
+
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [brandId, setBrandId] = useState("");
+  const [materialCategoryId, setMaterialCategoryId] = useState("");
+
   const [nameError, setNameError] = useState("");
+  const [brandError, setBrandError] = useState("");
+  const [categoryError, setCategoryError] = useState("");
 
   const loadTypes = async () => {
     try {
@@ -47,56 +59,117 @@ export default function TipeMaterialPage() {
     }
   };
 
-  useEffect(() => { loadTypes(); }, []);
+  const loadBrands = async () => {
+    try {
+      const res = await fetch(`${getBaseUrl()}/brands`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.data || data.brands || []);
+        setBrands(list);
+      }
+    } catch (e) { }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const res = await fetch(`${getBaseUrl()}/categories`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.data || data.categories || []);
+        setCategories(list);
+      }
+    } catch (e) { }
+  };
+
+  useEffect(() => {
+    loadTypes();
+    loadBrands();
+    loadCategories();
+  }, []);
 
   const filteredTypes = useMemo(() => {
-    return types.filter(t => t.nama?.toLowerCase().includes(searchQuery.toLowerCase()));
+    const q = searchQuery.toLowerCase();
+    return types.filter(t =>
+      t.nama?.toLowerCase().includes(q) ||
+      t.code?.toLowerCase().includes(q) ||
+      t.brand?.nama?.toLowerCase().includes(q) ||
+      t.materialCategory?.nama?.toLowerCase().includes(q)
+    );
   }, [types, searchQuery]);
 
   const handleOpenSheet = (id?: string) => {
+    setNameError("");
+    setBrandError("");
+    setCategoryError("");
+
     if (id) {
       const t = types.find(x => String(x.id) === String(id));
       if (t) {
-        setName(t.nama);
+        setName(t.nama || "");
+        setCode(t.code || "");
+        setBrandId(t.brandId ? String(t.brandId) : "");
+        setMaterialCategoryId(t.materialCategoryId ? String(t.materialCategoryId) : "");
         setEditId(id);
       }
     } else {
       setName("");
+      setCode("");
+      setBrandId("");
+      setMaterialCategoryId("");
       setEditId(null);
     }
-    setNameError("");
     setIsSheetOpen(true);
   };
 
   const handleSave = async () => {
     if (isSaving) return;
     const normalizedName = name.trim();
+
+    let hasError = false;
+    if (!brandId) {
+      setBrandError("Merek wajib dipilih.");
+      hasError = true;
+    }
+    if (!materialCategoryId) {
+      setCategoryError("Kategori wajib dipilih.");
+      hasError = true;
+    }
     if (!normalizedName) {
-      setNameError("Nama wajib diisi.");
-      return;
+      setNameError("Nama model material wajib diisi.");
+      hasError = true;
     }
 
+    if (hasError) return;
+
     if (types.some(t => String(t.id) !== String(editId) && t.nama.toLowerCase() === normalizedName.toLowerCase())) {
-      setNameError("Nama tipe material sudah terdaftar.");
+      setNameError("Nama model material sudah terdaftar.");
       return;
     }
 
     setIsSaving(true);
     try {
-      const url = `${getBaseUrl()}/material-types${editId ? `/${editId}` : ""}`;
+      const url = `${getBaseUrl()}/material-models${editId ? `/${editId}` : ""}`;
       const method = editId ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
         headers: getHeaders(),
-        body: JSON.stringify({ nama: normalizedName })
+        body: JSON.stringify({
+          nama: normalizedName,
+          code: code.trim() || undefined,
+          brandId: parseInt(brandId),
+          materialCategoryId: parseInt(materialCategoryId)
+        })
       });
 
-      if (!res.ok) throw new Error("Gagal menyimpan");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Gagal menyimpan model material");
+      }
       await loadTypes();
       setIsSheetOpen(false);
-      toast.success(`Berhasil ${editId ? "memperbarui" : "menambahkan"} tipe material`);
-    } catch (e) {
-      toast.error("Gagal menyimpan tipe material");
+      toast.success(`Berhasil ${editId ? "memperbarui" : "menambahkan"} model material`);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal menyimpan model material");
     } finally {
       setIsSaving(false);
     }
@@ -156,6 +229,15 @@ export default function TipeMaterialPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg text-foreground mb-1">{t.nama}</h3>
+                <div className="flex flex-col gap-1 mt-2">
+                  <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Kode:</span> {t.code || '-'}</div>
+                  <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Merek:</span> {t.brand?.nama || '-'}</div>
+                  <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Kategori:</span> {t.materialCategory?.nama || '-'}</div>
+                </div>
+              </div>
+              <div className="pt-3 border-t border-border/50 flex justify-between items-center">
+                <span className="text-xs font-medium text-muted-foreground">Total Unit</span>
+                <span className="text-xs font-medium text-foreground">{t._count?.items || 0} Unit</span>
               </div>
             </CardContent>
           </Card>
@@ -173,15 +255,50 @@ export default function TipeMaterialPage() {
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
           <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
-            <SheetTitle className="text-xl text-foreground">{editId ? "Edit Tipe Material" : "Tambah Tipe Material"}</SheetTitle>
-            <SheetDescription className="text-muted-foreground">Kelola informasi referensi tipe material utama.</SheetDescription>
+            <SheetTitle className="text-xl text-foreground">{editId ? "Edit Model Material" : "Tambah Model Material"}</SheetTitle>
+            <SheetDescription className="text-muted-foreground">Kelola informasi referensi model material utama.</SheetDescription>
           </SheetHeader>
           <div className="p-6 flex-1 overflow-y-auto">
             <div className="grid gap-5">
               <div className="space-y-2">
-                <Label>Nama Tipe Material</Label>
-                <Input value={name} onChange={e => { setName(e.target.value); setNameError(""); }} placeholder="Contoh: Kabel Drop Wire" className={`bg-background ${nameError ? "border-destructive" : "border-border"}`} />
+                <Label>Kode Material</Label>
+                <Input value={code} onChange={e => setCode(e.target.value)} placeholder="Masukkan Kode Material" className="bg-background border-border" />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Nama Material</Label>
+                <Input value={name} onChange={e => { setName(e.target.value); setNameError(""); }} placeholder="Masukkan Nama Material" className={`bg-background ${nameError ? "border-destructive" : "border-border"}`} />
                 {nameError && <p className="text-xs text-destructive">{nameError}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Brand</Label>
+                <Select value={brandId} onValueChange={(val) => { setBrandId(val); setBrandError(""); }}>
+                  <SelectTrigger className={`bg-background ${brandError ? "border-destructive" : "border-border"}`}>
+                    <SelectValue placeholder="Pilih Merek Material" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {brands.map((b) => (
+                      <SelectItem key={b.id} value={String(b.id)}>{b.nama}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {brandError && <p className="text-xs text-destructive">{brandError}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Kategori Material</Label>
+                <Select value={materialCategoryId} onValueChange={(val) => { setMaterialCategoryId(val); setCategoryError(""); }}>
+                  <SelectTrigger className={`bg-background ${categoryError ? "border-destructive" : "border-border"}`}>
+                    <SelectValue placeholder="Pilih Kategori Material" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.nama}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {categoryError && <p className="text-xs text-destructive">{categoryError}</p>}
               </div>
             </div>
           </div>

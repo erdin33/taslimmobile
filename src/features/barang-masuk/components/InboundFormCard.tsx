@@ -38,6 +38,7 @@ interface InboundFormCardProps {
   catatan: string;
   setCatatan: (val: string) => void;
   focusKodeBarangInput: () => void;
+  cameraScannerSlot?: React.ReactNode;
 }
 
 export function InboundFormCard({
@@ -66,6 +67,7 @@ export function InboundFormCard({
   catatan,
   setCatatan,
   focusKodeBarangInput,
+  cameraScannerSlot,
 }: InboundFormCardProps) {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -89,6 +91,7 @@ export function InboundFormCard({
                 }}
                 placeholder="Scan barcode atau ketik manual di sini..."
               />
+              {cameraScannerSlot}
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="lg" className="w-9 h-9 p-0 text-muted-foreground cursor-pointer bg-muted">
                   {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}

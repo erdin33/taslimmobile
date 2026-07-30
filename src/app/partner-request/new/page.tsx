@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import {
   Plus, Trash2, Loader2, Send, ArrowLeft,
-  FileText, Check, X
+  Check, X
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,10 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
@@ -121,33 +119,42 @@ function SuccessDialog({ open, onGoToHistory, onClose, items, requesterName, not
 
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!val) onClose() }}>
-      <DialogContent className="max-w-3xl w-full p-0 overflow-hidden bg-white dark:bg-zinc-950 border-none shadow-2xl rounded-3xl" showCloseButton={false}>
-        <div className="grid grid-cols-1 md:grid-cols-12 min-h-[480px]">
+      <DialogContent className="max-w-3xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto p-0 bg-white dark:bg-zinc-950 border-none shadow-2xl rounded-3xl" showCloseButton={false}>
+        
+        {/* Close Button X (Global to modal, better for mobile) */}
+        <button
+          className="absolute right-4 top-4 z-10 rounded-full p-2 bg-white/50 backdrop-blur-sm md:bg-transparent hover:bg-slate-200/50 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+          onClick={onClose}
+        >
+          <X className="h-5 w-5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+        </button>
+
+        <div className="flex flex-col md:grid md:grid-cols-12 min-h-[480px]">
           
-          {/* Left Panel: Status & Congratulations */}
-          <div className="md:col-span-5 bg-white dark:bg-zinc-950 p-8 flex flex-col items-center justify-center text-center space-y-6">
+          {/* Top/Left Panel: Status & Congratulations */}
+          <div className="md:col-span-5 bg-white dark:bg-zinc-950 p-6 md:p-8 flex flex-col items-center justify-center text-center space-y-6">
             
             {/* Circular Green Tick */}
-            <div className="relative flex items-center justify-center">
-              <div className="h-24 w-24 rounded-full bg-emerald-500/10 dark:bg-emerald-500/5 flex items-center justify-center shadow-lg shadow-emerald-500/5 animate-in zoom-in-75 duration-300">
-                <div className="h-16 w-16 rounded-full bg-[#008060] flex items-center justify-center">
-                  <Check className="h-8 w-8 text-white stroke-[3px]" />
+            <div className="relative flex items-center justify-center mt-4 md:mt-0">
+              <div className="h-20 w-20 md:h-24 md:w-24 rounded-full bg-emerald-500/10 dark:bg-emerald-500/5 flex items-center justify-center shadow-lg shadow-emerald-500/5 animate-in zoom-in-75 duration-300">
+                <div className="h-12 w-12 md:h-16 md:w-16 rounded-full bg-[#008060] flex items-center justify-center">
+                  <Check className="h-6 w-6 md:h-8 md:w-8 text-white stroke-[3px]" />
                 </div>
               </div>
             </div>
 
             {/* Title & Description */}
-            <div className="space-y-3">
-              <DialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight leading-tight">
+            <div className="space-y-2 md:space-y-3">
+              <DialogTitle className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight leading-tight">
                 Permintaan material Anda sedang diajukan!
               </DialogTitle>
-              <DialogDescription className="text-sm text-slate-500 dark:text-slate-400 px-2 leading-relaxed">
+              <DialogDescription className="text-xs md:text-sm text-slate-500 dark:text-slate-400 px-2 md:px-0 leading-relaxed">
                 Kami telah mengirimkannya ke sistem admin dan sedang menunggu konfirmasi/persetujuan.
               </DialogDescription>
             </div>
 
-            {/* Actions Stack */}
-            <div className="w-full space-y-3 pt-4">
+            {/* Actions Stack (Moved here for desktop, hidden on mobile for better flow) */}
+            <div className="hidden md:flex w-full flex-col space-y-3 pt-4">
               <Button
                 className="w-full h-11 bg-[#008060] hover:bg-[#006b50] text-white font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
                 onClick={onGoToHistory}
@@ -165,67 +172,59 @@ function SuccessDialog({ open, onGoToHistory, onClose, items, requesterName, not
 
           </div>
 
-          {/* Right Panel: Timecard/Request Summary (Mockup Style) */}
-          <div className="md:col-span-7 bg-[#f8f9fa] dark:bg-zinc-900/50 p-8 relative flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100 dark:border-zinc-800">
+          {/* Bottom/Right Panel: Summary & Details */}
+          <div className="md:col-span-7 bg-[#f8f9fa] dark:bg-zinc-900/50 p-6 md:p-8 relative flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100 dark:border-zinc-800">
             
-            {/* Close Button X */}
-            <button
-              className="absolute right-4 top-4 rounded-full p-1 hover:bg-slate-200/50 dark:hover:bg-zinc-800 transition-all cursor-pointer"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
-            </button>
-
-            <div className="space-y-6">
-              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-lg leading-none">
+            <div className="space-y-5 md:space-y-6">
+              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg leading-none mt-2 md:mt-0">
                 Ringkasan Permintaan
               </h4>
 
               {/* Metadata Fields */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] md:text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                     Pengaju (Mitra)
                   </span>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">
                     {requesterName}
                   </p>
                 </div>
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] md:text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                     Keterangan
                   </span>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1 line-clamp-2 truncate max-w-full">
+                  <p className="text-xs md:text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1 line-clamp-2 truncate max-w-full">
                     {notes || "Tidak ada catatan"}
                   </p>
                 </div>
               </div>
 
-              {/* Items Card List (Mockup box) */}
-              <div className="rounded-2xl border border-slate-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 space-y-3">
-                <div className="max-h-[160px] overflow-y-auto pr-1 space-y-3">
+              {/* Items Card List */}
+              <div className="rounded-2xl border border-slate-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3 md:p-4 space-y-3 shadow-sm md:shadow-none">
+                <div className="max-h-[140px] md:max-h-[160px] overflow-y-auto pr-1 space-y-3">
                   {items.map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex justify-between items-center text-sm pb-2 border-b border-slate-100 dark:border-zinc-800/80 last:border-0 last:pb-0"
+                      className="flex justify-between items-center text-xs md:text-sm pb-2 border-b border-slate-100 dark:border-zinc-800/80 last:border-0 last:pb-0"
                     >
                       <div className="flex flex-col">
                         <span className="font-bold text-slate-800 dark:text-slate-200">{item.categoryName}</span>
-                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">{item.brandName}</span>
+                        <span className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 font-medium">{item.brandName}</span>
                       </div>
                       <span className="font-bold text-slate-800 dark:text-slate-200">{item.quantity} Unit</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-zinc-800 font-bold text-[#008060] dark:text-emerald-500 text-sm">
+                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-zinc-800 font-bold text-[#008060] dark:text-emerald-500 text-xs md:text-sm">
                   <span>Total</span>
                   <span>{totalQuantity} Unit</span>
                 </div>
               </div>
 
               {/* Secondary Statistics Details */}
-              <div className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
+              <div className="space-y-2 text-[11px] md:text-xs text-slate-500 dark:text-slate-400 bg-white md:bg-transparent dark:bg-zinc-950 p-3 md:p-0 rounded-xl md:rounded-none border border-slate-100 md:border-none dark:border-zinc-800">
                 <div className="flex justify-between">
                   <span>Kategori Material</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-300">{items.length} Kategori</span>
@@ -236,16 +235,42 @@ function SuccessDialog({ open, onGoToHistory, onClose, items, requesterName, not
                 </div>
               </div>
 
+              {/* Status on mobile inside the flow */}
+              <div className="flex flex-row justify-between items-center md:hidden pt-2">
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
+                  Status
+                </span>
+                <span className="text-xl font-black text-[#008060] dark:text-emerald-500 tracking-tight">
+                  MENUNGGU
+                </span>
+              </div>
             </div>
 
-            {/* Large Highlighted Status (Equivalent to "Take Home" section in mockup) */}
-            <div className="flex flex-col items-end border-t border-slate-200/60 dark:border-zinc-800/80 pt-4 mt-6">
+            {/* Desktop Status highlighting */}
+            <div className="hidden md:flex flex-col items-end border-t border-slate-200/60 dark:border-zinc-800/80 pt-4 mt-6">
               <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
                 Status Permintaan
               </span>
               <span className="text-3xl font-black text-[#008060] dark:text-emerald-500 mt-1 tracking-tight">
                 MENUNGGU
               </span>
+            </div>
+
+            {/* Mobile Actions Stack */}
+            <div className="flex md:hidden w-full flex-col space-y-2 pt-6 mt-auto">
+              <Button
+                className="w-full h-12 bg-[#008060] hover:bg-[#006b50] text-white font-semibold rounded-xl shadow-md transition-all cursor-pointer"
+                onClick={onGoToHistory}
+              >
+                Lihat Riwayat Permintaan
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full h-12 bg-white hover:bg-slate-50 dark:bg-zinc-950 dark:hover:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl transition-all cursor-pointer"
+                onClick={onClose}
+              >
+                Ajukan Permintaan Baru
+              </Button>
             </div>
 
           </div>
@@ -269,7 +294,6 @@ export default function PartnerRequestNewPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Dialog state — untuk preview BAST draft sebelum dikirim
-  const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   // Dropdown data

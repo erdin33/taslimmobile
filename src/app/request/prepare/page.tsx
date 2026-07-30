@@ -43,6 +43,7 @@ import {
   CardContent,
   CardHeader,
 } from "@/components/ui/card"
+import { CameraScanner } from "@/components/camera-scanner"
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -171,11 +172,12 @@ export default function PreparePage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
 
   const [kodeBarang, setKodeBarang] = useState("")
-  const [inputMode, setInputMode] = useState<"auto" | "manual">("auto")
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([])
 
   const [isLoading, setIsLoading] = useState(true)
   const [_isSubmitting, setIsSubmitting] = useState(false)
+  const [openScanner, setOpenScanner] = useState(false)
+  const isAndroid = typeof navigator !== "undefined" && /android/i.test(navigator.userAgent)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const kodeBarangRef = useRef("")
@@ -299,8 +301,14 @@ export default function PreparePage() {
   }, [updateKodeBarang]);
 
   // Validasi dan Submit Scan
-  const handleScanSubmit = useCallback((kodeOverride = kodeBarang) => {
-    const sn = kodeOverride.trim()
+  const handleScanSubmit = useCallback((kodeOverride: any = kodeBarang) => {
+    let codeStr = kodeBarang;
+    if (typeof kodeOverride === "string") {
+      codeStr = kodeOverride;
+    } else if (Array.isArray(kodeOverride) && kodeOverride.length > 0) {
+      codeStr = kodeOverride[0];
+    }
+    const sn = codeStr.trim()
     if (!sn) return
 
     // 1. Cek apakah sudah discan di sesi ini
@@ -388,62 +396,21 @@ export default function PreparePage() {
   if (!request) return null
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 pb-24 md:gap-6 md:py-6 md:pb-6">
 
       {/* Main Content Grid */}
       <div className="grid h-full gap-4 px-4 lg:px-6 @5xl/main:grid-cols-[minmax(320px,380px)_1fr]">
 
         {/* Left Panel - Scanner Input */}
         <Card className="@container/card flex flex-col @5xl/main:min-h-[calc(107svh-var(--header-height)-15rem)]">
-          <Tabs
-            value={inputMode}
-            onValueChange={(value) => {
-              setInputMode(value as "auto" | "manual");
-              focusKodeBarangInput();
-            }}
-            className="flex flex-1 flex-col gap-4"
-          >
-            <CardHeader className="flex flex-col gap-4 pb-2">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="auto">Auto</TabsTrigger>
-                <TabsTrigger value="manual">Manual</TabsTrigger>
-              </TabsList>
-            </CardHeader>
-
-            <CardContent className="flex flex-1 flex-col gap-4">
-
-              <TabsContent value="auto" className="mt-0 flex flex-1 flex-col">
-                <Input
-                  ref={inputRef}
-                  id="kode-barang-auto"
-                  value={kodeBarang}
-                  onChange={(e) => updateKodeBarang(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleScanSubmit(kodeBarangRef.current);
-                    }
-                  }}
-                  placeholder="Masukkan serial number"
-                  className="hidden"
-                />
-                <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-                  <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <ScanLine className="size-8 animate-pulse" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-base font-semibold text-foreground">
-                      Silakan scan menggunakan scanner
-                    </p>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      Sistem akan menangkap kode secara otomatis dan mengalokasikannya ke request ini.
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="manual" className="mt-0 flex flex-col gap-3">
-                <Label htmlFor="kode-barang-manual">Kode / SN</Label>
+          <CardHeader className="flex flex-col gap-4 pb-2 border-b">
+            <h3 className="text-lg font-semibold leading-none tracking-tight">Pindai / Input Manual</h3>
+            <p className="text-sm text-muted-foreground">Masukkan kode atau serial number (SN) barang.</p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 pt-4">
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="kode-barang-manual">Kode / SN</Label>
+              <div className="flex gap-2">
                 <Input
                   ref={inputRef}
                   id="kode-barang-manual"
@@ -456,20 +423,38 @@ export default function PreparePage() {
                     }
                   }}
                   placeholder="Masukkan serial number"
+                  className="flex-1"
                 />
-                <Button className="w-full mt-2" onClick={() => void handleScanSubmit(kodeBarangRef.current)}>
-                  Submit Manual
-                </Button>
-              </TabsContent>
-            </CardContent>
-          </Tabs>
+                {isAndroid && (
+                  <CameraScanner
+                    open={openScanner}
+                    onOpenChange={setOpenScanner}
+                    onScan={(val) => {
+                      void handleScanSubmit(val);
+                      setOpenScanner(false);
+                    }}
+                  >
+                    <Button
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all px-3"
+                      title="Buka Kamera Scan"
+                    >
+                      <ScanLine className="size-5" />
+                    </Button>
+                  </CameraScanner>
+                )}
+              </div>
+              <Button className="w-full mt-2" onClick={() => void handleScanSubmit(kodeBarangRef.current)}>
+                Tambah
+              </Button>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Right Panel - Scanned Items List */}
-        <div className="flex flex-col space-y-4 ">
-          <div className="flex-1 overflow-hidden rounded-md border bg-card">
+        <div className="flex flex-col space-y-4 min-w-0">
+          <div className="flex-1 overflow-x-auto rounded-md border bg-card">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <Table>
+              <Table className="whitespace-nowrap">
                 <TableHeader>
                   <TableRow>
                     <TableHead>No</TableHead>

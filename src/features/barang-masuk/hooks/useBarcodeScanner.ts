@@ -9,7 +9,7 @@ interface UseBarcodeScannerProps {
   inputRef: React.RefObject<HTMLInputElement>;
   kodeBarangRef: React.MutableRefObject<string>;
   updateKodeBarang: (value: string | ((current: string) => string)) => void;
-  onSubmit: (kodeOverride?: string) => Promise<void>;
+  onSubmit: (kodeOverride?: string) => Promise<any>;
 }
 
 /**

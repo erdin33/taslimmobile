@@ -1,103 +1,18 @@
-import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import type { DashboardRequest } from "@/types/transaction";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
-  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-};
-
-const getUnitByCategory = (categoryName?: string) => {
-  if (!categoryName) return "Unit";
-  const name = categoryName.toLowerCase();
-  if (name.includes("kabel") || name.includes("foc") || name.includes("dropwire")) {
-    return "Meter";
-  }
-  return "Unit";
-};
-
-const getCleanCategoryName = (categoryName?: string) => {
-  if (!categoryName) return "-";
-  const name = categoryName.toLowerCase();
-  if (name.includes("ont")) return "ONT";
-  if (name.includes("dropwire") || name.includes("kabel") || name.includes("foc")) return "DropWire";
-  return categoryName;
-};
-
-const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers["Authorization"] = `${token}`;
-  }
-  return headers;
-};
+import { useRequestDetail } from "@/features/request-detail/hooks/useRequestDetail";
+import { BastActions } from "@/features/transactions/components/BastActions";
 
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [request, setRequest] = useState<DashboardRequest | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!id) return;
-    const fetchRequest = async () => {
-      try {
-        const res = await fetch(`${getBaseUrl()}/requests/${id}`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-        if (!res.ok) throw new Error("Gagal mengambil data detail permintaan");
-        const data = await res.json();
-
-        const formatted: DashboardRequest = {
-          id: data.id,
-          requestNumber: data.requestNumber,
-          requesterName: data.requester?.profile?.nama || data.requester?.username,
-          partnerCategory: data.requester?.profile?.partnerType || "Mitra",
-          status: data.status,
-          notes: data.notes || "-",
-          requestedAt: data.requestedAt,
-          itemsCount: data.requestItems?.reduce((acc: number, item: any) => acc + item.quantity, 0),
-          requestItems: data.requestItems?.map((item: any) => ({
-            id: item.id,
-            category: getCleanCategoryName(item.category?.nama),
-            brand: item.brand?.nama,
-            quantity: item.quantity,
-            unit: getUnitByCategory(item.category?.nama)
-          })),
-          requestAllocations: data.requestItems?.flatMap((item: any) =>
-            item.allocations?.map((alloc: any) => ({
-              id: alloc.id,
-              materialNumber: alloc.item?.paNumber || "-",
-              materialCategory: getCleanCategoryName(item.category?.nama),
-              brand: alloc.item?.brand?.nama || item.brand?.nama,
-              materialName: `${getCleanCategoryName(item.category?.nama)} ${alloc.item?.brand?.nama || item.brand?.nama}`,
-              serialNumber: alloc.item?.serialNumber,
-              quantity: 1,
-              unit: getUnitByCategory(item.category?.nama)
-            })) || []
-          )
-        };
-        setRequest(formatted);
-      } catch (error) {
-        console.error(error);
-        toast.error("Gagal memuat detail permintaan");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRequest();
-  }, [id]);
+  
+  const { request, isLoading } = useRequestDetail(id);
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Memuat detail permintaan...</div>;
@@ -117,20 +32,27 @@ export default function RequestDetailPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full print:p-0 print:m-0 print:block print:max-w-none">
-      <div className="flex items-center gap-4 border-b pb-4 print:hidden">
-        <Button onClick={() => navigate(-1)} variant="outline" size="icon" className="shrink-0">
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div className="flex flex-col">
-          <h1 className="text-2xl font-bold tracking-tight">{request.requestNumber}</h1>
-          <p className="text-muted-foreground text-sm">
-            Detail Informasi Permintaan
-          </p>
+      <div className="flex flex-col gap-4 border-b pb-4 print:hidden">
+        <div className="flex items-center gap-4">
+          <Button onClick={() => navigate(-1)} variant="outline" size="icon" className="shrink-0">
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-bold tracking-tight">{request.requestNumber}</h1>
+            <p className="text-muted-foreground text-sm">
+              Detail Informasi Permintaan
+            </p>
+          </div>
+          <div className="ml-auto shrink-0">
+            <Badge variant="secondary" className="px-3 py-1.5 text-sm font-medium uppercase tracking-wider">
+              {request.status}
+            </Badge>
+          </div>
         </div>
-        <div className="ml-auto flex gap-2 shrink-0">
-          <Badge variant="secondary" className="px-3 py-1.5 text-sm font-medium uppercase tracking-wider">
-            {request.status}
-          </Badge>
+        
+        {/* Render BastActions di Android (berada di baris baru untuk mengakomodasi layar kecil) */}
+        <div className="flex justify-end pt-2 border-t mt-2">
+          <BastActions request={request} />
         </div>
       </div>
 

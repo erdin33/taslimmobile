@@ -26,7 +26,6 @@ import {
     IconCircleCheck,
     IconX,
     IconBan,
-    IconFileText,
     IconChevronsLeft,
     IconChevronLeft,
     IconChevronRight,
@@ -34,14 +33,9 @@ import {
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import { getBaseUrl } from "@/lib/api"
-import { openUrl } from "@tauri-apps/plugin-opener"
 import { useNavigate } from "react-router-dom"
 import type { DashboardRequest } from "@/types/transaction"
-import { Check, Pencil, ArrowUpDown, PackageCheck, Edit } from "lucide-react"
-import { useAuth } from "@/lib/auth"
-import { PengambilanQrModal } from "./PengambilanQrModal"
+import { Check, ArrowUpDown, Edit } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import {
     Select,
@@ -50,6 +44,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { BastActions } from "./BastActions"
 
 function ScrollShadowWrapper({ children, className }: { children: React.ReactNode, className?: string }) {
     const [canScrollTop, setCanScrollTop] = React.useState(false)
@@ -165,7 +160,7 @@ function StatusBadge({ status }: { status: string }) {
     )
 }
 
-function BastActions({
+function ActionMenu({
     row,
     table,
 }: {
@@ -174,114 +169,92 @@ function BastActions({
 }) {
     const status = row.original.status?.toUpperCase()?.trim()
     const meta = table.options.meta as TableMeta | undefined
-    const [pengambilanModalOpen, setPengambilanModalOpen] = React.useState(false)
 
-    const handleOpenDraftPDF = React.useCallback(async (e: React.MouseEvent) => {
-        e.stopPropagation()
-        try {
-            const token = localStorage.getItem("arxiva-auth-token") || "";
-            const url = `${getBaseUrl()}/requests/${row.original.id}/pdf-draft?token=${token}`;
-            await openUrl(url);
-        } catch (error) {
-            toast.error("Gagal membuka PDF BAST Draft");
-        }
-    }, [row.original.id]);
+    const navigate = useNavigate()
 
-    const handleOpenSignedPDF = React.useCallback(async (e: React.MouseEvent) => {
-        e.stopPropagation()
-        try {
-            const token = localStorage.getItem("arxiva-auth-token") || "";
-            const url = `${getBaseUrl()}/requests/${row.original.id}/pdf-signed?token=${token}`;
-            await openUrl(url);
-        } catch (error) {
-            toast.error("Gagal membuka PDF BAST Final");
-        }
-    }, [row.original.id]);
+    const handleStatusChange = React.useCallback(
+        (e: React.MouseEvent, newStatus: string) => {
+            e.stopPropagation()
+            meta?.onStatusChange?.(row.original.id, newStatus)
+        },
+        [meta, row.original.id]
+    )
 
-    const handleOpenDrive = React.useCallback(async (e: React.MouseEvent) => {
-        e.stopPropagation()
-        const driveUrl = row.original.deliveryDocument?.driveViewUrl;
-        if (driveUrl) {
-            await openUrl(driveUrl);
-        } else {
-            toast.error("Link Google Drive belum tersedia");
-        }
-    }, [row.original.deliveryDocument?.driveViewUrl]);
-
-    const showBastActions = ["SIAP", "SELESAI", "DITERIMA"].includes(status || "")
-
-    if (!showBastActions) return null;
-
-    const isSigned = ["SELESAI", "DITERIMA"].includes(status || "");
+    const handleNavigateToPrepare = React.useCallback(
+        (e: React.MouseEvent) => {
+            e.stopPropagation()
+            navigate(`/request/${row.original.id}/prepare`)
+        },
+        [navigate, row.original.id]
+    )
 
     return (
-        <div className="flex items-center justify-center gap-2">
-            {!isSigned ? (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs text-muted-foreground font-medium cursor-pointer gap-1.5"
-                    title="Buka PDF BAST Draft (Tanpa TTD)"
-                    onClick={handleOpenDraftPDF}
-                >
-                    <IconFileText size={16} />
-                    BAST Draft
-                </Button>
-            ) : (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-500/20"
-                    title="Buka PDF BAST Final (Ber-TTD)"
-                    onClick={handleOpenSignedPDF}
-                >
-                    <IconFileText size={16} />
-                    BAST Final
-                </Button>
+        <div className="flex items-center gap-1 justify-center">
+            {status === "DISETUJUI" && (
+                <>
+                    <Button
+                        variant="ghost"
+                        size="icon-lg"
+                        className="text-xs font-medium text-muted-foreground hover:text-amber-600 cursor-pointer"
+                        onClick={handleNavigateToPrepare}
+                    >
+                        <IconPackage size={18} />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon-lg"
+                        className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
+                        onClick={(e) => handleStatusChange(e, "Dibatalkan")}
+                    >
+                        <IconBan size={18} />
+                    </Button>
+                </>
             )}
 
-            {isSigned && row.original.deliveryDocument?.driveViewUrl && (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20"
-                    title="Buka di Google Drive"
-                    onClick={handleOpenDrive}
-                >
-                    Google Drive
-                </Button>
+            {status === "MENUNGGU" && (
+                <>
+                    <Button
+                        variant="ghost"
+                        size="icon-lg"
+                        className="text-xs font-medium text-muted-foreground hover:text-emerald-700 cursor-pointer"
+                        onClick={(e) => handleStatusChange(e, "Disetujui")}
+                    >
+                        <Check size={18} className="" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon-lg"
+                        className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
+                        onClick={(e) => handleStatusChange(e, "Ditolak")}
+                    >
+                        <IconX size={18} className="" />
+                    </Button>
+                </>
             )}
 
             {status === "SIAP" && (
-                <>
+                <div>
                     <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 border-sky-500/20"
-                        title="Pengambilan Material BAST"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setPengambilanModalOpen(true);
-                        }}
+                        variant="ghost"
+                        size="icon-lg"
+                        className="text-xs font-medium text-muted-foreground hover:text-blue-600 cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
                     >
-                        <PackageCheck size={16} />
-                        Pengambilan
+                        <Edit strokeWidth={2} />
                     </Button>
-                    <PengambilanQrModal
-                        isOpen={pengambilanModalOpen}
-                        onOpenChange={setPengambilanModalOpen}
-                        request={row.original}
-                        onSuccess={() => {
-                            meta?.onStatusChange?.(row.original.id, "Selesai");
-                        }}
-                    />
-                </>
+                    <Button
+                        variant="ghost"
+                        size="icon-lg"
+                        className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
+                        onClick={(e) => handleStatusChange(e, "Dibatalkan")}
+                    >
+                        <IconBan strokeWidth={2} />
+                    </Button>
+                </div>
             )}
         </div>
     )
 }
-
-
 
 // ─────────────────────────────────────────────
 // Column Definitions (factory function agar columns tidak berisi closure meta)
@@ -356,7 +329,10 @@ function createColumns(): ColumnDef<DashboardRequest>[] {
         {
             accessorKey: "document",
             header: () => <div className="text-center">Dokumen</div>,
-            cell: ({ row, table }) => <BastActions row={row} table={table} />,
+            cell: ({ row, table }) => {
+                const meta = table.options.meta as any;
+                return <BastActions request={row.original} onStatusChange={meta?.onStatusChange} />
+            },
         },
         {
             id: "actions",
@@ -482,7 +458,7 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
 
                                     {table.getState().columnVisibility.document !== false && (
                                         <div className="mt-2 pt-3 border-t border-border flex justify-end">
-                                            <DocumentMenu row={row} table={table} />
+                                            <BastActions request={row.original} onStatusChange={(table.options.meta as any)?.onStatusChange} />
                                         </div>
                                     )}
                                 </CardContent>

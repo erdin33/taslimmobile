@@ -15,6 +15,9 @@ import MitraPage from "@/app/desktop/mitra/page";
 import LoginPage from "@/app/desktop/login/page";
 import PengaturanPage from "@/app/desktop/pengaturan/page";
 import MobileSignPage from "@/app/mobile-sign/page";
+import PartnerRequestNewPage from "@/app/partner-request/new/page";
+import PartnerRequestHistoryPage from "@/app/partner-request/history/page";
+import RequestPreparePage from "@/app/request/prepare/page";
 
 export function DesktopRoutes() {
 	return (
@@ -33,6 +36,9 @@ export function DesktopRoutes() {
 				<Route path="barang-keluar" element={<BarangKeluarPage />} />
 				<Route path="request" element={<DataTransaksiPage />} />
 				<Route path="request/:id" element={<DataTransaksiDetailPage />} />
+				<Route path="request/:id/prepare" element={<RequestPreparePage />} />
+				<Route path="partner-request/new" element={<PartnerRequestNewPage />} />
+				<Route path="partner-request/history" element={<PartnerRequestHistoryPage />} />
 				<Route path="data-barang" element={<DataBarangPage />} />
 				<Route
 					path="lokasi-barang"

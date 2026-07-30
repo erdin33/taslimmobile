@@ -126,6 +126,7 @@ export default function DashboardPage() {
                     requests={recentRequests}
                     counts={requestCounts}
                     isLoading={isLoadingRequests}
+                    variant={user?.role === "mitra" ? "mitra" : "admin"}
                     className="lg:col-span-2"
                 />
                 <ActivityFeedCard

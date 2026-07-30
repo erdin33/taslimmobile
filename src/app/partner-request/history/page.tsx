@@ -344,10 +344,11 @@ export default function PartnerRequestHistoryPage() {
     setSignDialogOpen(true)
   }, [])
 
-  const handleSignComplete = useCallback(async () => {
+  const handleSignComplete = useCallback(async (signatureDataUrl?: string) => {
     if (!signingRequestId) return
     try {
-      await api.post(`/requests/${signingRequestId}/sign`)
+      const payload = signatureDataUrl ? { signatureUrl: signatureDataUrl } : {}
+      await api.post(`/requests/${signingRequestId}/sign`, payload)
       toast.success("Dokumen BAST berhasil ditandatangani")
       setSignDialogOpen(false)
       setSigningRequestId(null)

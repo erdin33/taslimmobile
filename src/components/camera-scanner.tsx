@@ -5,7 +5,7 @@ import { Camera, Zap, ZapOff, RefreshCw, CheckCircle2, AlertCircle, X, Image } f
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { useLocation } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 const SCAN_FORMATS = [
   Html5QrcodeSupportedFormats.QR_CODE,
@@ -100,6 +100,7 @@ export function CameraScanner({
   }
 
   const location = useLocation()
+  const navigate = useNavigate()
   React.useEffect(() => {
     handleOpen(false)
   }, [location.pathname])
@@ -201,7 +202,16 @@ export function CameraScanner({
               { code: decodedText, status: "error", message: errMsg, timestamp: new Date() },
               ...prev.slice(0, 49),
             ])
-            toast.error(errMsg, { description: decodedText })
+            toast.error(errMsg, { 
+              description: decodedText,
+              action: {
+                label: "Request Admin",
+                onClick: () => {
+                  handleOpen(false);
+                  navigate("/partner-request/new");
+                }
+              }
+            })
           } finally {
             setTimeout(() => setScanFlash(null), 500)
           }
@@ -458,7 +468,15 @@ export function CameraScanner({
         
         const errorScans = detectedTexts.map((code) => ({ code, status: "error" as const, message: errMsg, timestamp: new Date() }))
         setScannedCodes((prev) => [...errorScans, ...prev].slice(0, 20))
-        toast.error(errMsg)
+        toast.error(errMsg, {
+          action: {
+            label: "Request Admin",
+            onClick: () => {
+              handleOpen(false);
+              navigate("/partner-request/new");
+            }
+          }
+        })
       }
     } catch (err) {
       console.error("Gagal mendeteksi barcode dari gambar", err)

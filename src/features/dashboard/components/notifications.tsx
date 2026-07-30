@@ -3,6 +3,10 @@
 import * as React from "react"
 import { Bell, Check, Info, AlertTriangle, XCircle } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
+import { useNavigate } from "react-router-dom"
+
+import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +27,10 @@ type NotificationItem = {
 }
 
 export function Notifications() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
+  const navigate = useNavigate()
+  
   const [open, setOpen] = React.useState(false)
   const [items, setItems] = React.useState<NotificationItem[]>([])
   const [filter, setFilter] = React.useState<"all" | "unread" | "read">("all")
@@ -40,11 +48,54 @@ export function Notifications() {
   const fetchNotifications = React.useCallback(async () => {
     try {
       const data = await invoke<NotificationItem[]>("get_notifications")
+      
+      // Auto-sync notifications for Admin from new requests
+      if (isAdmin) {
+        try {
+          const res = await api.get("/requests")
+          const requests = Array.isArray(res.data?.data || res.data) ? (res.data?.data || res.data) : []
+          let hasNew = false
+          
+          for (const req of requests) {
+            if (req.status?.toUpperCase() === "MENUNGGU") {
+              const notifId = `req-${req.id}`
+              const exists = data.some((n: NotificationItem) => n.id === notifId)
+              
+              if (!exists) {
+                const newNotif = {
+                  id: notifId,
+                  title: "Request Material Baru",
+                  message: `${req.requester?.profile?.nama || req.requester?.username || "Mitra"} mengajukan request sejumlah ${req.itemsCount || 0} item.`,
+                  type: "info",
+                  date: req.requestedAt || new Date().toISOString(),
+                  isRead: false
+                }
+                
+                try {
+                  await invoke("add_notification", { notification: newNotif })
+                  hasNew = true
+                } catch (err) {
+                  // Ignore if already exists or fails
+                }
+              }
+            }
+          }
+          
+          if (hasNew) {
+            const newData = await invoke<NotificationItem[]>("get_notifications")
+            setItems(newData)
+            return
+          }
+        } catch (e) {
+          console.error("Failed to sync remote requests to notifications:", e)
+        }
+      }
+      
       setItems(data)
     } catch (error) {
       console.error("Failed to fetch notifications:", error)
     }
-  }, [])
+  }, [isAdmin])
 
   React.useEffect(() => {
     fetchNotifications()
@@ -76,6 +127,17 @@ export function Notifications() {
       fetchNotifications()
     } catch (error) {
       console.error("Failed to mark as read:", error)
+    }
+  }
+
+  const handleNotificationClick = async (notification: NotificationItem) => {
+    await markAsRead(notification.id)
+    
+    // Auto-navigate to the Request list page and pass reqId to open the drawer
+    if (notification.id.startsWith("req-")) {
+      const reqId = notification.id.replace("req-", "")
+      navigate(`/request?reqId=${reqId}`)
+      setOpen(false) // Close popover
     }
   }
 
@@ -174,7 +236,7 @@ export function Notifications() {
                 return (
                   <button
                     key={notification.id}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => handleNotificationClick(notification)}
                     className={cn(
                       "flex items-start gap-3 rounded-lg p-3 text-left transition-all hover:bg-accent focus:bg-accent outline-none cursor-pointer",
                       !notification.isRead && "bg-muted/40"

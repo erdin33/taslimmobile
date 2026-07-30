@@ -160,6 +160,22 @@ export default function DataTransaksiPage() {
     fetchRequests();
   }, [user])
 
+  // Auto-open drawer if navigated from notification with reqId
+  useEffect(() => {
+    const reqId = searchParams.get("reqId")
+    if (reqId && localRequests.length > 0) {
+      const found = localRequests.find(r => r.id === reqId)
+      if (found && !selectedRequest) {
+        setSelectedRequest(found)
+        // Optionally remove the query param so it doesn't reopen if closed
+        setSearchParams((prev) => {
+          prev.delete("reqId")
+          return prev
+        }, { replace: true })
+      }
+    }
+  }, [searchParams, localRequests, selectedRequest, setSearchParams])
+
   const filteredData = localRequests.filter((item) => {
     const matchesSearch = item.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.requesterName?.toLowerCase().includes(searchTerm.toLowerCase()) ||

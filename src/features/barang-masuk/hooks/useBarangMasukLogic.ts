@@ -11,7 +11,8 @@ import type { BrandDefinition, LocationDefinition, InventoryItem } from "@/types
 import type { Partner } from "@/types/partner";
 import type { BarangMasukItem } from "@/types/transaction";
 
-export function useBarangMasukLogic() {
+export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
+  const autoFocus = options?.autoFocusOnMount ?? true;
   const { user } = useAuth();
   
   // Master data
@@ -90,8 +91,10 @@ export function useBarangMasukLogic() {
   }, [refreshItems]);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+  }, [autoFocus]);
 
   useEffect(() => {
     if (asalBarangManual) return;
@@ -104,8 +107,14 @@ export function useBarangMasukLogic() {
   }, [kodeBarang, dbPartners, asalBarangManual]);
 
   const handleSubmit = useCallback(async (kodeOverride = kodeBarang) => {
-    const trimmedKode = kodeOverride.trim();
-    if (!trimmedKode) return;
+    let codeStr = kodeBarang;
+    if (typeof kodeOverride === "string") {
+      codeStr = kodeOverride;
+    } else if (Array.isArray(kodeOverride) && kodeOverride.length > 0) {
+      codeStr = kodeOverride[0];
+    }
+    const trimmedKode = codeStr.trim();
+    if (!trimmedKode) return { success: false, message: "Kode barang kosong" };
 
     const isDuplicate = session.barangMasuk.some(
       (item) => normalizeKodeBarang(item.nomor) === normalizeKodeBarang(trimmedKode)
@@ -115,7 +124,7 @@ export function useBarangMasukLogic() {
       toast.error("Serial number sudah ada di sesi ini.", { description: trimmedKode });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, ignored: true, message: "Sudah ada di sesi ini" };
     }
 
     const latestItems = await refreshItems();
@@ -127,7 +136,7 @@ export function useBarangMasukLogic() {
       toast.error("Barang belum terdaftar di KP.", { description: `${trimmedKode} harus didaftarkan oleh Admin terlebih dahulu.` });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Barang belum terdaftar di KP" };
     }
 
     if (user?.role === "mitra" && existingItem && !isValidMitraInboundSource(existingItem, user.displayName || "")) {
@@ -138,13 +147,13 @@ export function useBarangMasukLogic() {
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Barang belum bisa diterima" };
     }
 
     if (!existingItem && !tipeBarang) {
       toast.error("Model wajib dipilih.", { description: "SN ini belum terdaftar di database. Pilih Model terlebih dahulu." });
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Model material wajib dipilih" };
     }
 
     if (itemCondition === "baru") {
@@ -152,13 +161,13 @@ export function useBarangMasukLogic() {
         toast.error("Barang sudah ada di database.", { description: "SN ini sudah terdaftar. Silakan ubah kondisi ke 'dismantle' atau 'rusak'." });
         updateKodeBarang("");
         focusKodeBarangInput();
-        return;
+        return { success: false, message: "Barang sudah ada, ubah kondisi" };
       }
     } else if (itemCondition === "dismantle" || itemCondition === "rusak") {
       if (itemCondition === "rusak" && catatan.trim() === "") {
         toast.error("Catatan wajib diisi untuk barang rusak.", { description: "Isi deskripsi kerusakan sebelum scan barang." });
         focusKodeBarangInput();
-        return;
+        return { success: false, message: "Catatan wajib diisi" };
       }
     }
 
@@ -193,7 +202,7 @@ export function useBarangMasukLogic() {
           });
           updateKodeBarang("");
           focusKodeBarangInput();
-          return;
+          return { success: false, message: "Barang sudah di lokasi ini" };
         }
       }
     }
@@ -201,7 +210,7 @@ export function useBarangMasukLogic() {
     if (!recommendedLocation) {
       toast.error(dbLocations.length === 0 ? "Tidak ada lokasi penyimpanan aktif yang tersedia." : "Semua lokasi penyimpanan sudah penuh.");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Lokasi penuh / tidak tersedia" };
     }
 
     const isDismantleBad = itemCondition === "rusak";
@@ -241,6 +250,7 @@ export function useBarangMasukLogic() {
     updateKodeBarang("");
     setAsalBarangManual(false);
     focusKodeBarangInput();
+    return { success: true };
   }, [
     session,
     dbBrands,
@@ -395,25 +405,27 @@ export function useBarangMasukLogic() {
           if (!resAdd.ok) throw new Error(`Gagal menambah item ${item.nomor}`);
         }
 
-        const newTransaction = {
-          id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          tanggal: sessionDate,
-          nomor: sessionNomor,
-          kategori: "Masuk",
-          status: "Selesai",
-          sn: item.nomor,
-          merek: item.merek,
-          asal: item.asal || asalBarang,
-          tujuan: item.lokasi,
-          mitra: user?.role === "mitra" ? (user.displayName || "") : "KP Tasikmalaya",
-          keterangan: item.catatan ? `${item.kondisi}: ${item.catatan}` : `${item.kondisi}`,
-        };
-        const resAddTrx = await fetch(`${getBaseUrl()}/transactions`, {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify(newTransaction),
-        });
-        if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
+        if (itemStatus !== "Rusak") {
+          const newTransaction = {
+            id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            tanggal: sessionDate,
+            nomor: sessionNomor,
+            kategori: "Masuk",
+            status: "Selesai",
+            sn: item.nomor,
+            merek: item.merek,
+            asal: item.asal || asalBarang,
+            tujuan: item.lokasi,
+            mitra: user?.role === "mitra" ? (user.displayName || "") : "KP Tasikmalaya",
+            keterangan: item.catatan ? `${item.kondisi}: ${item.catatan}` : `${item.kondisi}`,
+          };
+          const resAddTrx = await fetch(`${getBaseUrl()}/transactions`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify(newTransaction),
+          });
+          if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
+        }
       }
       toast.success(`${session.barangMasuk.length} barang masuk berhasil disimpan.`);
       session.clearSession();

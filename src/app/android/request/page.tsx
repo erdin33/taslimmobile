@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { DataTable } from "@/features/transactions/components/request-table"
-import { Search, EllipsisVertical, FileUp, FileDown, ListFilter, Loader2 } from "lucide-react"
+import { Search, EllipsisVertical, FileUp, FileDown, ListFilter, Loader2, Calendar, Package, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useSearchParams, useNavigate } from "react-router-dom"
@@ -56,6 +56,90 @@ const getHeaders = () => {
   }
   return headers;
 };
+
+function MobileRequestList({ data, onRowClick, onStatusChange }: { 
+  data: DashboardRequest[], 
+  onRowClick: (item: DashboardRequest) => void,
+  onStatusChange?: (id: string, status: string) => void
+}) {
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
+          <Package className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+        </div>
+        <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Tidak ada permintaan</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 pb-24 pt-2">
+      {data.map((item) => {
+        const date = new Date(item.requestedAt).toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        })
+
+        return (
+          <div 
+            key={item.id}
+            onClick={() => onRowClick(item)}
+            className="group relative bg-white dark:bg-zinc-950 border border-slate-200/60 dark:border-zinc-800/80 rounded-2xl p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:shadow-none active:scale-[0.98] transition-all cursor-pointer overflow-hidden"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex flex-col pr-2">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
+                  {item.requestNumber}
+                </span>
+                <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                  {item.requesterName}
+                </h3>
+                {item.partnerCategory && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
+                    {item.partnerCategory}
+                  </span>
+                )}
+              </div>
+              <Badge variant="outline" className={cn(
+                "px-2.5 py-1 rounded-full text-[10px] font-bold border-0 shrink-0 uppercase",
+                item.status.toLowerCase() === "menunggu" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" :
+                item.status.toLowerCase() === "disetujui" ? "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500" :
+                item.status.toLowerCase() === "siap" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-500" :
+                item.status.toLowerCase() === "selesai" || item.status.toLowerCase() === "diterima" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500" :
+                "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+              )}>
+                {item.status}
+              </Badge>
+            </div>
+            
+            {item.notes && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 line-clamp-1">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">Catatan:</span> {item.notes}
+              </p>
+            )}
+            
+            <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/60">
+              <div className="flex items-center gap-1.5 font-medium">
+                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                {date}
+              </div>
+              <div className="flex items-center gap-1.5 font-medium">
+                <Package className="h-3.5 w-3.5 text-slate-400" />
+                {item.itemsCount || 0} Item
+              </div>
+            </div>
+
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 md:group-hover:opacity-100 transition-opacity">
+              <ChevronRight className="h-5 w-5 text-slate-300" />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 /**
  * Komponen DataTransaksiPage
@@ -159,6 +243,22 @@ export default function DataTransaksiPage() {
   useEffect(() => {
     fetchRequests();
   }, [user])
+
+  // Auto-open drawer if navigated from notification with reqId
+  useEffect(() => {
+    const reqId = searchParams.get("reqId")
+    if (reqId && localRequests.length > 0) {
+      const found = localRequests.find(r => r.id === reqId)
+      if (found && !selectedRequest) {
+        setSelectedRequest(found)
+        // Optionally remove the query param so it doesn't reopen if closed
+        setSearchParams((prev) => {
+          prev.delete("reqId")
+          return prev
+        }, { replace: true })
+      }
+    }
+  }, [searchParams, localRequests, selectedRequest, setSearchParams])
 
   const filteredData = localRequests.filter((item) => {
     const matchesSearch = item.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -341,11 +441,20 @@ export default function DataTransaksiPage() {
 
           return (
             <TabsContent key={status} value={status} className="mt-0">
-              <DataTable
-                data={finalData}
-                onRowClick={(item) => setSelectedRequest(item)}
-                onStatusChange={handleStatusChange}
-              />
+              <div className="hidden md:block">
+                <DataTable
+                  data={finalData}
+                  onRowClick={(item) => setSelectedRequest(item)}
+                  onStatusChange={handleStatusChange}
+                />
+              </div>
+              <div className="md:hidden">
+                <MobileRequestList
+                  data={finalData}
+                  onRowClick={(item) => setSelectedRequest(item)}
+                  onStatusChange={handleStatusChange}
+                />
+              </div>
             </TabsContent>
           )
         })}

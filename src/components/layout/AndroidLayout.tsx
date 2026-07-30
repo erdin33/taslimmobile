@@ -1,10 +1,11 @@
 import { Outlet, NavLink } from "react-router-dom";
 import { Notifications } from "@/features/dashboard/components/notifications";
-import { 
-	Home, 
-	PackagePlus, 
-	
-	ScanBarcode, 
+import {
+	Home,
+	PackagePlus,
+	PackageMinus,
+	ClipboardPlus,
+	ScanBarcode,
 	Menu,
 	Database,
 	HistoryIcon,
@@ -34,14 +35,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useNavigate } from "react-router-dom"
 
@@ -69,7 +70,7 @@ export default function AndroidLayout() {
 			<header className="pt-[env(safe-area-inset-top,0px)] h-[calc(3.5rem+env(safe-area-inset-top,0px))] border-b flex items-center justify-between bg-card shadow-sm z-10 shrink-0 px-4">
 				<h1 className="font-semibold text-lg tracking-tight">Taslim Mobile</h1>
 				<div className="flex items-center gap-1">
-					<button 
+					<button
 						onClick={() => setTheme(theme === "light" ? "dark" : "light")}
 						className="p-2 text-muted-foreground hover:bg-muted rounded-full"
 					>
@@ -120,14 +121,16 @@ export default function AndroidLayout() {
 			</main>
 
 			{/* Floating Action Button for Scan */}
-			<div className="absolute bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-50">
-				<button 
-					onClick={() => navigate('/barang-masuk', { state: { autoScan: true } })}
-					className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all"
-				>
-					<ScanBarcode className="w-6 h-6" />
-				</button>
-			</div>
+			{isAdmin && (
+				<div className="absolute bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-50">
+					<button
+						onClick={() => navigate('/barang-masuk', { state: { autoScan: true } })}
+						className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all"
+					>
+						<ScanBarcode className="w-6 h-6" />
+					</button>
+				</div>
+			)}
 
 			{/* Bottom Navigation Bar */}
 			<nav className="absolute bottom-0 w-full h-[calc(4rem+env(safe-area-inset-bottom,0px))] bg-card border-t flex items-center justify-around pb-[env(safe-area-inset-bottom,0px)] z-50 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] px-2">
@@ -144,23 +147,37 @@ export default function AndroidLayout() {
 					<Home className="w-5 h-5" />
 					<span className="text-[10px]">Dashboard</span>
 				</NavLink>
-				
-				{/* In */}
-				<NavLink
-					to="/barang-masuk"
-					className={({ isActive }) =>
-						cn(
-							"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
-							isActive && "text-primary font-medium"
-						)
-					}>
-					<PackagePlus className="w-5 h-5" />
-					<span className="text-[10px]">Masuk</span>
-				</NavLink>
 
-				{/* Request */}
+				{/* Dynamic Action Button (In/Out) */}
+				{isAdmin ? (
+					<NavLink
+						to="/barang-masuk"
+						className={({ isActive }) =>
+							cn(
+								"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
+								isActive && "text-primary font-medium"
+							)
+						}>
+						<PackagePlus className="w-5 h-5" />
+						<span className="text-[10px]">Masuk</span>
+					</NavLink>
+				) : (
+					<NavLink
+						to="/barang-keluar"
+						className={({ isActive }) =>
+							cn(
+								"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
+								isActive && "text-primary font-medium"
+							)
+						}>
+						<PackageMinus className="w-5 h-5" />
+						<span className="text-[10px]">Keluar</span>
+					</NavLink>
+				)}
+
+				{/* Request / History */}
 				<NavLink
-					to="/request"
+					to={isAdmin ? "/request" : "/partner-request/history"}
 					className={({ isActive }) =>
 						cn(
 							"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
@@ -168,7 +185,7 @@ export default function AndroidLayout() {
 						)
 					}>
 					<HistoryIcon className="w-5 h-5" />
-					<span className="text-[10px]">Request</span>
+					<span className="text-[10px] whitespace-nowrap">{isAdmin ? "Request" : "History Request"}</span>
 				</NavLink>
 
 				{/* Menu / Lainnya */}
@@ -183,14 +200,24 @@ export default function AndroidLayout() {
 						<SheetHeader className="mb-6 pt-3 text-left">
 							<SheetTitle className="text-xl font-bold tracking-tight">Menu Utama</SheetTitle>
 						</SheetHeader>
-						
+
 						<div className="space-y-7">
 							{/* Operasional */}
 							<div>
 								<h3 className="text-[11px] font-bold text-muted-foreground/70 mb-4 uppercase tracking-widest px-1">Operasional</h3>
 								<div className="grid grid-cols-4 gap-y-6 gap-x-2">
-									<MenuButton to="/barang-masuk" icon={<PackagePlus />} label="Brg Masuk" onClick={closeSheet} />
-									<MenuButton to="/request" icon={<HistoryIcon />} label="Request" onClick={closeSheet} />
+									{isAdmin ? (
+										<>
+											<MenuButton to="/barang-masuk" icon={<PackagePlus />} label="Brg Masuk" onClick={closeSheet} />
+											<MenuButton to="/request" icon={<HistoryIcon />} label="Request" onClick={closeSheet} />
+										</>
+									) : (
+										<>
+											<MenuButton to="/barang-keluar" icon={<PackageMinus />} label="Brg Keluar" onClick={closeSheet} />
+											<MenuButton to="/partner-request/new" icon={<ClipboardPlus />} label="Ajukan Req" onClick={closeSheet} />
+											<MenuButton to="/partner-request/history" icon={<HistoryIcon />} label="Histori Req" onClick={closeSheet} />
+										</>
+									)}
 								</div>
 							</div>
 
