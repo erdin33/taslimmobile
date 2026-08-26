@@ -17,7 +17,7 @@ export const getBaseUrl = () => {
  * @returns {Record<string, string>} Object header HTTP.
  */
 export const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };

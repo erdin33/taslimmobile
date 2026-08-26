@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, MoreVertical, Loader2, PackageOpen, LayoutGrid, List } from "lucide-react";
+import { Plus, Edit, Trash2, Search, MoreVertical, Loader2, LayoutGrid, List } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ const getBaseUrl = () => {
 };
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   return {
     "Content-Type": "application/json",
     ...(token ? { "Authorization": token } : {})
@@ -42,13 +42,13 @@ export default function TipeMaterialPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   useEffect(() => {
-    const savedMode = localStorage.getItem("arxiva_model_view_mode") as "grid" | "table" | null;
+    const savedMode = localStorage.getItem("taslim_model_view_mode") as "grid" | "table" | null;
     if (savedMode) setViewMode(savedMode);
   }, []);
 
   const handleViewModeChange = (mode: "grid" | "table") => {
     setViewMode(mode);
-    localStorage.setItem("arxiva_model_view_mode", mode);
+    localStorage.setItem("taslim_model_view_mode", mode);
   };
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);

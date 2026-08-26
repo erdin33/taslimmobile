@@ -18,6 +18,8 @@ interface OutboundFormCardProps {
   setSelectedPartnerId: (val: string) => void;
   keterangan: string;
   setKeterangan: (val: string) => void;
+  ticketGangguan: string;
+  setTicketGangguan: (val: string) => void;
   focusKodeBarangInput: () => void;
   cameraScannerSlot?: React.ReactNode;
 }
@@ -34,6 +36,8 @@ export function OutboundFormCard({
   setSelectedPartnerId,
   keterangan,
   setKeterangan,
+  ticketGangguan,
+  setTicketGangguan,
   focusKodeBarangInput,
   cameraScannerSlot,
 }: OutboundFormCardProps) {
@@ -99,9 +103,7 @@ export function OutboundFormCard({
                 id="keterangan-keluar"
                 className="h-11"
                 value={keterangan}
-                onChange={(event) => {
-                  setKeterangan(event.target.value);
-                }}
+                onChange={(event) => setKeterangan(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -112,6 +114,26 @@ export function OutboundFormCard({
               />
             </div>
           )}
+
+          {((user?.role === "mitra" && user?.partnerType === "GANGGUAN") ||
+            (user?.role !== "mitra" && dbPartners.find((p) => p.id === selectedPartnerId)?.partnerType === "GANGGUAN")) && (
+              <div className="w-full space-y-1.5 sm:w-64">
+                <Label htmlFor="ticket-gangguan" className="text-sm font-semibold">No Tiket Gangguan</Label>
+                <Input
+                  id="ticket-gangguan"
+                  className="h-11"
+                  value={ticketGangguan}
+                  onChange={(event) => setTicketGangguan(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      focusKodeBarangInput();
+                    }
+                  }}
+                  placeholder="Contoh: INC12345"
+                />
+              </div>
+            )}
 
           <Button className="h-11 w-full gap-2 sm:w-32" onClick={() => handleSubmit(kodeBarangRef.current)}>
             <PackageMinus className="size-4" />

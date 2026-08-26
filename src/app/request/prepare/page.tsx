@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 import {
   Table,
   TableBody,
@@ -193,7 +193,7 @@ export default function PreparePage() {
           api.get("/items"),
         ])
 
-        const r = requestRes.data
+        const r = requestRes.data?.data || requestRes.data
         const formattedRequest: RequestDetail = {
           id: r.id,
           requestNumber: r.requestNumber,
@@ -228,15 +228,20 @@ export default function PreparePage() {
         r.requestItems?.forEach((ri: any) => {
           if (ri.allocations) {
             ri.allocations.forEach((alloc: any) => {
-              if (alloc.item) {
+              const itemObj = alloc.item || alloc
+              if (itemObj) {
                 existingAllocations.push({
                   inventoryItem: {
-                    id: alloc.item.id,
-                    serialNumber: alloc.item.serialNumber,
-                    paNumber: alloc.item.paNumber || alloc.item.model?.code,
-                    status: alloc.item.status,
-                    model: alloc.item.model || { nama: "-" },
-                    location: alloc.item.lokasi ? { name: alloc.item.lokasi.nama } : undefined
+                    id: itemObj.id,
+                    serialNumber: itemObj.serialNumber,
+                    paNumber: itemObj.paNumber || itemObj.model?.code,
+                    status: itemObj.status,
+                    model: itemObj.model || {
+                      nama: itemObj.tipe || "-",
+                      brand: { id: 0, nama: itemObj.merek || itemObj.brand?.nama || "-" },
+                      materialCategory: { id: 0, nama: itemObj.kategori || itemObj.materialCategory?.nama || ri.category || "ONT" }
+                    },
+                    location: itemObj.lokasiPenyimpanan ? { name: itemObj.lokasiPenyimpanan } : (itemObj.lokasi ? { name: itemObj.lokasi.nama } : undefined)
                   }
                 })
               }
@@ -361,7 +366,17 @@ export default function PreparePage() {
   }
 
   const handleSaveAll = async () => {
-    if (!request || scannedItems.length === 0) return
+    if (!request || scannedItems.length === 0) {
+      toast.error("Belum ada material yang disiapkan")
+      return
+    }
+
+    const totalRequested = request.requestItems.reduce((acc, ri) => acc + (ri.quantity || 1), 0)
+    if (scannedItems.length < totalRequested) {
+      const confirmed = window.confirm(`Alokasi material belum lengkap (${scannedItems.length} dari ${totalRequested} item disiapkan). Yakin ingin menyimpan status Siap?`)
+      if (!confirmed) return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -443,9 +458,35 @@ export default function PreparePage() {
                   </CameraScanner>
                 )}
               </div>
-              <Button className="w-full mt-2" onClick={() => void handleScanSubmit(kodeBarangRef.current)}>
-                Tambah
+              <Button className="w-full mt-2 font-semibold" onClick={() => void handleScanSubmit(kodeBarangRef.current)}>
+                Tambah ke Alokasi
               </Button>
+            </div>
+
+            {/* Target vs Progress Alokasi */}
+            <div className="flex flex-col gap-2 p-3 bg-muted/40 rounded-xl border border-border/60 mt-2">
+              <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <span>Rincian Permintaan</span>
+                <span className={scannedItems.length === request.requestItems.reduce((acc, ri) => acc + (ri.quantity || 1), 0) ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
+                  {scannedItems.length} / {request.requestItems.reduce((acc, ri) => acc + (ri.quantity || 1), 0)} Disiapkan
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5 mt-1">
+                {request.requestItems.map((ri, idx) => {
+                  const targetQty = ri.quantity || 1
+                  return (
+                    <div key={idx} className="flex items-center justify-between text-xs bg-background/90 p-2.5 rounded-lg border border-border/40">
+                      <div className="flex flex-col min-w-0 pr-2">
+                        <span className="font-semibold text-foreground truncate">{ri.category} {ri.brand && ri.brand !== "-" ? `(${ri.brand})` : ""}</span>
+                        <span className="text-[11px] text-muted-foreground truncate">{ri.model && ri.model !== "-" ? `Model: ${ri.model}` : "Semua Model"}</span>
+                      </div>
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 font-bold shrink-0">
+                        Target: {targetQty}
+                      </Badge>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>

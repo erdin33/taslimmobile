@@ -21,7 +21,7 @@ const getCleanCategoryName = (categoryName?: string) => {
 };
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -54,26 +54,33 @@ export const useRequestDetail = (id?: string) => {
           partnerCategory: data.requester?.profile?.partnerType || "Mitra",
           status: data.status,
           notes: data.notes || "-",
+          rejectionReason: data.rejectionReason || data.adminRemarks || data.adminNotes || data.adminNote || data.remarks || data.rejectionNotes || data.cancelReason || data.alasanPenolakan || undefined,
           requestedAt: data.requestedAt,
-          itemsCount: data.requestItems?.reduce((acc: number, item: any) => acc + item.quantity, 0),
+          itemsCount: data.requestItems?.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) || 0,
           requestItems: data.requestItems?.map((item: any) => ({
             id: item.id,
-            category: getCleanCategoryName(item.category?.nama),
-            brand: item.brand?.nama,
+            category: getCleanCategoryName(item.materialCategory?.nama || item.category?.nama || item.category),
+            brand: item.brand?.nama || item.brand || "-",
             quantity: item.quantity,
-            unit: getUnitByCategory(item.category?.nama)
+            unit: getUnitByCategory(item.materialCategory?.nama || item.category?.nama || item.category)
           })),
           requestAllocations: data.requestItems?.flatMap((item: any) =>
-            item.allocations?.map((alloc: any) => ({
-              id: alloc.id,
-              materialNumber: alloc.item?.paNumber || "-",
-              materialCategory: getCleanCategoryName(item.category?.nama),
-              brand: alloc.item?.brand?.nama || item.brand?.nama,
-              materialName: `${getCleanCategoryName(item.category?.nama)} ${alloc.item?.brand?.nama || item.brand?.nama}`,
-              serialNumber: alloc.item?.serialNumber,
-              quantity: 1,
-              unit: getUnitByCategory(item.category?.nama)
-            })) || []
+            item.allocations?.map((alloc: any) => {
+              const itemObj = alloc.item || alloc
+              const catName = getCleanCategoryName(itemObj?.model?.materialCategory?.nama || itemObj?.kategori || item.materialCategory?.nama || item.category?.nama)
+              const brandName = itemObj?.brand?.nama || itemObj?.model?.brand?.nama || itemObj?.merek || item.brand?.nama || item.brand || "-"
+              const matCode = itemObj?.paNumber || itemObj?.model?.code || itemObj?.tipe || "-"
+              return {
+                id: alloc.id || itemObj?.id,
+                materialNumber: matCode,
+                materialCategory: catName,
+                brand: brandName,
+                materialName: `${catName} ${brandName}${itemObj?.model?.nama ? ` (${itemObj.model.nama})` : ''}`,
+                serialNumber: itemObj?.serialNumber || "-",
+                quantity: 1,
+                unit: getUnitByCategory(catName)
+              }
+            }) || []
           ),
           deliveryDocument: data.deliveryDocument,
         };

@@ -11,7 +11,7 @@ const getBaseUrl = () => {
 };
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `${token}`;
   return headers;
@@ -23,7 +23,7 @@ export const useLokasiBarangLogic = () => {
   const [sheetMode, setSheetMode] = useState<SheetMode>("closed");
   const [activeItem, setActiveItem] = useState<{ parentId?: string; levelId?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"rak" | "kardus" | "pallet">("rak");
+  const [filterType, setFilterType] = useState<"rak" | "kardus" | "pallet" | "mitra">("rak");
   const [sortBy, setSortBy] = useState<"util-desc" | "util-asc" | "name">("name");
 
   // Form States
@@ -42,16 +42,52 @@ export const useLokasiBarangLogic = () => {
 
   const loadLocations = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/locations`, {
-        method: "GET",
-        headers: getHeaders(),
+      // Fetch locations dan users (mitra) secara paralel
+      const [locRes, usersRes] = await Promise.all([
+        fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() }),
+        fetch(`${getBaseUrl()}/users`, { method: "GET", headers: getHeaders() }).catch(() => null),
+      ]);
+
+      if (!locRes.ok) throw new Error("Gagal mengambil data lokasi");
+      const locJson = await locRes.json();
+      const data: StorageLocation[] = locJson.data || locJson || [];
+
+      // Ambil daftar nama mitra dari users API
+      let mitraNames: Set<string> = new Set();
+      if (usersRes && usersRes.ok) {
+        const usersJson = await usersRes.json();
+        const users = usersJson.data || usersJson || [];
+        users.forEach((u: any) => {
+          const role = (u.role || "").toUpperCase();
+          if (role === "MITRA") {
+            const name = u.profile?.nama || u.profile?.name || u.name || u.nama || "";
+            if (name) mitraNames.add(name.toLowerCase());
+          }
+        });
+      }
+
+      // Reklasifikasi: lokasi bertipe "Kardus" yang namanya cocok dengan Mitra → ubah ke "Mitra"
+      const reclassified = data.map(loc => {
+        if (loc.type === "Kardus" && mitraNames.has(loc.name.toLowerCase())) {
+          return { ...loc, type: "Mitra" as const };
+        }
+        return loc;
       });
-      if (!res.ok) throw new Error("Gagal mengambil data lokasi");
-      const json = await res.json();
-      const data: StorageLocation[] = json.data || json || [];
+
+      const ADMIN_LOCATION = "KP Tasikmalaya";
+      const normalizeOwner = (owner?: string | null) => (owner || ADMIN_LOCATION).trim().toLowerCase();
+      const kpOwner = normalizeOwner(ADMIN_LOCATION);
+
       setLocations(
-        data.filter(
-          (loc) => loc.name !== "Keluar" && loc.name !== "Diluar"
+        reclassified.filter(
+          (loc) => 
+            loc.name !== "Keluar" && 
+            loc.name !== "Diluar" &&
+            (loc as any).type !== "Partner" &&
+            (loc as any).type !== "PARTNER" &&
+            !loc.name.toUpperCase().startsWith("PT ") &&
+            !loc.name.toUpperCase().startsWith("PT.") &&
+            (normalizeOwner((loc as any).owner) === kpOwner || normalizeOwner((loc as any).owner) === "kp")
         )
       );
     } catch (error) {
@@ -77,19 +113,21 @@ export const useLokasiBarangLogic = () => {
   }, []);
 
   const stats = useMemo(() => {
-    let totalRak = 0, totalKardus = 0, totalPallet = 0, maxCapacity = 0, usedCapacity = 0;
+    let totalRak = 0, totalKardus = 0, totalPallet = 0, totalMitra = 0, maxCapacity = 0, usedCapacity = 0;
     locations.forEach(loc => {
       if (loc.type === "Rak") {
         totalRak++;
         loc.levels?.forEach(lvl => { maxCapacity += lvl.capacity; usedCapacity += lvl.usedCapacity; });
       } else if (loc.type === "Pallet") {
         totalPallet++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
+      } else if (loc.type === "Mitra") {
+        totalMitra++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
       } else {
         totalKardus++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
       }
     });
     const utilizationPct = maxCapacity > 0 ? Math.round((usedCapacity / maxCapacity) * 100) : 0;
-    return { totalRak, totalKardus, totalPallet, maxCapacity, usedCapacity, utilizationPct };
+    return { totalRak, totalKardus, totalPallet, totalMitra, maxCapacity, usedCapacity, utilizationPct };
   }, [locations]);
 
   const filteredAndSortedLocations = useMemo(() => {
@@ -140,9 +178,9 @@ export const useLokasiBarangLogic = () => {
     if (item && item.parentId) {
       const loc = locations.find(l => l.id === item.parentId);
       if (loc) {
-        if (mode === "edit-rak" || mode === "edit-kardus" || mode === "edit-pallet") {
+        if (mode === "edit-rak" || mode === "edit-kardus" || mode === "edit-pallet" || mode === "edit-mitra") {
           setLocName(loc.name);
-          if (loc.type === "Kardus" || loc.type === "Pallet") {
+          if (loc.type === "Kardus" || loc.type === "Pallet" || loc.type === "Mitra") {
             setLocCapacity(loc.capacity?.toString() || "0");
             setLocBrand(loc.brandRule || "Campuran");
           }
@@ -181,10 +219,12 @@ export const useLokasiBarangLogic = () => {
           const e = await res.json().catch(() => ({}));
           throw new Error(e.message || "Gagal menambahkan rak");
         }
-      } else if (sheetMode === "add-kardus") {
+      } else if (sheetMode === "add-kardus" || sheetMode === "add-pallet" || sheetMode === "add-mitra") {
+        const typeMap = { "add-kardus": "Kardus", "add-pallet": "Pallet", "add-mitra": "Mitra" };
+        const defaultName = { "add-kardus": "Kardus Baru", "add-pallet": "Pallet Baru", "add-mitra": "Mitra Baru" };
         const payload = {
-          name: locName || "Kardus Baru",
-          type: "Kardus",
+          name: locName || defaultName[sheetMode as keyof typeof defaultName],
+          type: typeMap[sheetMode as keyof typeof typeMap],
           capacity: parseInt(locCapacity) || 0,
           brandRule: locBrand
         };
@@ -195,23 +235,7 @@ export const useLokasiBarangLogic = () => {
         });
         if (!res.ok) {
           const e = await res.json().catch(() => ({}));
-          throw new Error(e.message || "Gagal menambahkan kardus");
-        }
-      } else if (sheetMode === "add-pallet") {
-        const payload = {
-          name: locName || "Pallet Baru",
-          type: "Pallet",
-          capacity: parseInt(locCapacity) || 0,
-          brandRule: locBrand
-        };
-        const res = await fetch(`${getBaseUrl()}/locations`, {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({}));
-          throw new Error(e.message || "Gagal menambahkan pallet");
+          throw new Error(e.message || `Gagal menambahkan ${typeMap[sheetMode as keyof typeof typeMap].toLowerCase()}`);
         }
       } else if (sheetMode === "edit-rak" && activeItem?.parentId) {
         const res = await fetch(`${getBaseUrl()}/locations/${activeItem.parentId}`, {
@@ -223,7 +247,7 @@ export const useLokasiBarangLogic = () => {
           const e = await res.json().catch(() => ({}));
           throw new Error(e.message || "Gagal memperbarui rak");
         }
-      } else if (sheetMode === "edit-kardus" && activeItem?.parentId) {
+      } else if ((sheetMode === "edit-kardus" || sheetMode === "edit-pallet" || sheetMode === "edit-mitra") && activeItem?.parentId) {
         const res = await fetch(`${getBaseUrl()}/locations/${activeItem.parentId}`, {
           method: "PUT",
           headers: getHeaders(),
@@ -231,17 +255,7 @@ export const useLokasiBarangLogic = () => {
         });
         if (!res.ok) {
           const e = await res.json().catch(() => ({}));
-          throw new Error(e.message || "Gagal memperbarui kardus");
-        }
-      } else if (sheetMode === "edit-pallet" && activeItem?.parentId) {
-        const res = await fetch(`${getBaseUrl()}/locations/${activeItem.parentId}`, {
-          method: "PUT",
-          headers: getHeaders(),
-          body: JSON.stringify({ name: locName, capacity: parseInt(locCapacity) || 0, brandRule: locBrand })
-        });
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({}));
-          throw new Error(e.message || "Gagal memperbarui pallet");
+          throw new Error(e.message || "Gagal memperbarui lokasi");
         }
       } else if (sheetMode === "add-level" && activeItem?.parentId) {
         const res = await fetch(`${getBaseUrl()}/locations`, {
@@ -377,7 +391,7 @@ export const useLokasiBarangLogic = () => {
         const binaryString = window.atob(base64Data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-        const savedPath = await invoke<string>("save_arxiva_file", { subfolder: "qr", filename, data: Array.from(bytes) });
+        const savedPath = await invoke<string>("save_taslim_file", { subfolder: "qr", filename, data: Array.from(bytes) });
         toast.success(`Berhasil menyimpan QR Code ke folder ${savedPath}`);
       } else {
         const link = document.createElement("a");

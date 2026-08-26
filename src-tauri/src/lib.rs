@@ -86,7 +86,7 @@ pub fn run() {
             commands::mark_all_notifications_read,
             commands::delete_notification,
             commands::google_oauth_login,
-            commands::save_arxiva_file,
+            commands::save_taslim_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -90,24 +90,29 @@ export default function LokasiBarangPage() {
         </div>
       </>
     );
-    if (sheetMode === "add-pallet" || sheetMode === "edit-pallet") return (
-      <>
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold text-foreground">Nama Pallet</Label>
-          <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder="Contoh: Pallet P-01" className="bg-background border-border focus-visible:ring-1 focus-visible:ring-ring" />
-        </div>
-        {renderCapacityInput()}
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold text-foreground">Aturan Merek</Label>
-          <Select value={locBrand} onValueChange={setLocBrand}>
-            <SelectTrigger className="justify-start bg-background border-border focus:ring-1 focus:ring-ring"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
-            <SelectContent className="bg-popover border-border text-foreground">
-              {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-muted">{b}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </>
-    );
+    if (sheetMode === "add-pallet" || sheetMode === "edit-pallet" || sheetMode === "add-mitra" || sheetMode === "edit-mitra") {
+      const isMitra = sheetMode.includes("mitra");
+      const labelType = isMitra ? "Mitra" : "Pallet";
+      const phType = isMitra ? "Mitra M-01" : "Pallet P-01";
+      return (
+        <>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-foreground">Nama {labelType}</Label>
+            <Input value={locName} onChange={e => setLocName(e.target.value)} placeholder={`Contoh: ${phType}`} className="bg-background border-border focus-visible:ring-1 focus-visible:ring-ring" />
+          </div>
+          {renderCapacityInput()}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-foreground">Aturan Merek</Label>
+            <Select value={locBrand} onValueChange={setLocBrand}>
+              <SelectTrigger className="justify-start bg-background border-border focus:ring-1 focus:ring-ring"><SelectValue placeholder="Pilih Aturan" /></SelectTrigger>
+              <SelectContent className="bg-popover border-border text-foreground">
+                {brands.map(b => <SelectItem key={b} value={b} className="focus:bg-muted">{b}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      );
+    }
     if (sheetMode === "add-level" || sheetMode === "edit-level") return (
       <>
         <div className="space-y-2">
@@ -133,6 +138,7 @@ export default function LokasiBarangPage() {
     "add-rak": "Tambah Rak Baru", "edit-rak": "Edit Rak",
     "add-kardus": "Tambah Kardus Baru", "edit-kardus": "Edit Kardus",
     "add-pallet": "Tambah Pallet Baru", "edit-pallet": "Edit Pallet",
+    "add-mitra": "Tambah Mitra Baru", "edit-mitra": "Edit Mitra",
     "add-level": "Tambah Level Rak", "edit-level": "Edit Level Rak", "closed": "",
   };
 
@@ -153,7 +159,7 @@ export default function LokasiBarangPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6 text-foreground mx-auto w-full max-w-7xl">
+    <div className="p-4 md:p-6 pb-24 md:pb-28 h-full flex flex-col gap-6 text-foreground mx-auto w-full max-w-7xl overflow-y-auto">
       
       {/* ── 1. HEADER SECTION ── */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/50 pb-6">
@@ -181,6 +187,9 @@ export default function LokasiBarangPage() {
             <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("add-pallet")}>
               <Package className="w-4 h-4 mr-2 text-emerald-400" /> Tambah Pallet
             </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("add-mitra")}>
+              <Box className="w-4 h-4 mr-2 text-purple-400" /> Tambah Mitra
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -198,7 +207,7 @@ export default function LokasiBarangPage() {
                     Okupansi Kapasitas Gudang
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-1">
-                    Status pemakaian kapasitas total di semua lokasi (Rak, Kardus, Pallet)
+                    Status pemakaian kapasitas total di semua lokasi (Rak, Kardus, Pallet, Mitra)
                   </CardDescription>
                 </div>
               </div>
@@ -208,15 +217,18 @@ export default function LokasiBarangPage() {
                 const rakUsed = (() => { let u = 0, c = 0; locations.filter(l => l.type === "Rak").forEach(l => l.levels?.forEach(lv => { u += lv.usedCapacity; c += lv.capacity; })); return { u, c }; })();
                 const kardusUsed = (() => { let u = 0, c = 0; locations.filter(l => l.type === "Kardus").forEach(l => { u += l.usedCapacity || 0; c += l.capacity || 0; }); return { u, c }; })();
                 const palletUsed = (() => { let u = 0, c = 0; locations.filter(l => l.type === "Pallet").forEach(l => { u += l.usedCapacity || 0; c += l.capacity || 0; }); return { u, c }; })();
+                const mitraUsed = (() => { let u = 0, c = 0; locations.filter(l => l.type === "Mitra").forEach(l => { u += l.usedCapacity || 0; c += l.capacity || 0; }); return { u, c }; })();
                 const total = stats.maxCapacity || 1;
                 const rakPct   = Math.round((rakUsed.u   / total) * 100);
                 const kardusPct = Math.round((kardusUsed.u / total) * 100);
                 const palletPct = Math.round((palletUsed.u / total) * 100);
-                const freePct   = Math.max(0, 100 - rakPct - kardusPct - palletPct);
+                const mitraPct  = Math.round((mitraUsed.u / total) * 100);
+                const freePct   = Math.max(0, 100 - rakPct - kardusPct - palletPct - mitraPct);
                 const segments = [
                   { label: "Rak",    pct: rakPct,    color: "bg-blue-500",    glow: "rgba(59,130,246,0.45)" },
                   { label: "Kardus", pct: kardusPct, color: "bg-amber-400",   glow: "rgba(251,191,36,0.45)" },
                   { label: "Pallet", pct: palletPct, color: "bg-emerald-500", glow: "rgba(16,185,129,0.45)" },
+                  { label: "Mitra",  pct: mitraPct,  color: "bg-purple-500",  glow: "rgba(168,85,247,0.45)" },
                   { label: "Kosong", pct: freePct,   color: "bg-muted", glow: "" },
                 ];
                 return (
@@ -319,7 +331,7 @@ export default function LokasiBarangPage() {
               Jumlah lokasi aktif dan terdaftar berdasarkan kategori
             </CardDescription>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div className="bg-popover/40 border border-border rounded-xl p-3 text-center transition-all duration-350 hover:border-border">
               <div className="p-1.5 bg-blue-500/10 rounded-lg w-fit mx-auto mb-2"><Layers className="w-4 h-4 text-blue-400" /></div>
               <div className="text-[10px] text-muted-foreground font-medium">Rak</div>
@@ -334,6 +346,11 @@ export default function LokasiBarangPage() {
               <div className="p-1.5 bg-emerald-500/10 rounded-lg w-fit mx-auto mb-2"><Package className="w-4 h-4 text-emerald-400" /></div>
               <div className="text-[10px] text-muted-foreground font-medium">Pallet</div>
               <div className="text-lg font-bold text-foreground mt-0.5"><AnimatedNumber value={stats.totalPallet} /></div>
+            </div>
+            <div className="bg-popover/40 border border-border rounded-xl p-3 text-center transition-all duration-350 hover:border-border">
+              <div className="p-1.5 bg-purple-500/10 rounded-lg w-fit mx-auto mb-2"><Box className="w-4 h-4 text-purple-400" /></div>
+              <div className="text-[10px] text-muted-foreground font-medium">Mitra</div>
+              <div className="text-lg font-bold text-foreground mt-0.5"><AnimatedNumber value={stats.totalMitra} /></div>
             </div>
           </div>
         </Card>
@@ -360,7 +377,8 @@ export default function LokasiBarangPage() {
             {([
               { key: "rak", label: "Rak" },
               { key: "kardus", label: "Kardus" },
-              { key: "pallet", label: "Pallet" }
+              { key: "pallet", label: "Pallet" },
+              { key: "mitra", label: "Mitra" }
             ] as const).map(({ key, label }) => (
               <button
                 key={key}
@@ -460,7 +478,7 @@ export default function LokasiBarangPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-6 w-6 rounded-full opacity-60 group-hover/level:opacity-100 transition-opacity hover:bg-muted text-muted-foreground cursor-pointer"
+                                  className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
                                 >
                                   <MoreVertical className="w-3 h-3" />
                                 </Button>
@@ -507,8 +525,18 @@ export default function LokasiBarangPage() {
             );
           }
 
-          if (loc.type === "Kardus") {
-            const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, "bg-amber-500");
+          if (loc.type === "Kardus" || loc.type === "Pallet" || loc.type === "Mitra") {
+            const isKardus = loc.type === "Kardus";
+            const isPallet = loc.type === "Pallet";
+            
+            const baseColor = isKardus ? "bg-amber-500" : isPallet ? "bg-emerald-500" : "bg-purple-500";
+            const Icon = isKardus ? Archive : isPallet ? Package : Box;
+            const iconColor = isKardus ? "text-amber-400" : isPallet ? "text-emerald-400" : "text-purple-400";
+            const iconBg = isKardus ? "bg-amber-500/10" : isPallet ? "bg-emerald-500/10" : "bg-purple-500/10";
+            const typeLabel = isKardus ? "Kardus" : isPallet ? "Pallet" : "Mitra";
+            const editMode = isKardus ? "edit-kardus" : isPallet ? "edit-pallet" : "edit-mitra";
+
+            const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, baseColor);
 
             return (
               <Card
@@ -519,13 +547,13 @@ export default function LokasiBarangPage() {
                 <CardContent className="p-4 flex flex-col gap-3">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-amber-500/10 rounded-lg shrink-0"><Archive className="w-4 h-4 text-amber-400" /></div>
+                      <div className={`p-1.5 ${iconBg} rounded-lg shrink-0`}><Icon className={`w-4 h-4 ${iconColor}`} /></div>
                       <div>
                         <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
                           {loc.name}
                           {!isLocActive && <span className="text-[10px] bg-neutral-850 text-muted-foreground border border-border px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
                         </CardTitle>
-                        <CardDescription className="text-[10px] text-muted-foreground mt-0.5">Penyimpanan Kardus</CardDescription>
+                        <CardDescription className="text-[10px] text-muted-foreground mt-0.5">Penyimpanan {typeLabel}</CardDescription>
                       </div>
                     </div>
 
@@ -538,73 +566,11 @@ export default function LokasiBarangPage() {
                           <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-muted text-muted-foreground cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-neutral-955 border-border text-foreground">
-                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("edit-kardus", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Kardus</DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet(editMode, { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit {typeLabel}</DropdownMenuItem>
                           <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-muted" />
-                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Kardus" : "Aktifkan Kardus"}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Kardus</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 mt-auto">
-                    <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
-                      <span>Kapasitas</span>
-                      <span>
-                        <strong className="text-foreground">{loc.usedCapacity || 0}</strong>
-                        <span className="text-muted-foreground font-normal"> / {loc.capacity || 0} Unit</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-popover rounded-full overflow-hidden shadow-inner">
-                        <div className={`h-full rounded-full transition-all duration-500 ${barClass}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className={`text-[10px] font-bold w-7 text-right ${textClass}`}>{label}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          }
-
-          // Pallet
-          if (loc.type === "Pallet") {
-            const { pct, barClass, textClass, label } = getProgressStyles(loc.usedCapacity || 0, loc.capacity || 0, "bg-emerald-500");
-
-            return (
-              <Card
-                key={loc.id}
-                className={`border-border bg-muted/50 overflow-hidden flex flex-col relative group transition-all duration-300 hover:border-border/50 hover:bg-muted/50 hover:shadow-md hover:shadow-black/20 cursor-pointer ${!isLocActive ? 'opacity-60 saturate-50' : ''}`}
-                onClick={() => navigate(`/data-barang?search=${encodeURIComponent(loc.name)}`)}
-              >
-                <CardContent className="p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-emerald-500/10 rounded-lg shrink-0"><Package className="w-4 h-4 text-emerald-400" /></div>
-                      <div>
-                        <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                          {loc.name}
-                          {!isLocActive && <span className="text-[10px] bg-neutral-850 text-muted-foreground border border-border px-1.5 py-0.2 rounded-md font-medium">Nonaktif</span>}
-                        </CardTitle>
-                        <CardDescription className="text-[10px] text-muted-foreground mt-0.5">Penyimpanan Pallet</CardDescription>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <span className="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] text-muted-foreground font-medium">
-                        {loc.brandRule || "Campuran"}
-                      </span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-muted text-muted-foreground cursor-pointer"><MoreVertical className="w-3.5 h-3.5" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-neutral-955 border-border text-foreground">
-                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleOpenSheet("edit-pallet", { parentId: loc.id })}><Edit className="w-3.5 h-3.5 mr-2" /> Edit Pallet</DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleDownloadQrCode(loc.sheetUrl, loc.name)}><QrCode className="w-3.5 h-3.5 mr-2" /> Simpan QR Code</DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-muted" />
-                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? "Nonaktifkan Pallet" : "Aktifkan Pallet"}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus Pallet</DropdownMenuItem>
+                          <DropdownMenuItem disabled={isToggling} className="cursor-pointer focus:bg-muted text-xs" onClick={() => handleToggleLocation(loc.id)}><Power className="w-3.5 h-3.5 mr-2" /> {isLocActive ? `Nonaktifkan ${typeLabel}` : `Aktifkan ${typeLabel}`}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={isDeleting} className="text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer text-xs" onClick={() => requestDeleteLocation(loc.id, loc.name)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Hapus {typeLabel}</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -641,22 +607,22 @@ export default function LokasiBarangPage() {
         )}
       </div>
 
-      {/* ── 5. FORM SHEET ── */}
-      <Sheet open={sheetMode !== "closed"} onOpenChange={(open) => !open && setSheetMode("closed")}>
-        <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
-          <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
-            <SheetTitle className="text-lg text-foreground">{sheetTitles[sheetMode] || ""}</SheetTitle>
-            <SheetDescription className="text-xs text-muted-foreground">Silakan isi formulir di bawah ini untuk mengelola detail lokasi penyimpanan.</SheetDescription>
-          </SheetHeader>
-          <div className="p-6 flex-1 overflow-y-auto"><div className="grid gap-5">{renderForm()}</div></div>
-          <SheetFooter className="p-6 border-t border-border bg-muted/50 flex sm:justify-end gap-3 sm:gap-2">
-            <Button variant="outline" onClick={() => setSheetMode("closed")} disabled={isSaving} className="hover:bg-muted text-foreground text-xs font-semibold cursor-pointer">Batal</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold cursor-pointer">
-              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menyimpan...</> : "Simpan Perubahan"}
+      {/* ── 5. FORM DIALOG ── */}
+      <Dialog open={sheetMode !== "closed"} onOpenChange={(open) => !open && setSheetMode("closed")}>
+        <DialogContent className="w-[92%] sm:max-w-md rounded-2xl p-0 max-h-[85vh] flex flex-col border-border bg-popover text-foreground overflow-hidden">
+          <DialogHeader className="p-5 pb-3 border-b border-border/50 bg-muted/40 text-left">
+            <DialogTitle className="text-lg font-bold text-foreground">{sheetTitles[sheetMode] || ""}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">Silakan isi formulir di bawah ini untuk mengelola detail lokasi penyimpanan.</DialogDescription>
+          </DialogHeader>
+          <div className="p-5 flex-1 overflow-y-auto"><div className="grid gap-4">{renderForm()}</div></div>
+          <DialogFooter className="p-4 border-t border-border/50 bg-muted/40 flex flex-row justify-end gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setSheetMode("closed")} disabled={isSaving} className="flex-1 font-medium">Batal</Button>
+            <Button onClick={handleSave} disabled={isSaving} className="flex-1 font-semibold">
+              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menyimpan...</> : "Simpan"}
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── 6. ALERT DIALOG DELETE ── */}
       <AlertDialog open={deleteAlertData.isOpen} onOpenChange={(open) => !open && setDeleteAlertData({ ...deleteAlertData, isOpen: false })}>

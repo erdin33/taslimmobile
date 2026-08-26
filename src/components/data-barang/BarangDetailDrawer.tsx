@@ -30,7 +30,7 @@ interface BarangDetailDrawerProps {
   detailBarang: BarangUnit | null
   userRole?: string
   onOpenEdit: (item: BarangUnit) => void
-  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass?: string; badgeClass?: string }
+  getStatusBadgeProps: (status: StatusUnit, lokasi?: string) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
   getBaseUrl: () => string
@@ -91,7 +91,7 @@ export function BarangDetailDrawer({
 
   if (!detailBarang) return null
 
-  const badge = getStatusBadgeProps(detailBarang.status)
+  const badge = getStatusBadgeProps(detailBarang.status, detailBarang.lokasiPenyimpanan)
 
 
 
@@ -107,59 +107,47 @@ export function BarangDetailDrawer({
           dariStatus: "Supplier / Registrasi Awal",
           keStatus: detailBarang.status,
           lokasi: detailBarang.lokasiPenyimpanan,
-          catatan: "Registrasi awal unit inventaris ke dalam sistem Arxiva.",
+          catatan: "Registrasi awal unit inventaris ke dalam sistem Taslim.",
         },
       ]
 
   // Reusable Timeline Chain Component
   const renderHistoryChain = () => (
-    <div className="relative pl-6 space-y-3.5 my-1">
-      {displayHistory.map((trx, idx) => {
-        const tipeLabel = trx.tipe || trx.kategori || "Masuk"
-        const nomorSurat = trx.nomorSurat || trx.nomor || "-"
-        const lokasiText = trx.lokasi || trx.tujuan || trx.asal || detailBarang.lokasiPenyimpanan
-        const isNotLast = idx < displayHistory.length - 1
-
-        return (
-          <div key={idx} className="relative group text-xs">
-            {/* Timeline Dot Node */}
-            <div
-              className="absolute -left-6 top-0.5 size-2.5 rounded-full border-2 bg-foreground border-muted-foreground z-10"
-            />
-
-            {/* Connecting Vertical Line Segment (only if not last item) */}
-            {isNotLast && (
-              <div className="absolute -left-5 top-2.5 -bottom-4 w-0.5 bg-border/60" />
+    <div className="space-y-0">
+      {displayHistory.map((riw, idx) => (
+        <div key={idx} className="flex gap-4">
+          <div className="flex flex-col items-center">
+            <div className="w-2.5 h-2.5 shrink-0 rounded-full bg-border border-2 border-muted-foreground mt-1.5" />
+            {idx < displayHistory.length - 1 && (
+              <div className="w-px h-full bg-border my-1" />
             )}
-
-            <div className="space-y-1.5 rounded-lg">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex flex-col items-start gap-1.5">
-                  <div className="font-semibold text-xs">
-                    {tipeLabel}
-                  </div>
-                  <span className="font-medium text-muted-foreground text-xs">{nomorSurat}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{formatTanggal(trx.tanggal)}</span>
+          </div>
+          <div className="flex-1 pb-6 last:pb-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+              <span className="font-medium text-foreground text-sm">{riw.tipe || (riw as any).kategori || "Masuk"}</span>
+              <span className="text-xs text-muted-foreground">{formatTanggal(riw.tanggal)}</span>
+            </div>
+            <div className="text-muted-foreground mb-2.5 text-xs">
+              {riw.nomorSurat || (riw as any).nomor || "-"}
+            </div>
+            <div className="bg-muted/40 rounded-lg p-3 text-xs border border-border/50">
+              <div className="flex items-center gap-2 mb-1.5 text-muted-foreground">
+                <span>{riw.dariStatus || (riw as any).asal || "-"}</span>
+                <span>&rarr;</span>
+                <span className="font-medium text-foreground">{riw.keStatus || (riw as any).tujuan || "-"}</span>
               </div>
-
-              <div className="text-xs text-muted-foreground leading-snug">
-                {trx.dariStatus ? (
-                  <span>
-                    <span className="font-medium text-foreground">{trx.dariStatus}</span>
-                    <span className="mx-1 text-muted-foreground/70">➔</span>
-                    <span className="font-medium text-foreground">{lokasiText}</span>
-                  </span>
-                ) : (
-                  <span>
-                    <span className="font-medium text-foreground">Lokasi:</span> {lokasiText}
-                  </span>
-                )}
+              <div className="text-muted-foreground">
+                Loc: <span className="font-medium text-foreground">{riw.lokasi || (riw as any).tujuan || (riw as any).asal || detailBarang.lokasiPenyimpanan}</span>
               </div>
             </div>
+            {(riw.catatan || (riw as any).keterangan) && (
+              <p className="text-xs italic text-muted-foreground mt-2.5">
+                {riw.catatan || (riw as any).keterangan}
+              </p>
+            )}
           </div>
-        )
-      })}
+        </div>
+      ))}
     </div>
   )
 
@@ -369,8 +357,7 @@ export function BarangDetailDrawer({
           </Tabs>
         </div>
 
-        {/* Mobile Footer */}
-        <DrawerFooter className="border-t shrink-0 flex-row justify-end gap-2 p-4">
+        <DrawerFooter className="border-t shrink-0 flex-row justify-end gap-2 p-4 pb-12">
           {userRole === "admin" && (
             <Button
               size="sm"

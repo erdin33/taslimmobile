@@ -1,12 +1,27 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Edit, Trash2, Boxes, Loader2, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react"
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Boxes,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  Download,
+  Copy,
+  Check,
+  MapPin,
+  Calendar,
+  X,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -21,28 +36,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { toast } from "sonner"
-import { useSearchParams } from "react-router-dom"
-import { useAuth } from "@/lib/auth"
-
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { toast } from "sonner"
+import { useSearchParams } from "react-router-dom"
+import { useAuth } from "@/lib/auth"
 
 import { BarangDetailDrawer } from "@/components/data-barang/BarangDetailDrawer"
 import { BarangFormModal } from "@/components/data-barang/BarangFormModal"
+import { ExportExcelModal } from "@/components/data-barang/ExportExcelModal"
+import { formatItemLocation } from "@/lib/status-helper"
+import { saveExportFile } from "@/lib/export-file"
+import * as XLSX from "xlsx"
 
 import type { StatusUnit, BarangUnit, StorageLocationOption } from "@/types/inventory"
 import type { DeleteDialogState } from "@/types/ui"
@@ -56,7 +66,7 @@ const getBaseUrl = () => {
 }
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token")
+  const token = localStorage.getItem("taslim-auth-token")
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   }
@@ -65,9 +75,6 @@ const getHeaders = () => {
   }
   return headers
 }
-
-const getLokasiPenyimpanan = (status: StatusUnit, lokasiPenyimpanan: string) =>
-  status === "Terdistribusi" ? "Terdistribusi" : lokasiPenyimpanan.trim()
 
 export default function DataBarangPage() {
   const { user } = useAuth()
@@ -85,9 +92,10 @@ export default function DataBarangPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [brands, setBrands] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize] = useState(10)
 
   const [dbLocations, setDbLocations] = useState<StorageLocationOption[]>([])
+  const [copiedSN, setCopiedSN] = useState<string | null>(null)
 
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -98,6 +106,8 @@ export default function DataBarangPage() {
 
   // Form modal state
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [formMode, setFormMode] = useState<"add" | "edit">("add")
   const [selectedBarang, setSelectedBarang] = useState<BarangUnit | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -135,8 +145,21 @@ export default function DataBarangPage() {
           const locationsData = rawLoc.data || rawLoc
           const locs: StorageLocationOption[] = []
           if (Array.isArray(locationsData)) {
+            const isMitraRole = user?.role === "mitra"
+            const normKp = ADMIN_LOCATION.trim().toLowerCase()
             locationsData.forEach((loc: any) => {
               const owner = loc.owner || ADMIN_LOCATION
+              const normOwner = owner.trim().toLowerCase()
+              if (
+                !isMitraRole &&
+                (normOwner !== normKp && normOwner !== "kp" ||
+                  loc.type === "Partner" ||
+                  loc.type === "PARTNER" ||
+                  loc.name.toUpperCase().startsWith("PT ") ||
+                  loc.name.toUpperCase().startsWith("PT."))
+              ) {
+                return
+              }
               if (loc.type === "Rak" && loc.levels) {
                 loc.levels.forEach((lvl: any) =>
                   locs.push({ name: `${loc.name} - ${lvl.name}`, owner })
@@ -223,7 +246,7 @@ export default function DataBarangPage() {
       merek: barang.merek,
       tipe: barang.tipe || "",
       status: barang.status,
-      lokasiPenyimpanan: getLokasiPenyimpanan(barang.status, barang.lokasiPenyimpanan),
+      lokasiPenyimpanan: barang.lokasiPenyimpanan.trim(),
       tanggalMasuk: barang.tanggalMasuk,
       tanggalKeluar: barang.tanggalKeluar || "",
     })
@@ -231,34 +254,104 @@ export default function DataBarangPage() {
     setIsFormOpen(true)
   }
 
-  const handleDelete = (id: string, serialNumber: string) => {
+  const handleCopySN = (sn: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(sn)
+    setCopiedSN(sn)
+    toast.success(`SN ${sn} berhasil disalin!`)
+    setTimeout(() => {
+      setCopiedSN(null)
+    }, 2000)
+  }
+
+  const handleExportExcel = async (selectedColumns: string[]) => {
+    setIsExporting(true)
+    try {
+      const dataToExport = barangList
+
+      if (dataToExport.length === 0) {
+        toast.error("Tidak ada data untuk diekspor.")
+        setIsExporting(false)
+        return
+      }
+
+      const rows = dataToExport.map((item, index) => {
+        const row: Record<string, any> = {}
+        selectedColumns.forEach((colKey) => {
+          switch (colKey) {
+            case "no":
+              row["No"] = index + 1
+              break
+            case "serialNumber":
+              row["Serial Number"] = item.serialNumber
+              break
+            case "merek":
+              row["Merek"] = item.merek || "-"
+              break
+            case "kategori":
+              row["Kategori"] = item.kategori || "-"
+              break
+            case "tipe":
+              row["Tipe/Model"] = item.tipe || "-"
+              break
+            case "status":
+              row["Status"] = item.status
+              break
+            case "lokasi":
+              row["Lokasi"] = item.lokasiPenyimpanan
+              break
+            case "tanggalMasuk":
+              row["Tanggal Masuk"] = formatTanggal(item.tanggalMasuk)
+              break
+            case "tanggalKeluar":
+              row["Tanggal Keluar"] = formatTanggal(item.tanggalKeluar || "")
+              break
+            default:
+              break
+          }
+        })
+        return row
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(rows)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Barang")
+
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
+      const fileName = `Data_Barang_${new Date().toISOString().split("T")[0]}.xlsx`
+      await saveExportFile({ contents: excelBuffer, fileName })
+      toast.success("File Excel berhasil diunduh!")
+      setIsExportModalOpen(false)
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Gagal mengekspor file Excel.")
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleDelete = (id: string, sn: string) => {
     setDeleteDialog({
       type: "single",
       ids: [id],
-      serialNumber,
+      serialNumber: sn,
     })
   }
 
   const confirmDelete = async () => {
-    if (!deleteDialog || isDeleting) return
-    const idsToDelete = deleteDialog.ids
+    if (!deleteDialog || deleteDialog.ids.length === 0) return
     setIsDeleting(true)
-
     try {
-      await Promise.all(
-        idsToDelete.map((id) =>
-          fetch(`${getBaseUrl()}/items/${id}`, {
-            method: "DELETE",
-            headers: getHeaders(),
-          })
-        )
-      )
-
+      const res = await fetch(`${getBaseUrl()}/items/${deleteDialog.ids[0]}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+      })
+      if (!res.ok) throw new Error("Gagal menghapus unit.")
+      toast.success(`Unit ${"serialNumber" in deleteDialog ? deleteDialog.serialNumber : deleteDialog.ids.length} berhasil dihapus.`)
       setDeleteDialog(null)
-      toast.success("Unit berhasil dihapus.")
       loadItems()
-    } catch (err) {
-      toast.error("Gagal menghapus unit.")
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus unit.")
     } finally {
       setIsDeleting(false)
     }
@@ -269,7 +362,7 @@ export default function DataBarangPage() {
     if (isSaving) return
 
     const errors: Record<string, string> = {}
-    const lokasiPenyimpanan = getLokasiPenyimpanan(formData.status, formData.lokasiPenyimpanan)
+    const lokasiPenyimpanan = formData.lokasiPenyimpanan.trim()
 
     if (!formData.serialNumber.trim()) errors.serialNumber = "Serial number wajib diisi"
     if (!formData.kategori.trim()) errors.kategori = "Kategori wajib diisi"
@@ -324,17 +417,24 @@ export default function DataBarangPage() {
     }
   }
 
-  const getStatusBadgeProps = (status: StatusUnit) => {
+  const getStatusBadgeProps = (status: StatusUnit, lokasi?: string) => {
+    const loc = (lokasi || "").trim().toLowerCase()
+    if (loc === "keluar" || loc === "diluar") {
+      return { text: "Keluar", dotClass: "bg-sky-500", badgeClass: "bg-sky-500/15 text-sky-600 dark:text-sky-400" }
+    }
+
     switch (status) {
       case "Tersedia":
-        return { text: "Tersedia", dotClass: "bg-emerald-500", badgeClass: "bg-emerald-400/10 text-emerald-500" }
+        return { text: "Tersedia", dotClass: "bg-emerald-500", badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" }
       case "Terdistribusi":
-        return { text: "Terdistribusi", dotClass: "bg-sky-500", badgeClass: "bg-blue-400/10 text-blue-500" }
+        return { text: "Terdistribusi", dotClass: "bg-blue-500", badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-400" }
+      case "Dismantle":
+        return { text: "Dismantle", dotClass: "bg-purple-500", badgeClass: "bg-purple-500/15 text-purple-600 dark:text-purple-400" }
       case "Rusak":
-        return { text: "Rusak", dotClass: "bg-destructive", badgeClass: "bg-destructive/10 text-destructive" }
+        return { text: "Rusak", dotClass: "bg-destructive", badgeClass: "bg-destructive/15 text-destructive" }
       case "Hilang":
       default:
-        return { text: "Hilang", dotClass: "bg-amber-500", badgeClass: "bg-amber-400/10 text-amber-500" }
+        return { text: "Hilang", dotClass: "bg-amber-500", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400" }
     }
   }
 
@@ -348,173 +448,318 @@ export default function DataBarangPage() {
   const isFiltered = searchTerm.trim().length > 0 || filterStatus !== "all" || filterCategory !== "all" || filterBrand !== "all"
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6 text-neutral-100 mx-auto w-full">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center w-full lg:w-auto">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-            <Input
-              type="search"
-              placeholder="Cari SN atau barang..."
-              className="w-full pl-9 bg-neutral-900 border-neutral-800 focus-visible:ring-1 focus-visible:ring-neutral-700 placeholder:text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+    <div className="flex flex-col gap-4 p-4 md:p-6 lg:p-8 animate-fade-in">
+      {/* Top Header & Actions */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">Data Barang</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Total {totalItems} unit inventaris terdaftar
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterStatus === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
-                <SelectItem value="all">Status</SelectItem>
-                {STATUS_OPTIONS.map((status) => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterCategory === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
-                <SelectValue placeholder="Kategori" />
-              </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
-                <SelectItem value="all">Kategori</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterBrand} onValueChange={setFilterBrand}>
-              <SelectTrigger className={`w-32 rounded-sm bg-neutral-900 border-neutral-800 text-neutral-200 ${filterBrand === 'all' ? 'border-dashed text-neutral-400' : ''}`}>
-                <SelectValue placeholder="Merek" />
-              </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
-                <SelectItem value="all">Merek</SelectItem>
-                {brands.map((b) => (
-                  <SelectItem key={b} value={b}>{b}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-semibold"
+              onClick={() => setIsExportModalOpen(true)}
+            >
+              <Download className="size-3.5" />
+              <span className="hidden sm:inline">Ekspor</span>
+            </Button>
+            {user?.role === "admin" && (
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 font-semibold text-xs shadow-sm"
+                onClick={() => {
+                  setFormMode("add")
+                  setIsFormOpen(true)
+                }}
+              >
+                <Plus className="size-3.5" />
+                <span>Tambah</span>
+              </Button>
+            )}
           </div>
         </div>
-        <div className="flex justify-end gap-2 w-full lg:w-auto">
-          {user?.role === "admin" && (
-            <Button className="h-8 gap-2 rounded-sm" onClick={() => { setFormMode("add"); setIsFormOpen(true); }}>
-              <Plus className="w-4 h-4" /> Tambah Barang
-            </Button>
+
+        {/* Search Bar */}
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Cari Serial Number (SN), merek, atau tipe..."
+            className="pl-9 pr-8 bg-card border-border/70 text-xs"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
           )}
         </div>
-      </div>
 
-      <div className="rounded-sm border border-neutral-800 bg-neutral-900/50 overflow-hidden">
-        <Table>
-          <TableHeader className="bg-neutral-900/80">
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400 w-12">No.</TableHead>
-              <TableHead className="text-neutral-400">Serial Number (SN)</TableHead>
-              <TableHead className="text-neutral-400">Merek</TableHead>
-              <TableHead className="text-neutral-400">Kategori</TableHead>
-              <TableHead className="text-neutral-400 text-center">Status</TableHead>
-              <TableHead className="text-neutral-400 text-center">Lokasi Penyimpanan</TableHead>
-              {user?.role === "admin" && <TableHead className="text-right text-neutral-400">Aksi</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
-                  <div className="flex flex-col items-center justify-center">
-                    <Loader2 className="w-8 h-8 text-neutral-600 mb-2 animate-spin" />
-                    <p>Memuat data barang...</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : barangList.length === 0 ? (
-              <TableRow className="border-neutral-800 hover:bg-transparent">
-                <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
-                  <div className="flex flex-col items-center justify-center">
-                    <Boxes className="w-8 h-8 text-neutral-600 mb-2" />
-                    <p>{isFiltered ? "Tidak ada unit yang cocok" : "Belum ada data barang"}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              barangList.map((item, index) => {
-                const badge = getStatusBadgeProps(item.status)
-                return (
-                  <TableRow 
-                    key={item.id} 
-                    className="border-neutral-800 hover:bg-neutral-900/80 cursor-pointer"
-                    onClick={() => handleOpenDetail(item)}
-                  >
-                    <TableCell className="text-neutral-400">{(currentPage - 1) * pageSize + index + 1}</TableCell>
-                    <TableCell className="text-neutral-200 font-medium">{item.serialNumber}</TableCell>
-                    <TableCell className="text-neutral-400">{item.merek || "-"}</TableCell>
-                    <TableCell className="text-neutral-400">{item.kategori || "-"}</TableCell>
-                    <TableCell className="text-center">
-                      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border border-neutral-800/60 ${badge.badgeClass}`}>
-                        <span className={`size-1.5 rounded-full ${badge.dotClass}`} />
-                        {badge.text}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center text-neutral-400">{getLokasiPenyimpanan(item.status, item.lokasiPenyimpanan)}</TableCell>
-                    {user?.role === "admin" && (
-                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm hover:bg-neutral-800 text-neutral-400 cursor-pointer border-neutral-800">
-                              <MoreVertical className="size-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-sm bg-neutral-950 border-neutral-800 text-neutral-200">
-                            <DropdownMenuItem className="px-2 h-8 rounded-sm cursor-pointer focus:bg-neutral-800" onClick={() => handleOpenEdit(item)}>
-                              <Edit className="size-3.5 mr-1" />
-                              <span className="text-xs">Edit Barang</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="px-2 h-8 rounded-sm text-red-400 focus:bg-red-950/50 focus:text-red-400 cursor-pointer" onClick={() => handleDelete(item.id, item.serialNumber)}>
-                              <Trash2 className="size-3.5 mr-1" />
-                              <span className="text-xs">Hapus Barang</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                )
-              })
+        {/* Horizontal Status Pill Filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setFilterStatus("all")}
+            className={`px-3 py-1 text-xs font-medium rounded-full shrink-0 transition-colors ${
+              filterStatus === "all"
+                ? "bg-primary text-primary-foreground font-semibold"
+                : "bg-muted/60 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Semua ({totalItems})
+          </button>
+          {STATUS_OPTIONS.map((st) => {
+            const isSelected = filterStatus === st
+            return (
+              <button
+                key={st}
+                onClick={() => setFilterStatus(isSelected ? "all" : st)}
+                className={`px-3 py-1 text-xs font-medium rounded-full shrink-0 transition-colors flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <span
+                  className={`size-1.5 rounded-full ${
+                    st === "Tersedia"
+                      ? "bg-emerald-500"
+                      : st === "Terdistribusi"
+                      ? "bg-blue-500"
+                      : st === "Rusak"
+                      ? "bg-red-500"
+                      : "bg-amber-500"
+                  }`}
+                />
+                {st}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Secondary Category & Brand Selectors */}
+        {(categories.length > 0 || brands.length > 0) && (
+          <div className="flex items-center gap-2">
+            {categories.length > 0 && (
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="h-8 text-xs bg-card border-border/70 flex-1">
+                  <SelectValue placeholder="Semua Kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kategori</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-          </TableBody>
-        </Table>
+            {brands.length > 0 && (
+              <Select value={filterBrand} onValueChange={setFilterBrand}>
+                <SelectTrigger className="h-8 text-xs bg-card border-border/70 flex-1">
+                  <SelectValue placeholder="Semua Merek" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Merek</SelectItem>
+                  {brands.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 px-1 text-xs shrink-0">
-        <div className="text-neutral-500">
-          Menampilkan <span className="font-medium text-neutral-200">{barangList.length}</span> dari{" "}
-          <span className="font-medium text-neutral-200">{totalItems}</span> unit inventaris
+      {/* Cards List */}
+      <div className="flex flex-col gap-3">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-4 rounded-2xl border border-border/40 bg-card space-y-3">
+              <div className="flex justify-between items-start">
+                <div className="space-y-1.5">
+                  <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+                  <div className="h-5 w-40 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="h-5 w-20 bg-muted rounded-full animate-pulse" />
+              </div>
+              <div className="pt-2 border-t border-border/40 flex justify-between">
+                <div className="h-3.5 w-32 bg-muted rounded animate-pulse" />
+                <div className="h-3.5 w-20 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+          ))
+        ) : barangList.length === 0 ? (
+          <div className="py-16 flex flex-col items-center justify-center text-center px-4">
+            <div className="size-14 rounded-full bg-muted/40 border flex items-center justify-center mb-3 text-muted-foreground">
+              <Boxes className="size-7" strokeWidth={1.8} />
+            </div>
+            <h3 className="text-base font-semibold text-foreground mb-1">
+              {isFiltered ? "Tidak ada unit yang cocok" : "Belum ada data barang"}
+            </h3>
+            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+              {isFiltered
+                ? "Coba ubah kata kunci pencarian atau filter status/kategori yang sedang aktif."
+                : "Klik tombol Tambah Barang di atas untuk mendaftarkan unit baru."}
+            </p>
+          </div>
+        ) : (
+          barangList.map((item) => {
+            const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan)
+            const isThisCopied = copiedSN === item.serialNumber
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => handleOpenDetail(item)}
+                className="group relative bg-card border border-border/70 rounded-2xl p-4 shadow-xs hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer overflow-hidden flex flex-col gap-2.5"
+              >
+                {/* Header: SN Badge with Copy Button + Status Badge */}
+                <div className="flex justify-between items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-muted/60 border border-border/50 px-2 py-0.5 rounded-lg text-xs font-mono font-bold text-foreground">
+                    <span>SN: {item.serialNumber}</span>
+                    <button
+                      onClick={(e) => handleCopySN(item.serialNumber, e)}
+                      className="p-1 -mr-1 text-muted-foreground hover:text-foreground transition-colors"
+                      title="Salin SN"
+                    >
+                      {isThisCopied ? (
+                        <Check className="size-3 text-emerald-500 scale-110 transition-transform" />
+                      ) : (
+                        <Copy className="size-3" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const itemKondisi = (item as any).kondisi || (item.status === "Rusak" ? "Rusak" : item.status === "Dismantle" ? "Dismantle" : "Baru");
+                      const isRusak = itemKondisi.toLowerCase() === "rusak";
+                      const isDismantle = itemKondisi.toLowerCase() === "dismantle";
+                      return (
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0.5 font-medium ${
+                            isRusak
+                              ? "bg-red-500/10 text-red-600 border-red-500/20"
+                              : isDismantle
+                              ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                              : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                          }`}
+                        >
+                          {itemKondisi}
+                        </Badge>
+                      );
+                    })()}
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-2 py-0.5 font-medium border-0 ${badge.badgeClass}`}
+                    >
+                      <span className={`inline-block size-1.5 rounded-full mr-1 ${badge.dotClass}`} />
+                      {badge.text}
+                    </Badge>
+
+                    {user?.role === "admin" && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={() => handleOpenEdit(item)} className="cursor-pointer">
+                            <Edit className="size-4 mr-2" />
+                            <span>Edit Unit</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => handleDelete(item.id, item.serialNumber)}
+                            className="cursor-pointer"
+                          >
+                            <Trash2 className="size-4 mr-2" />
+                            <span>Hapus Unit</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                </div>
+
+                {/* Title: Category, Brand, & Model */}
+                <div>
+                  <h3 className="font-bold text-sm text-foreground leading-tight">
+                    {item.kategori || "Barang"} {item.merek ? `(${item.merek})` : ""}
+                  </h3>
+                  {item.tipe && item.tipe !== "-" && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Model: <span className="font-medium text-foreground/80">{item.tipe}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Body Details: Lokasi & Tanggal */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/40">
+                  <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                    <MapPin className="size-3.5 shrink-0 text-muted-foreground/70" />
+                    <span className="truncate text-foreground/90 font-medium">
+                      {formatItemLocation(item.status, item.lokasiPenyimpanan)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Calendar className="size-3 text-muted-foreground/70" />
+                    <span className="text-[11px]">{formatTanggal(item.tanggalMasuk)}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between gap-2 pt-2 px-1 text-xs shrink-0">
+        <div className="text-muted-foreground">
+          Hal. <strong className="text-foreground">{currentPage}</strong> dari {totalPages} ({totalItems} unit)
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-neutral-500">Baris:</span>
-            <Select value={pageSize.toString()} onValueChange={(val) => setPageSize(parseInt(val, 10))}>
-              <SelectTrigger className="w-[70px] h-8 text-xs bg-neutral-900 border-neutral-800 text-neutral-200">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-neutral-900 border-neutral-800 text-neutral-200">
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="size-8 bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200" disabled={currentPage <= 1} onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}><ChevronLeft className="size-4" /></Button>
-            <span className="px-2 text-neutral-400 font-medium">{currentPage} / {totalPages}</span>
-            <Button variant="outline" size="icon" className="size-8 bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}><ChevronRight className="size-4" /></Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
           </div>
         </div>
       </div>
 
+      {/* Detail Drawer */}
       <BarangDetailDrawer
         isOpen={isDetailOpen}
         onOpenChange={setIsDetailOpen}
@@ -528,6 +773,7 @@ export default function DataBarangPage() {
         getHeaders={getHeaders}
       />
 
+      {/* Form Modal (Now Centered Dialog) */}
       <BarangFormModal
         isOpen={isFormOpen}
         onOpenChange={setIsFormOpen}
@@ -537,34 +783,37 @@ export default function DataBarangPage() {
         formErrors={formErrors}
         isSaving={isSaving}
         onSubmit={handleSubmitForm}
-        categories={categories} 
+        categories={categories}
         availableFormLocations={dbLocations}
         STATUS_OPTIONS={STATUS_OPTIONS}
       />
 
+      {/* Export Modal */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        onExport={handleExportExcel}
+        isExporting={isExporting}
+      />
+
+      {/* Delete Dialog */}
       <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent className="w-[90%] rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-destructive">
-              {deleteDialog?.type === "single"
-                ? `Hapus Unit ${deleteDialog.serialNumber}`
-                : `Hapus ${deleteDialog?.ids.length} Unit Terpilih?`}
+              Hapus {deleteDialog?.type === "single" ? `Unit ${deleteDialog.serialNumber}` : `${deleteDialog?.ids?.length || 0} Unit`}?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm">
-              Tindakan ini tidak dapat dibatalkan. Unit barang yang dihapus akan terhapus dari sistem inventaris.
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed">
+              Tindakan ini tidak dapat dibatalkan. Unit barang yang dihapus akan terhapus permanen dari sistem inventaris.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-2">
-            <AlertDialogCancel disabled={isDeleting}>
+          <AlertDialogFooter className="flex-row justify-end gap-2">
+            <AlertDialogCancel disabled={isDeleting} className="mt-0 text-xs">
               Batal
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              variant="destructive"
-            >
-              {isDeleting ? <Loader2 className="size-3.5 animate-spin" /> : "Ya, Hapus Data"}
-            </AlertDialogAction>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? "Menghapus..." : "Hapus"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

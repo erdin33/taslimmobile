@@ -20,7 +20,7 @@ interface BarangMobileCardsProps {
   onOpenEdit: (item: BarangUnit) => void
   onDelete: (id: string) => void
   userRole?: string
-  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass?: string; badgeClass?: string }
+  getStatusBadgeProps: (status: StatusUnit, lokasi?: string) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
 }
@@ -40,7 +40,7 @@ export function BarangMobileCards({
   return (
     <div className="space-y-3 md:hidden overflow-y-auto pr-1">
       {items.map((item) => {
-        const badge = getStatusBadgeProps(item.status)
+        const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan)
         const isSelected = selectedIds.includes(item.id)
         return (
           <Card

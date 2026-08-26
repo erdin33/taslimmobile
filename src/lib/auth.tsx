@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	// Pilar B & C: Cek Expiration & Timer Aktif
 	useEffect(() => {
-		const token = localStorage.getItem("arxiva-auth-token");
+		const token = localStorage.getItem("taslim-auth-token");
 		if (!token) return;
 
 		try {

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tauri::{Manager, State};
 
 #[tauri::command]
-pub fn save_arxiva_file(
+pub fn save_taslim_file(
     subfolder: String,
     filename: String,
     data: Vec<u8>,
@@ -17,9 +17,9 @@ pub fn save_arxiva_file(
         .download_dir()
         .map_err(|e| format!("Gagal mendapatkan folder download: {}", e))?;
 
-    let target_dir = download_dir.join("arxiva").join(subfolder);
+    let target_dir = download_dir.join("taslim").join(subfolder);
     std::fs::create_dir_all(&target_dir)
-        .map_err(|e| format!("Gagal membuat folder arxiva: {}", e))?;
+        .map_err(|e| format!("Gagal membuat folder taslim: {}", e))?;
 
     let file_path = target_dir.join(filename);
     std::fs::write(&file_path, data)
@@ -1279,19 +1279,59 @@ pub struct Notification {
     pub date: String,
     #[serde(rename = "isRead")]
     pub is_read: bool,
+    #[serde(rename = "targetRole")]
+    pub target_role: Option<String>,
 }
 
 #[tauri::command]
-pub fn get_notifications(state: State<DbState>) -> Result<Vec<Notification>, String> {
+pub fn get_notifications(state: State<DbState>, role: Option<String>) -> Result<Vec<Notification>, String> {
     let conn = state.0.lock().unwrap();
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, title, message, type, date, is_read FROM notifications ORDER BY datetime(date) DESC, rowid DESC",
-        )
-        .map_err(|e| e.to_string())?;
+    
+    let query = match &role {
+        Some(r) if r != "all" => "SELECT id, title, message, type, date, is_read, target_role FROM notifications WHERE target_role = ?1 OR target_role = 'all' OR target_role IS NULL ORDER BY datetime(date) DESC, rowid DESC",
+        _ => "SELECT id, title, message, type, date, is_read, target_role FROM notifications ORDER BY datetime(date) DESC, rowid DESC",
+    };
 
-    let iter = stmt
-        .query_map([], |row| {
+    let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
+
+    let mut notifications = Vec::new();
+
+    if let Some(r) = &role {
+        if r != "all" {
+            let iter = stmt.query_map(params![r], |row| {
+                let is_read_val: i32 = row.get(5)?;
+                Ok(Notification {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    message: row.get(2)?,
+                    notif_type: row.get(3)?,
+                    date: row.get(4)?,
+                    is_read: is_read_val != 0,
+                    target_role: row.get(6).unwrap_or(None),
+                })
+            }).map_err(|e| e.to_string())?;
+            for n in iter {
+                notifications.push(n.map_err(|e| e.to_string())?);
+            }
+        } else {
+            let iter = stmt.query_map([], |row| {
+                let is_read_val: i32 = row.get(5)?;
+                Ok(Notification {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    message: row.get(2)?,
+                    notif_type: row.get(3)?,
+                    date: row.get(4)?,
+                    is_read: is_read_val != 0,
+                    target_role: row.get(6).unwrap_or(None),
+                })
+            }).map_err(|e| e.to_string())?;
+            for n in iter {
+                notifications.push(n.map_err(|e| e.to_string())?);
+            }
+        }
+    } else {
+        let iter = stmt.query_map([], |row| {
             let is_read_val: i32 = row.get(5)?;
             Ok(Notification {
                 id: row.get(0)?,
@@ -1300,23 +1340,24 @@ pub fn get_notifications(state: State<DbState>) -> Result<Vec<Notification>, Str
                 notif_type: row.get(3)?,
                 date: row.get(4)?,
                 is_read: is_read_val != 0,
+                target_role: row.get(6).unwrap_or(None),
             })
-        })
-        .map_err(|e| e.to_string())?;
-
-    let mut notifications = Vec::new();
-    for n in iter {
-        notifications.push(n.map_err(|e| e.to_string())?);
+        }).map_err(|e| e.to_string())?;
+        for n in iter {
+            notifications.push(n.map_err(|e| e.to_string())?);
+        }
     }
+
     Ok(notifications)
 }
 
 #[tauri::command]
 pub fn add_notification(state: State<DbState>, notification: Notification) -> Result<(), String> {
     let conn = state.0.lock().unwrap();
+    let target = notification.target_role.unwrap_or_else(|| "all".to_string());
     conn.execute(
-        "INSERT INTO notifications (id, title, message, type, date, is_read) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![notification.id, notification.title, notification.message, notification.notif_type, notification.date, if notification.is_read { 1 } else { 0 }],
+        "INSERT INTO notifications (id, title, message, type, date, is_read, target_role) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![notification.id, notification.title, notification.message, notification.notif_type, notification.date, if notification.is_read { 1 } else { 0 }, target],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -1333,10 +1374,22 @@ pub fn mark_notification_read(state: State<DbState>, id: String) -> Result<(), S
 }
 
 #[tauri::command]
-pub fn mark_all_notifications_read(state: State<DbState>) -> Result<(), String> {
+pub fn mark_all_notifications_read(state: State<DbState>, role: Option<String>) -> Result<(), String> {
     let conn = state.0.lock().unwrap();
-    conn.execute("UPDATE notifications SET is_read = 1", [])
-        .map_err(|e| e.to_string())?;
+    
+    if let Some(r) = role {
+        if r != "all" {
+            conn.execute("UPDATE notifications SET is_read = 1 WHERE target_role = ?1 OR target_role = 'all' OR target_role IS NULL", params![r])
+                .map_err(|e| e.to_string())?;
+        } else {
+            conn.execute("UPDATE notifications SET is_read = 1", [])
+                .map_err(|e| e.to_string())?;
+        }
+    } else {
+        conn.execute("UPDATE notifications SET is_read = 1", [])
+            .map_err(|e| e.to_string())?;
+    }
+    
     Ok(())
 }
 
@@ -1396,7 +1449,7 @@ pub fn google_oauth_login(client_id: String) -> Result<String, String> {
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Arxiva - OAuth Berhasil</title>
+            <title>Taslim - OAuth Berhasil</title>
             <style>
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #0a0a0a; color: #fafafa; }
                 .card { text-align: center; padding: 3rem; border-radius: 1rem; background: #171717; border: 1px solid #262626; max-width: 400px; }
@@ -1409,7 +1462,7 @@ pub fn google_oauth_login(client_id: String) -> Result<String, String> {
             <div class="card">
                 <div class="icon">✅</div>
                 <h1>Otentikasi Berhasil!</h1>
-                <p>Silakan kembali ke aplikasi Arxiva.<br>Jendela ini dapat ditutup.</p>
+                <p>Silakan kembali ke aplikasi Taslim.<br>Jendela ini dapat ditutup.</p>
             </div>
         </body>
         </html>

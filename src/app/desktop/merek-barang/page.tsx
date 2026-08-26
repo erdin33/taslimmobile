@@ -20,7 +20,7 @@ const getBaseUrl = () => {
  * @returns {Record<string, string>} Object header HTTP.
  */
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -66,13 +66,13 @@ export default function MerekBarangPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   useEffect(() => {
-    const savedMode = localStorage.getItem("arxiva_merek_view_mode") as "grid" | "table" | null;
+    const savedMode = localStorage.getItem("taslim_merek_view_mode") as "grid" | "table" | null;
     if (savedMode) setViewMode(savedMode);
   }, []);
 
   const handleViewModeChange = (mode: "grid" | "table") => {
     setViewMode(mode);
-    localStorage.setItem("arxiva_merek_view_mode", mode);
+    localStorage.setItem("taslim_merek_view_mode", mode);
   };
 
   // Sheet state

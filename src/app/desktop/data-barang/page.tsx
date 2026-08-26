@@ -31,6 +31,7 @@ import { BarangTable } from "@/components/data-barang/BarangTable"
 import { BarangDetailDrawer } from "@/components/data-barang/BarangDetailDrawer"
 import { BarangFormModal } from "@/components/data-barang/BarangFormModal"
 import { BarangMobileCards } from "@/components/data-barang/BarangMobileCards"
+import { ExportExcelModal } from "@/components/data-barang/ExportExcelModal"
 
 import type { StatusUnit, BarangUnit, StorageLocationOption } from "@/types/inventory"
 import type { DeleteDialogState } from "@/types/ui"
@@ -44,7 +45,7 @@ const getBaseUrl = () => {
 }
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token")
+  const token = localStorage.getItem("taslim-auth-token")
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   }
@@ -53,9 +54,6 @@ const getHeaders = () => {
   }
   return headers
 }
-
-const getLokasiPenyimpanan = (status: StatusUnit, lokasiPenyimpanan: string) =>
-  status === "Terdistribusi" ? "Terdistribusi" : lokasiPenyimpanan.trim()
 
 function EmptyBarangTableState({ isFiltered }: { isFiltered: boolean }) {
   return (
@@ -112,6 +110,8 @@ export default function DataBarangPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<"add" | "edit">("add")
   const [selectedBarang, setSelectedBarang] = useState<BarangUnit | null>(null)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState({
@@ -147,8 +147,14 @@ export default function DataBarangPage() {
           const locationsData = rawLoc.data || rawLoc
           const locs: StorageLocationOption[] = []
           if (Array.isArray(locationsData)) {
+            const isMitraRole = user?.role === "mitra"
+            const normKp = ADMIN_LOCATION.trim().toLowerCase()
             locationsData.forEach((loc: any) => {
               const owner = loc.owner || ADMIN_LOCATION
+              const normOwner = owner.trim().toLowerCase()
+              if (!isMitraRole && (normOwner !== normKp && normOwner !== "kp" || loc.type === "Partner" || loc.type === "PARTNER" || loc.name.toUpperCase().startsWith("PT ") || loc.name.toUpperCase().startsWith("PT."))) {
+                return
+              }
               if (loc.type === "Rak" && loc.levels) {
                 loc.levels.forEach((lvl: any) =>
                   locs.push({ name: `${loc.name} - ${lvl.name}`, owner })
@@ -244,12 +250,107 @@ export default function DataBarangPage() {
       merek: barang.merek,
       tipe: barang.tipe || "",
       status: barang.status,
-      lokasiPenyimpanan: getLokasiPenyimpanan(barang.status, barang.lokasiPenyimpanan),
+      lokasiPenyimpanan: barang.lokasiPenyimpanan.trim(),
       tanggalMasuk: barang.tanggalMasuk,
       tanggalKeluar: barang.tanggalKeluar || "",
     })
     setFormErrors({})
     setIsFormOpen(true)
+  }
+
+  const handleExportExcel = async (selectedColumns: string[]) => {
+    setIsExporting(true)
+    try {
+      const params = new URLSearchParams()
+      params.append("limit", "0") // fetch all
+      if (searchTerm.trim()) params.append("search", searchTerm.trim())
+      if (filterStatus !== "all") params.append("status", filterStatus)
+      if (filterCategory !== "all") params.append("kategori", filterCategory)
+      if (filterBrand !== "all") params.append("merek", filterBrand)
+
+      const res = await fetch(`${getBaseUrl()}/items?${params.toString()}`, {
+        method: "GET",
+        headers: getHeaders(),
+      })
+
+      if (!res.ok) throw new Error("Gagal mengambil data untuk ekspor.")
+      const result = await res.json()
+      const exportItems: BarangUnit[] = Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result)
+        ? result
+        : []
+
+      if (exportItems.length === 0) {
+        toast.error("Tidak ada data untuk diekspor.")
+        setIsExporting(false)
+        return
+      }
+
+      const mappedData = exportItems.map((item) => {
+        const row: Record<string, any> = {}
+        selectedColumns.forEach((colKey) => {
+          switch (colKey) {
+            case "serialNumber":
+              row["Serial Number (SN)"] = item.serialNumber
+              break
+            case "kategori":
+              row["Kategori Material"] = item.kategori
+              break
+            case "merek":
+              row["Merek"] = item.merek
+              break
+            case "tipe":
+              row["Model / Tipe"] = item.tipe || "-"
+              break
+            case "status":
+              row["Status Barang"] = getStatusBadgeProps(item.status, item.lokasiPenyimpanan).text
+              break
+            case "lokasiPenyimpanan":
+              row["Lokasi Penyimpanan"] = item.lokasiPenyimpanan
+              break
+            case "tanggalMasuk":
+              row["Tanggal Masuk"] = item.tanggalMasuk ? new Date(item.tanggalMasuk).toLocaleDateString("id-ID") : "-"
+              break
+            case "tanggalKeluar":
+              row["Tanggal Keluar"] = item.tanggalKeluar ? new Date(item.tanggalKeluar).toLocaleDateString("id-ID") : "-"
+              break
+            default:
+              row[colKey] = (item as any)[colKey]
+          }
+        })
+        return row
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(mappedData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Barang")
+
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
+      const now = new Date()
+      const fileName = `Data_Barang_Taslim_${now.toISOString().split("T")[0]}.xlsx`
+
+      const exportRes = await saveExportFile({
+        fileName,
+        contents: excelBuffer,
+      })
+
+      if (exportRes.saved) {
+        if (exportRes.path) {
+          toast.success(`Berhasil mengekspor data ke ${exportRes.path}`)
+        } else {
+          toast.success("Berhasil mengekspor data.")
+        }
+        setIsExportModalOpen(false)
+      } else {
+        toast.error("Gagal mengekspor data.")
+      }
+    } catch (err) {
+      console.error("Export error:", err)
+      toast.error("Terjadi kesalahan saat mengekspor data.")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleDelete = (id: string) => {
@@ -277,12 +378,16 @@ export default function DataBarangPage() {
 
     try {
       await Promise.all(
-        idsToDelete.map((id) =>
-          fetch(`${getBaseUrl()}/items/${id}`, {
+        idsToDelete.map(async (id) => {
+          const res = await fetch(`${getBaseUrl()}/items/${id}`, {
             method: "DELETE",
             headers: getHeaders(),
           })
-        )
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}))
+            throw new Error(errData.message || `Gagal menghapus item dengan ID ${id}`)
+          }
+        })
       )
 
       setSelectedIds((prev) => prev.filter((id) => !idsToDelete.includes(id)))
@@ -293,8 +398,8 @@ export default function DataBarangPage() {
           : `${idsToDelete.length} unit berhasil dihapus.`
       )
       loadItems()
-    } catch (err) {
-      toast.error("Gagal menghapus unit.")
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus unit.")
     } finally {
       setIsDeleting(false)
     }
@@ -305,7 +410,7 @@ export default function DataBarangPage() {
     if (isSaving) return
 
     const errors: Record<string, string> = {}
-    const lokasiPenyimpanan = getLokasiPenyimpanan(formData.status, formData.lokasiPenyimpanan)
+    const lokasiPenyimpanan = formData.lokasiPenyimpanan.trim()
 
     if (!formData.serialNumber.trim()) errors.serialNumber = "Serial number wajib diisi"
     if (!formData.kategori.trim()) errors.kategori = "Kategori wajib diisi"
@@ -366,97 +471,21 @@ export default function DataBarangPage() {
     }
   }
 
-  // Task 3.1: Export all matching items for Excel (bypassing active pagination limit)
-  const handleExportExcel = async () => {
-    try {
-      const params = new URLSearchParams()
-      params.append("limit", "0") // 0 means return all matching items
-      if (searchTerm.trim()) params.append("search", searchTerm.trim())
-      if (filterStatus !== "all") params.append("status", filterStatus)
-      if (filterCategory !== "all") params.append("kategori", filterCategory)
-      if (filterBrand !== "all") params.append("merek", filterBrand)
-
-      const res = await fetch(`${getBaseUrl()}/items?${params.toString()}`, {
-        method: "GET",
-        headers: getHeaders(),
-      })
-
-      if (!res.ok) throw new Error("Gagal mengambil data untuk ekspor.")
-      const result = await res.json()
-      const exportItems: BarangUnit[] = Array.isArray(result.data)
-        ? result.data
-        : Array.isArray(result)
-        ? result
-        : []
-
-      if (exportItems.length === 0) {
-        toast.error("Tidak ada data barang yang dapat diekspor.")
-        return
-      }
-
-      const headers = [
-        "No",
-        "Serial Number",
-        "Merek",
-        "Kategori",
-        "Tipe/Model",
-        "Status",
-        "Lokasi Penyimpanan",
-        "Tempat",
-        "Tanggal Masuk",
-        "Tanggal Keluar",
-      ]
-
-      const rows = exportItems.map((item, index) => [
-        index + 1,
-        item.serialNumber,
-        item.merek,
-        item.kategori,
-        item.tipe || "-",
-        item.status,
-        item.lokasiPenyimpanan,
-        item.mitra || ADMIN_LOCATION,
-        item.tanggalMasuk,
-        item.tanggalKeluar || "",
-      ])
-
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Barang")
-      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
-
-      const now = new Date()
-      const dateSuffix = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-      ].join("-")
-
-      const exportResult = await saveExportFile({
-        fileName: `data-barang-${dateSuffix}.xlsx`,
-        contents: buffer,
-      })
-
-      if (exportResult.saved) {
-        toast.success(
-          `${exportItems.length} data barang berhasil diekspor.`,
-          exportResult.path ? { description: `Disimpan di: ${exportResult.path}` } : undefined
-        )
-      }
-    } catch (err) {
-      console.error("Gagal ekspor Excel:", err)
-      toast.error("Gagal memproses ekspor data barang.")
+  const getStatusBadgeProps = (status: StatusUnit, lokasi?: string) => {
+    const loc = (lokasi || "").trim().toLowerCase();
+    if (loc === "keluar" || loc === "diluar") {
+      return { text: "Keluar", dotClass: "bg-sky-500", badgeClass: "bg-blue-500/10 text-blue-500" }
     }
-  }
-
-  const getStatusBadgeProps = (status: StatusUnit) => {
+    
     switch (status) {
       case "Tersedia":
         return { text: "Tersedia", dotClass: "bg-emerald-500" }
       case "Terdistribusi":
         return { text: "Terdistribusi", dotClass: "bg-sky-500" }
+      case "Dismantle":
+        return { text: "Dismantle", dotClass: "bg-purple-500" }
       case "Rusak":
-        return { text: "Rusak", dotClass: "bg-rose-500" }
+        return { text: "Rusak", dotClass: "bg-destructive" }
       case "Hilang":
       default:
         return { text: "Hilang", dotClass: "bg-amber-500" }
@@ -522,7 +551,7 @@ export default function DataBarangPage() {
         onResetFilter={handleResetFilter}
         selectedCount={selectedIds.length}
         onBulkDelete={handleBulkDelete}
-        onExportExcel={handleExportExcel}
+        onExportExcel={() => setIsExportModalOpen(true)}
         userRole={user?.role}
         hasFilteredData={totalItems > 0}
       />
@@ -650,6 +679,13 @@ export default function DataBarangPage() {
         categories={categories}
         availableFormLocations={availableFormLocations}
         STATUS_OPTIONS={STATUS_OPTIONS}
+      />
+
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        onExport={handleExportExcel}
+        isExporting={isExporting}
       />
 
       {/* Delete Confirmation Alert Dialog */}

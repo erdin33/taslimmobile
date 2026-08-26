@@ -21,7 +21,7 @@ const getBaseUrl = () => {
  * @returns {Record<string, string>} Object header HTTP.
  */
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -42,7 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -102,7 +102,7 @@ export default function KategoriBarangPage() {
         throw new Error("Gagal mengambil data kategori");
       }
       const data = await response.json();
-      
+
       // Standarisasi response (mengingat format backend kadang bisa bervariasi)
       const categoriesList = data.data || data.categories || data;
       setCategories(Array.isArray(categoriesList) ? categoriesList.map((c: any) => ({
@@ -303,7 +303,7 @@ export default function KategoriBarangPage() {
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -347,16 +347,16 @@ export default function KategoriBarangPage() {
         )}
       </div>
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
-          <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
-            <SheetTitle className="text-xl text-foreground">{editId ? "Edit Kategori" : "Tambah Kategori Baru"}</SheetTitle>
-            <SheetDescription className="text-muted-foreground">
+      <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <DialogContent className="w-[92%] sm:max-w-md rounded-2xl p-0 max-h-[85vh] flex flex-col border-border bg-popover text-foreground overflow-hidden">
+          <DialogHeader className="p-5 pb-3 border-b border-border/50 bg-muted/40 text-left">
+            <DialogTitle className="text-lg font-bold text-foreground">{editId ? "Edit Kategori" : "Tambah Kategori Baru"}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
               Isi formulir di bawah ini untuk mengelola informasi kategori.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="p-6 flex-1 overflow-y-auto">
-            <div className="grid gap-5">
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-5 flex-1 overflow-y-auto">
+            <div className="grid gap-4">
               <div className="space-y-2">
                 <Label>Nama Kategori</Label>
                 <Input
@@ -409,15 +409,15 @@ export default function KategoriBarangPage() {
               </div>
             </div>
           </div>
-          <SheetFooter className="p-6 border-t border-border/50 bg-muted/50 flex sm:justify-end gap-3 sm:gap-2">
-            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="hover:bg-muted text-foreground" disabled={isSaving}>Batal</Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+          <DialogFooter className="p-4 border-t border-border/50 bg-muted/40 flex flex-row justify-end gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="flex-1" disabled={isSaving}>Batal</Button>
+            <Button onClick={handleSave} disabled={isSaving} className="flex-1 font-semibold">
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Simpan Perubahan
+              {editId ? "Simpan Perubahan" : "Tambah Kategori"}
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteAlertData.isOpen} onOpenChange={(open) => !open && !isDeleting && setDeleteAlertData({ ...deleteAlertData, isOpen: false })}>
         <AlertDialogContent>

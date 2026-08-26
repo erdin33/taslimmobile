@@ -4,8 +4,10 @@ import { toast } from "sonner";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { IconFileText } from "@tabler/icons-react";
 import { PackageCheck } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/api";
 import { PengambilanQrModal } from "./PengambilanQrModal";
+import { PengambilanMitraModal } from "./PengambilanMitraModal";
 import type { DashboardRequest } from "@/types/transaction";
 
 interface BastActionsProps {
@@ -14,14 +16,16 @@ interface BastActionsProps {
 }
 
 export function BastActions({ request, onStatusChange }: BastActionsProps) {
+  useAuth();
   const status = request.status?.toUpperCase()?.trim();
   const [pengambilanModalOpen, setPengambilanModalOpen] = React.useState(false);
+  const [validasiMitraOpen, setValidasiMitraOpen] = React.useState(false);
 
   const handleOpenDraftPDF = React.useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
       try {
-        const token = localStorage.getItem("arxiva-auth-token") || "";
+        const token = localStorage.getItem("taslim-auth-token") || "";
         const url = `${getBaseUrl()}/requests/${request.id}/pdf-draft?token=${token}`;
         await openUrl(url);
       } catch (error) {
@@ -35,7 +39,7 @@ export function BastActions({ request, onStatusChange }: BastActionsProps) {
     async (e: React.MouseEvent) => {
       e.stopPropagation();
       try {
-        const token = localStorage.getItem("arxiva-auth-token") || "";
+        const token = localStorage.getItem("taslim-auth-token") || "";
         const url = `${getBaseUrl()}/requests/${request.id}/pdf-signed?token=${token}`;
         await openUrl(url);
       } catch (error) {
@@ -108,6 +112,32 @@ export function BastActions({ request, onStatusChange }: BastActionsProps) {
             variant="outline"
             size="sm"
             className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 border-sky-500/20"
+            title="Validasi & Ambil Barang"
+            onClick={(e) => {
+              e.stopPropagation();
+              setValidasiMitraOpen(true);
+            }}
+          >
+            <PackageCheck size={16} />
+            Validasi (Mitra)
+          </Button>
+          <PengambilanMitraModal
+            isOpen={validasiMitraOpen}
+            onOpenChange={setValidasiMitraOpen}
+            request={request}
+            onSuccess={() => {
+              if (onStatusChange) {
+                onStatusChange(request.id, "SELESAI");
+              } else {
+                window.location.reload(); 
+              }
+            }}
+          />
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs font-medium cursor-pointer gap-1.5 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 dark:bg-indigo-500/20 dark:text-indigo-400 border-indigo-500/20"
             title="Pengambilan Material BAST"
             onClick={(e) => {
               e.stopPropagation();
@@ -115,7 +145,7 @@ export function BastActions({ request, onStatusChange }: BastActionsProps) {
             }}
           >
             <PackageCheck size={16} />
-            Pengambilan
+            Ambil (Admin)
           </Button>
           <PengambilanQrModal
             isOpen={pengambilanModalOpen}

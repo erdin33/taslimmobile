@@ -27,6 +27,10 @@ interface InboundFormCardProps {
   handleSubmit: (kode?: string) => void;
   itemCondition: "baru" | "dismantle" | "rusak";
   setItemCondition: (val: "baru" | "dismantle" | "rusak") => void;
+  paNumber?: string;
+  setPaNumber?: (val: string) => void;
+  ticketGangguan?: string;
+  setTicketGangguan?: (val: string) => void;
   tipeBarang: string;
   setTipeBarang: (val: string) => void;
   brand: string;
@@ -56,6 +60,10 @@ export function InboundFormCard({
   handleSubmit,
   itemCondition,
   setItemCondition,
+  paNumber,
+  setPaNumber,
+  ticketGangguan,
+  setTicketGangguan,
   tipeBarang,
   setTipeBarang,
   brand,
@@ -103,8 +111,8 @@ export function InboundFormCard({
 
           {user?.role === "mitra" && (
             <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-xs leading-5 text-sky-600 dark:text-sky-400 space-y-1">
-              <p className="font-semibold">Ketentuan Penerimaan Barang Mitra</p>
-              <p>Barang hanya dapat diterima jika sudah berstatus <span className="font-semibold">Keluar</span> atau <span className="font-semibold">Diluar</span> dari KP. Barang yang masih tersimpan di gudang KP tidak dapat dipindah ke gudang mitra.</p>
+              <p className="font-semibold">Ketentuan Pengembalian Barang</p>
+              <p>Barang (Dismantle/Rusak) yang dimasukkan di sini akan dikembalikan dan dicatat masuk ke <span className="font-semibold">Gudang Utama Admin</span>.</p>
             </div>
           )}
         </div>
@@ -116,34 +124,38 @@ export function InboundFormCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Kolom Kiri */}
               <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-3">
-                  <Label htmlFor="asal-barang">Asal Barang</Label>
-                  <Select
-                    value={asalBarang}
-                    onValueChange={(value) => {
-                      setAsalBarang(value);
-                      setAsalBarangManual(true);
-                      focusKodeBarangInput();
-                    }}
-                  >
-                    <SelectTrigger id="asal-barang" className="w-full">
-                      <SelectValue placeholder="Pilih asal barang..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SBU Regional Jawa Barat">SBU Regional Jawa Barat</SelectItem>
-                      {dbPartners.map((partner) => (
-                        <SelectItem key={partner.id} value={partner.name}>
-                          {partner.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {!asalBarangManual && detectMitraFromSN(kodeBarang, dbPartners) && (
-                    <p className="text-xs text-sky-600 dark:text-sky-400">
-                      Terdeteksi otomatis dari SN
-                    </p>
-                  )}
-                </div>
+                {user?.role !== "mitra" && (
+                  <>
+                    <div className="flex flex-col gap-3">
+                      <Label htmlFor="asal-barang">Asal Barang</Label>
+                      <Select
+                        value={asalBarang}
+                        onValueChange={(value) => {
+                          setAsalBarang(value);
+                          setAsalBarangManual(true);
+                          focusKodeBarangInput();
+                        }}
+                      >
+                        <SelectTrigger id="asal-barang" className="w-full">
+                          <SelectValue placeholder="Pilih asal barang..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SBU Regional Jawa Barat">SBU Regional Jawa Barat</SelectItem>
+                          {dbPartners.map((partner) => (
+                            <SelectItem key={partner.id} value={partner.name}>
+                              {partner.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {!asalBarangManual && detectMitraFromSN(kodeBarang, dbPartners) && (
+                      <p className="text-xs text-sky-600 dark:text-sky-400">
+                        Terdeteksi otomatis dari SN
+                      </p>
+                    )}
+                  </>
+                )}
 
                 <div className="space-y-1.5">
                   <Label htmlFor="tipe-barang">Model</Label>
@@ -199,19 +211,24 @@ export function InboundFormCard({
                     onValueChange={(val) => {
                       const condition = val as "baru" | "dismantle" | "rusak";
                       setItemCondition(condition);
-                      if (condition === "baru") {
-                        setCatatan("");
+                      
+                      // Auto-set the remark focus based on condition
+                      if (condition === "rusak" && inputRef.current) {
+                        setTimeout(() => document.getElementById("dismantle-remark")?.focus(), 100);
+                      } else {
+                        focusKodeBarangInput();
                       }
-                      focusKodeBarangInput();
                     }}
-                    className="flex gap-4 pt-1"
+                    className="flex gap-4 mt-2"
                   >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="baru" id="condition-baru" />
-                      <Label htmlFor="condition-baru" className="cursor-pointer font-normal">
-                        Baru
-                      </Label>
-                    </div>
+                    {user?.role !== "mitra" && (
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="baru" id="condition-baru" />
+                        <Label htmlFor="condition-baru" className="cursor-pointer font-normal">
+                          Baru
+                        </Label>
+                      </div>
+                    )}
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="dismantle" id="condition-dismantle" />
                       <Label htmlFor="condition-dismantle" className="cursor-pointer font-normal">
@@ -227,15 +244,38 @@ export function InboundFormCard({
                   </RadioGroup>
                 </div>
 
-                {itemCondition === "rusak" && (
+                {itemCondition === "dismantle" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="dismantle-remark">Kerusakan</Label>
-                    <Textarea
-                      id="dismantle-remark"
-                      value={catatan}
-                      onChange={(e) => setCatatan(e.target.value)}
-                      placeholder="Masukkan kerusakan..."
+                    <Label htmlFor="pa-number">Nomor PA</Label>
+                    <Input
+                      id="pa-number"
+                      value={paNumber || ""}
+                      onChange={(e) => setPaNumber?.(e.target.value)}
+                      placeholder="Contoh: PA-2026-001"
                     />
+                  </div>
+                )}
+
+                {itemCondition === "rusak" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ticket-gangguan">Nomor Tiket Gangguan</Label>
+                      <Input
+                        id="ticket-gangguan"
+                        value={ticketGangguan || ""}
+                        onChange={(e) => setTicketGangguan?.(e.target.value)}
+                        placeholder="Contoh: INC-9823 / TIKET-4412"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="dismantle-remark">Keterangan Kerusakan</Label>
+                      <Textarea
+                        id="dismantle-remark"
+                        value={catatan}
+                        onChange={(e) => setCatatan(e.target.value)}
+                        placeholder="Jelaskan detail kerusakan fisik/fungsi..."
+                      />
+                    </div>
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">

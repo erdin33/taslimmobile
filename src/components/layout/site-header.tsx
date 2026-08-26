@@ -14,7 +14,7 @@ import { Sun, Moon, LogOut, Bell, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/shared/themeProvider"
 import { useAuth } from "@/lib/auth"
-import React, { useState } from "react"
+import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
     DropdownMenu,
@@ -58,7 +58,7 @@ export function SiteHeader({ className }: { className?: string }) {
 
     if (path === "/barang-masuk") {
         parent = "Operasional"
-        pageName = "Barang Masuk"
+        pageName = user?.role === "mitra" ? "Pengembalian" : "Barang Masuk"
     } else if (path === "/barang-keluar") {
         parent = "Operasional"
         pageName = "Barang Keluar"

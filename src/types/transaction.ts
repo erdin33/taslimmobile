@@ -30,6 +30,8 @@ export type BarangMasukItem = {
   asal?: string;
   kondisi?: string;
   replacementFor?: string;
+  paNumber?: string;
+  ticketGangguan?: string;
   catatan?: string;
   dismantleCondition?: "good" | "bad";
 };
@@ -44,6 +46,7 @@ export type BarangKeluarItem = {
   lokasi: LokasiOption;
   mitra: string;
   keterangan: string;
+  ticketGangguan?: string;
   status: "Valid" | "Invalid";
 };
 
@@ -97,16 +100,20 @@ export type RequestAllocation = {
 export type DashboardRequest = {
   id: string
   requestNumber: string
+  type?: "REQUEST" | "RETUR"
   requesterName?: string
   partnerCategory?: string
+  targetPartnerId?: string | number | null
   itemsCount?: number
   itemsDetail?: string
   adminRemarks?: string
   status: string
   notes: string
+  rejectionReason?: string
   requestedAt: string
   requestedDeliveryDate?: string
   requestItems?: RequestItem[]
+  returItems?: BarangMasukItem[]
   requestAllocations?: RequestAllocation[]
   deliveryDocument?: {
     kpSignedById?: string | null

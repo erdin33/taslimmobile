@@ -167,6 +167,15 @@
     width: 100%;
   }
 
+  /* Safe area bottom padding untuk Android edge-to-edge.
+     env() mengembalikan 0px di browser desktop, jadi aman dipakai global. */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pb-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  }
+
   @media print {
     html, body, #root {
       height: auto !important;

@@ -36,14 +36,25 @@ export function trimCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const trimmedWidth = right - left + 1;
   const trimmedHeight = bottom - top + 1;
 
+  // Scale down if too large to prevent Payload Too Large (100kb) errors on backend
+  const MAX_SIZE = 400;
+  let scale = 1;
+  if (trimmedWidth > MAX_SIZE || trimmedHeight > MAX_SIZE) {
+    scale = Math.min(MAX_SIZE / trimmedWidth, MAX_SIZE / trimmedHeight);
+  }
+  
+  const finalWidth = Math.max(1, Math.floor(trimmedWidth * scale));
+  const finalHeight = Math.max(1, Math.floor(trimmedHeight * scale));
+
   const trimmed = document.createElement("canvas");
-  trimmed.width = trimmedWidth;
-  trimmed.height = trimmedHeight;
+  trimmed.width = finalWidth;
+  trimmed.height = finalHeight;
 
   const trimmedCtx = trimmed.getContext("2d");
   if (!trimmedCtx) return canvas;
 
-  trimmedCtx.drawImage(canvas, left, top, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+  // Draw and scale simultaneously
+  trimmedCtx.drawImage(canvas, left, top, trimmedWidth, trimmedHeight, 0, 0, finalWidth, finalHeight);
 
   return trimmed;
 }
@@ -58,7 +69,20 @@ export function getSignatureDataUrl(sigPad: { isEmpty(): boolean; getCanvas(): H
     const trimmed = trimCanvas(sigPad.getCanvas());
     return trimmed.toDataURL("image/png");
   } catch {
-    // Fallback: return full canvas
-    return sigPad.getCanvas().toDataURL("image/png");
+    // Fallback: scale down full canvas
+    const canvas = sigPad.getCanvas();
+    const MAX_SIZE = 400;
+    if (canvas.width > MAX_SIZE || canvas.height > MAX_SIZE) {
+      const scale = Math.min(MAX_SIZE / canvas.width, MAX_SIZE / canvas.height);
+      const scaled = document.createElement("canvas");
+      scaled.width = Math.max(1, Math.floor(canvas.width * scale));
+      scaled.height = Math.max(1, Math.floor(canvas.height * scale));
+      const ctx = scaled.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
+        return scaled.toDataURL("image/png");
+      }
+    }
+    return canvas.toDataURL("image/png");
   }
 }

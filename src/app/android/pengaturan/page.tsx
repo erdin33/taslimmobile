@@ -15,7 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { ProfilPicTab } from "@/app/pengaturan/components/ProfilPicTab"
+import { ProfileTab } from "@/app/pengaturan/components/ProfileTab"
+import { SignatureTab } from "@/app/pengaturan/components/SignatureTab"
+import { SecurityTab } from "@/app/pengaturan/components/SecurityTab"
 
 const GOOGLE_CLIENT_ID = import.meta.env.GOOGLE_CLIENT_ID || "847352193552-odl1tr4a71os3eddiftnu9en4ncg7mqg.apps.googleusercontent.com";
 
@@ -59,7 +61,7 @@ export default function PengaturanPage() {
      */
     const fetchGoogleStatus = async () => {
       try {
-        const token = localStorage.getItem("arxiva-auth-token");
+        const token = localStorage.getItem("taslim-auth-token");
         if (!token) return;
 
         const res = await fetch(`${getBaseUrl()}/auth/google/status`, {
@@ -83,7 +85,7 @@ export default function PengaturanPage() {
      */
     const fetchDriveFolderId = async () => {
       try {
-        const token = localStorage.getItem("arxiva-auth-token");
+        const token = localStorage.getItem("taslim-auth-token");
         if (!token) return;
 
         const res = await fetch(`${getBaseUrl()}/auth/google/folder-id`, {
@@ -119,7 +121,7 @@ export default function PengaturanPage() {
     }
     setIsSavingFolderId(true);
     try {
-      const token = localStorage.getItem("arxiva-auth-token");
+      const token = localStorage.getItem("taslim-auth-token");
       const res = await fetch(`${getBaseUrl()}/auth/google/folder-id`, {
         method: "PUT",
         headers: {
@@ -166,7 +168,7 @@ export default function PengaturanPage() {
 
       // Langkah 2: Mengirim kode otorisasi tersebut ke backend Node.js.
       // Backend akan menukarnya dengan Access Token & Refresh Token via Google API.
-      const token = localStorage.getItem("arxiva-auth-token");
+      const token = localStorage.getItem("taslim-auth-token");
       const res = await fetch(`${getBaseUrl()}/auth/google/exchange`, {
         method: "POST",
         headers: {
@@ -204,7 +206,7 @@ export default function PengaturanPage() {
     }
     setIsDisconnecting(true);
     try {
-      const token = localStorage.getItem("arxiva-auth-token");
+      const token = localStorage.getItem("taslim-auth-token");
       if (token) {
         await fetch(`${getBaseUrl()}/auth/google/disconnect`, {
           method: "DELETE",
@@ -233,14 +235,26 @@ export default function PengaturanPage() {
       </div>
 
       {/* Tabs Container */}
-      <Tabs defaultValue="google-drive" className="px-4 lg:px-6 w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="google-drive" className="px-4 py-1.5 text-sm font-medium">Google Drive</TabsTrigger>
-          <TabsTrigger value="profil-pic" className="px-4 py-1.5 text-sm font-medium">Profil & Tanda Tangan</TabsTrigger>
+      <Tabs defaultValue="profil" className="px-4 lg:px-6 w-full">
+        <TabsList className="mb-6 flex w-full overflow-x-auto justify-start h-auto p-1">
+          <TabsTrigger value="profil" className="px-4 py-1.5 text-sm font-medium shrink-0">Profil</TabsTrigger>
+          <TabsTrigger value="keamanan" className="px-4 py-1.5 text-sm font-medium shrink-0">Keamanan</TabsTrigger>
+          <TabsTrigger value="ttd-digital" className="px-4 py-1.5 text-sm font-medium shrink-0">Tanda Tangan</TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="google-drive" className="px-4 py-1.5 text-sm font-medium shrink-0">Google Drive</TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="profil-pic" className="mt-0">
-          <ProfilPicTab />
+        <TabsContent value="profil" className="mt-0">
+          <ProfileTab />
+        </TabsContent>
+
+        <TabsContent value="ttd-digital" className="mt-0">
+          <SignatureTab />
+        </TabsContent>
+
+        <TabsContent value="keamanan" className="mt-0">
+          <SecurityTab />
         </TabsContent>
 
         {/* Tab Content: Google Drive */}

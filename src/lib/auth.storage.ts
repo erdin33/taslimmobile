@@ -1,7 +1,7 @@
 import type { AuthUser, UserRole } from "@/types/auth";
 
-const AUTH_STORAGE_KEY = "arxiva-auth-user";
-const AUTH_TOKEN_KEY = "arxiva-auth-token";
+const AUTH_STORAGE_KEY = "taslim-auth-user";
+const AUTH_TOKEN_KEY = "taslim-auth-token";
 
 const sanitizeProfile = (profile: any): AuthUser["profile"] => {
 	if (!profile || typeof profile !== "object") return undefined;

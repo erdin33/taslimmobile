@@ -331,12 +331,24 @@ pub fn init_db(db_path: PathBuf) -> Result<Connection> {
             message TEXT NOT NULL,
             type TEXT NOT NULL,
             date TEXT NOT NULL,
-            is_read INTEGER NOT NULL DEFAULT 0
+            is_read INTEGER NOT NULL DEFAULT 0,
+            target_role TEXT DEFAULT 'all'
         )",
         [],
     )?;
 
-    
+    if !column_exists(&conn, "notifications", "target_role")? {
+        conn.execute(
+            "ALTER TABLE notifications ADD COLUMN target_role TEXT DEFAULT 'all'",
+            [],
+        )?;
+    }
+
+    // Fix for old notifications that got assigned 'all' by default
+    conn.execute(
+        "UPDATE notifications SET target_role = 'admin' WHERE title = 'Request Material Baru' AND target_role = 'all'",
+        [],
+    )?;
 
     Ok(conn)
 }

@@ -24,4 +24,15 @@ dist-ssr
 *.sw?
 
 .env
-.gitignore
+*.env.*
+*.patch
+*.diff
+*.db
+*.sqlite
+*.sqlite3
+temp_friend_app/
+src.bak/
+error.txt
+fix_ts_errors.mjs
+friend_use_dashboard.ts
+how 89180f9

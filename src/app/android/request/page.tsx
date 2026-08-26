@@ -1,33 +1,19 @@
 import { useState, useEffect } from "react"
-import { DataTable } from "@/features/transactions/components/request-table"
-import { Search, EllipsisVertical, FileUp, FileDown, ListFilter, Loader2, Calendar, Package, ChevronRight } from "lucide-react"
+import { Search, ListFilter, Package, ChevronRight, Calendar, EllipsisVertical, FileUp, Loader2, FileText, AlertTriangle } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useSearchParams, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { confirm } from "@tauri-apps/plugin-dialog"
-import { saveExportFile } from "@/lib/export-file"
-import * as XLSX from "xlsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/lib/auth"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { useAuth } from "@/lib/auth"
+import { getBaseUrl } from "@/lib/api"
 import type { DashboardRequest } from "@/types/transaction"
-import { cn } from "@/lib/utils"
-
-const getBaseUrl = () => {
-  const baseUrl = import.meta.env.URL || import.meta.env.VITE_URL || "http://172.168.9.139:3000/";
-  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-};
+import { BastActions } from "@/features/transactions/components/BastActions"
+import { RejectRequestModal } from "@/features/transactions/components/RejectRequestModal"
 
 const getUnitByCategory = (categoryName?: string) => {
   if (!categoryName) return "Unit";
@@ -47,7 +33,7 @@ const getCleanCategoryName = (categoryName?: string) => {
 };
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -57,18 +43,28 @@ const getHeaders = () => {
   return headers;
 };
 
-function MobileRequestList({ data, onRowClick, onStatusChange }: { 
-  data: DashboardRequest[], 
+function MobileRequestList({
+  data,
+  onRowClick,
+  onPrepare,
+  onReject,
+  isAdmin,
+  isProcessingId,
+}: {
+  data: DashboardRequest[],
   onRowClick: (item: DashboardRequest) => void,
-  onStatusChange?: (id: string, status: string) => void
+  onPrepare?: (item: DashboardRequest) => void,
+  onReject?: (item: DashboardRequest) => void,
+  isAdmin?: boolean,
+  isProcessingId?: string | null,
 }) {
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
-          <Package className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+        <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+          <Package className="h-8 w-8 text-muted-foreground/60" />
         </div>
-        <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Tidak ada permintaan</p>
+        <p className="text-muted-foreground font-medium text-sm">Tidak ada permintaan</p>
       </div>
     )
   }
@@ -82,58 +78,148 @@ function MobileRequestList({ data, onRowClick, onStatusChange }: {
           year: "numeric"
         })
 
+        const statusUpper = item.status.toUpperCase()
+
         return (
-          <div 
+          <div
             key={item.id}
             onClick={() => onRowClick(item)}
-            className="group relative bg-white dark:bg-zinc-950 border border-slate-200/60 dark:border-zinc-800/80 rounded-2xl p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] dark:shadow-none active:scale-[0.98] transition-all cursor-pointer overflow-hidden"
+            className="group relative bg-card border border-border/70 rounded-2xl p-4 shadow-xs hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer overflow-hidden flex flex-col gap-3"
           >
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex flex-col pr-2">
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
+            {/* Header: Request ID, Requester & Status Badge */}
+            <div className="flex justify-between items-start gap-2">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider mb-1">
                   {item.requestNumber}
                 </span>
-                <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                <h3 className="text-base font-bold text-foreground leading-tight truncate">
                   {item.requesterName}
                 </h3>
                 {item.partnerCategory && (
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
+                  <span className="text-xs text-muted-foreground font-medium mt-0.5">
                     {item.partnerCategory}
                   </span>
                 )}
               </div>
               <Badge variant="outline" className={cn(
                 "px-2.5 py-1 rounded-full text-[10px] font-bold border-0 shrink-0 uppercase",
-                item.status.toLowerCase() === "menunggu" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" :
-                item.status.toLowerCase() === "disetujui" ? "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-500" :
-                item.status.toLowerCase() === "siap" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-500" :
-                item.status.toLowerCase() === "selesai" || item.status.toLowerCase() === "diterima" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500" :
-                "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                item.status.toLowerCase() === "menunggu" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+                  item.status.toLowerCase() === "siap" ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" :
+                    item.status.toLowerCase() === "selesai" || item.status.toLowerCase() === "diterima" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+                      "bg-red-500/15 text-red-600 dark:text-red-400"
               )}>
                 {item.status}
               </Badge>
             </div>
-            
-            {item.notes && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 line-clamp-1">
-                <span className="font-semibold text-slate-600 dark:text-slate-300">Catatan:</span> {item.notes}
-              </p>
+
+            {/* Daftar Rincian Barang / Permintaan */}
+            {item.requestItems && item.requestItems.length > 0 ? (
+              <div className="bg-muted/30 dark:bg-zinc-900/50 rounded-xl p-2.5 border border-border/50 text-xs space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Package className="size-3 text-primary" /> Rincian Permintaan:
+                </span>
+                <div className="flex flex-col gap-1">
+                  {item.requestItems.map((ri, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
+                      <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                        <span className="inline-block size-1.5 rounded-full bg-primary/70 shrink-0" />
+                        <span className="font-semibold text-foreground truncate">
+                          {ri.category || "Barang"}
+                          {ri.brand && ri.brand !== "-" ? ` (${ri.brand})` : ""}
+                          {ri.model && ri.model !== "-" ? ` · ${ri.model}` : ""}
+                        </span>
+                      </div>
+                      <span className="font-bold text-primary shrink-0 text-xs">
+                        {ri.quantity} <span className="font-normal text-muted-foreground text-[11px]">{ri.unit || "Unit"}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Alasan Penolakan (khusus status Ditolak atau jika ada alasan) */}
+            {statusUpper === "DITOLAK" && item.rejectionReason && (
+              <div className="bg-red-500/10 dark:bg-red-950/40 border border-red-500/30 rounded-xl p-3 text-xs flex flex-col gap-1 text-red-600 dark:text-red-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 text-red-700 dark:text-red-300">
+                  <AlertTriangle className="size-3.5 shrink-0" /> Alasan Penolakan:
+                </span>
+                <p className="text-foreground/90 dark:text-red-200 font-medium leading-relaxed">
+                  {item.rejectionReason}
+                </p>
+              </div>
             )}
-            
-            <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/60">
-              <div className="flex items-center gap-1.5 font-medium">
-                <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                {date}
+
+            {/* Keterangan / Catatan Request */}
+            {item.notes && item.notes !== "-" ? (
+              <div className="bg-muted/40 dark:bg-zinc-900/60 rounded-xl p-2.5 border border-border/40 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-0.5">
+                  <FileText className="size-3 text-primary" /> Keterangan:
+                </span>
+                <p className="text-foreground/90 font-medium leading-relaxed line-clamp-2">
+                  {item.notes}
+                </p>
               </div>
-              <div className="flex items-center gap-1.5 font-medium">
-                <Package className="h-3.5 w-3.5 text-slate-400" />
-                {item.itemsCount || 0} Item
+            ) : null}
+
+            {/* Meta Info: Tanggal & Jumlah Item */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/40">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 font-medium">
+                  <Calendar className="size-3.5 text-muted-foreground/70" />
+                  <span>{date}</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  <Package className="size-3.5 text-muted-foreground/70" />
+                  <span>{item.itemsCount || 0} Item</span>
+                </div>
               </div>
+              <span className="text-[11px] text-primary font-medium flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                Detail <ChevronRight className="size-3.5" />
+              </span>
             </div>
 
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 md:group-hover:opacity-100 transition-opacity">
-              <ChevronRight className="h-5 w-5 text-slate-300" />
-            </div>
+            {/* Direct Admin Action Buttons on Card */}
+            {isAdmin && statusUpper === "MENUNGGU" && (
+              <div
+                className="flex items-center gap-2 pt-2.5 border-t border-border/60"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-9 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 cursor-pointer"
+                  onClick={() => onReject?.(item)}
+                  disabled={isProcessingId === item.id}
+                >
+                  {isProcessingId === item.id ? <Loader2 className="size-3.5 animate-spin mr-1" /> : null}
+                  Tolak
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 h-9 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
+                  onClick={() => onPrepare?.(item)}
+                  disabled={isProcessingId === item.id}
+                >
+                  Siapkan Barang
+                </Button>
+              </div>
+            )}
+
+            {isAdmin && statusUpper === "SIAP" && (
+              <div
+                className="flex items-center gap-2 pt-2.5 border-t border-border/60"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  size="sm"
+                  className="w-full h-9 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer"
+                  onClick={() => onPrepare?.(item)}
+                >
+                  Edit Alokasi Barang
+                </Button>
+              </div>
+            )}
           </div>
         )
       })}
@@ -141,18 +227,15 @@ function MobileRequestList({ data, onRowClick, onStatusChange }: {
   )
 }
 
-/**
- * Komponen DataTransaksiPage
- * 
- * Halaman untuk melihat log riwayat seluruh transaksi barang (Masuk, Keluar, Rusak, Hilang).
- * Menyediakan fungsi filtering canggih, bulk delete, dan eksport data ke Excel.
- *
- * @returns {JSX.Element} Antarmuka halaman riwayat transaksi.
- */
 export default function DataTransaksiPage() {
+  const navigate = useNavigate()
   const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get("tab") || "Menunggu"
+  const [selectedRequest, setSelectedRequest] = useState<DashboardRequest | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<DashboardRequest | null>(null)
+  const [isRejecting, setIsRejecting] = useState(false)
 
   const handleTabChange = (value: string) => {
     setSearchParams((prev) => {
@@ -162,15 +245,12 @@ export default function DataTransaksiPage() {
   }
 
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedRequest, setSelectedRequest] = useState<DashboardRequest | null>(null)
   const [localRequests, setLocalRequests] = useState<DashboardRequest[]>([])
 
-  // Ambil semua nilai unik partnerCategory sebagai opsi filter
   const categoryOptions = Array.from(
     new Set(localRequests.map((r) => r.partnerCategory).filter((c): c is string => !!c))
   ).sort()
 
-  // State untuk filter yang sedang aktif (multi-select)
   const [filterCategories, setFilterCategories] = useState<string[]>([])
 
   const toggleFilterCategory = (category: string) => {
@@ -183,12 +263,23 @@ export default function DataTransaksiPage() {
 
   const clearFilters = () => setFilterCategories([])
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleStatusChange = async (id: string, newStatus: string, rejectionReason?: string) => {
     try {
+      const payload: any = {
+        status: newStatus.toUpperCase(),
+        ...(rejectionReason && {
+          rejectionReason,
+          adminRemarks: rejectionReason,
+          adminNotes: rejectionReason,
+          remarks: rejectionReason,
+          notes: rejectionReason,
+          catatan: rejectionReason,
+        })
+      };
       const res = await fetch(`${getBaseUrl()}/requests/${id}/status`, {
         method: "PUT",
         headers: getHeaders(),
-        body: JSON.stringify({ status: newStatus.toUpperCase() })
+        body: JSON.stringify(payload)
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -197,19 +288,28 @@ export default function DataTransaksiPage() {
 
       setLocalRequests(prev => prev.map(req => {
         if (req.id === id) {
-          return { ...req, status: newStatus }
+          return { ...req, status: newStatus, ...(rejectionReason && { rejectionReason }) }
         }
         return req
       }))
       toast.success(`Status transaksi berhasil diubah menjadi ${newStatus}`)
+      window.dispatchEvent(new Event("request-count-updated"))
     } catch (error: any) {
       toast.error(error.message || "Gagal mengubah status transaksi")
     }
   }
 
-  /**
-   * Mengambil seluruh data riwayat request dari backend.
-   */
+  const handleRejectConfirm = async (reason: string) => {
+    if (!rejectTarget) return
+    setIsRejecting(true)
+    try {
+      await handleStatusChange(rejectTarget.id, "Ditolak", reason)
+      setRejectTarget(null)
+    } finally {
+      setIsRejecting(false)
+    }
+  }
+
   const fetchRequests = async () => {
     try {
       const res = await fetch(`${getBaseUrl()}/requests`, {
@@ -219,9 +319,32 @@ export default function DataTransaksiPage() {
       if (!res.ok) {
         throw new Error("Gagal mengambil data permintaan");
       }
-      const data: DashboardRequest[] = await res.json();
+      const json = await res.json();
+      const rawList = Array.isArray(json.data || json) ? (json.data || json) : [];
+      const data: DashboardRequest[] = rawList.map((r: any) => ({
+        ...r,
+        id: String(r.id),
+        requestNumber: r.requestNumber || r.nomor || "-",
+        type: r.type,
+        requesterName: r.requester?.profile?.nama || r.requester?.username || r.requesterName || "Mitra",
+        partnerCategory: r.requester?.profile?.partnerType || r.partnerCategory || "Mitra",
+        status: r.status,
+        notes: r.notes || r.catatan || "-",
+        rejectionReason: r.rejectionReason || r.adminRemarks || r.adminNotes || r.adminNote || r.remarks || r.rejectionNotes || r.cancelReason || r.alasanPenolakan || undefined,
+        requestedAt: r.requestedAt || r.createdAt || new Date().toISOString(),
+        itemsCount: r.itemsCount || r.requestItems?.reduce((acc: number, i: any) => acc + (i.quantity || 1), 0) || 0,
+        requestItems: (r.requestItems || []).map((item: any) => ({
+          id: item.id,
+          category: getCleanCategoryName(item.category?.nama || item.category),
+          brand: item.brand?.nama || item.brand,
+          model: item.model?.nama || item.model,
+          quantity: item.quantity,
+          unit: item.unit || getUnitByCategory(item.category?.nama || item.category)
+        })),
+        requestAllocations: r.requestAllocations || [],
+        deliveryDocument: r.deliveryDocument,
+      }));
 
-      // Jika user adalah mitra, sembunyikan request mitra lain
       setLocalRequests(
         user?.role === "mitra"
           ? data.filter((req) => {
@@ -244,14 +367,12 @@ export default function DataTransaksiPage() {
     fetchRequests();
   }, [user])
 
-  // Auto-open drawer if navigated from notification with reqId
   useEffect(() => {
     const reqId = searchParams.get("reqId")
     if (reqId && localRequests.length > 0) {
       const found = localRequests.find(r => r.id === reqId)
       if (found && !selectedRequest) {
         setSelectedRequest(found)
-        // Optionally remove the query param so it doesn't reopen if closed
         setSearchParams((prev) => {
           prev.delete("reqId")
           return prev
@@ -260,97 +381,15 @@ export default function DataTransaksiPage() {
     }
   }, [searchParams, localRequests, selectedRequest, setSearchParams])
 
-  const filteredData = localRequests.filter((item) => {
-    const matchesSearch = item.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.requesterName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.notes?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  }).sort((a, b) => {
-    const timeA = new Date(a.requestedAt).getTime();
-    const timeB = new Date(b.requestedAt).getTime();
-    return timeB - timeA;
-  });
-
-  const handleExportExcel = async () => {
-    if (filteredData.length === 0) {
-      toast.error("Tidak ada data riwayat yang sesuai dengan filter untuk diekspor.")
-      return
-    }
-
-    try {
-      const headers = [
-        "No",
-        "Tanggal",
-        "No Request",
-        "Nama Pemohon",
-        "Tipe Partner",
-        "Status",
-        "Catatan",
-        "Jumlah Item"
-      ]
-
-      const rows = filteredData.map((item, index) => [
-        index + 1,
-        new Date(item.requestedAt).toLocaleDateString(),
-        item.requestNumber,
-        item.requesterName,
-        item.partnerCategory || "-",
-        item.status,
-        item.notes || "-",
-        item.itemsCount || 0
-      ])
-
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat Transaksi")
-      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
-
-      const now = new Date()
-      const dateSuffix = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-      ].join("-")
-      const categorySuffix = "semua-kategori"
-      const searchSuffix = searchTerm.trim()
-        ? `-pencarian-${searchTerm
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "")
-          .slice(0, 40)}`
-        : ""
-      const exportResult = await saveExportFile({
-        fileName: `riwayat-${categorySuffix}${searchSuffix}-${dateSuffix}.xlsx`,
-        contents: buffer,
-      })
-
-      if (!exportResult.saved) return
-
-      toast.success(
-        `${filteredData.length} data riwayat berhasil diekspor sesuai filter aktif.`,
-        exportResult.path
-          ? { description: `Disimpan di: ${exportResult.path}` }
-          : undefined
-      )
-    } catch (error) {
-      console.error("Gagal mengekspor riwayat transaksi:", error)
-      toast.error("Gagal memproses ekspor riwayat transaksi.")
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in">
-      {/* Page Header */}
-
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
           <div className="flex items-center w-full overflow-x-auto pb-1 scrollbar-hide">
             <TabsList className="**:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 inline-flex h-auto w-max lg:w-auto">
               <TabsTrigger value="Menunggu" className="cursor-pointer">
-                Menunggu <Badge variant="secondary">3</Badge>
+                Menunggu <Badge variant="secondary">{localRequests.filter(r => r.status.toLowerCase() === "menunggu").length || ""}</Badge>
               </TabsTrigger>
-              <TabsTrigger value="Disetujui" className="cursor-pointer">Disetujui</TabsTrigger>
               <TabsTrigger value="Siap" className="cursor-pointer">Siap</TabsTrigger>
               <TabsTrigger value="Selesai" className="cursor-pointer">Selesai</TabsTrigger>
               <TabsTrigger value="Ditolak" className="cursor-pointer">Ditolak / Batal</TabsTrigger>
@@ -412,68 +451,66 @@ export default function DataTransaksiPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-32">
                 <DropdownMenuItem><FileUp className="mr-1" />Import</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportExcel()}><FileDown className="mr-1" />Export</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
-        {["Menunggu", "Disetujui", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => {
-          // Terapkan filter sebelum diteruskan ke DataTable
+        {["Menunggu", "Siap", "Diterima", "Selesai", "Ditolak"].map(status => {
           const filteredByStatus = localRequests.filter((req) => {
             if (status.toLowerCase() === "ditolak") {
               return ["ditolak", "dibatalkan"].includes(req.status.toLowerCase())
             }
             return req.status.toLowerCase() === status.toLowerCase()
           })
-          const filteredData = filterCategories.length > 0
+          const filteredByCategory = filterCategories.length > 0
             ? filteredByStatus.filter((req) => req.partnerCategory && filterCategories.includes(req.partnerCategory))
             : filteredByStatus
 
-          // Tambahkan filter search term
           const finalData = searchTerm.trim()
-            ? filteredData.filter((req) =>
+            ? filteredByCategory.filter((req) =>
               req.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               req.requesterName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               req.partnerCategory?.toLowerCase().includes(searchTerm.toLowerCase())
             )
-            : filteredData
+            : filteredByCategory
 
           return (
             <TabsContent key={status} value={status} className="mt-0">
-              <div className="hidden md:block">
-                <DataTable
-                  data={finalData}
-                  onRowClick={(item) => setSelectedRequest(item)}
-                  onStatusChange={handleStatusChange}
-                />
-              </div>
-              <div className="md:hidden">
-                <MobileRequestList
-                  data={finalData}
-                  onRowClick={(item) => setSelectedRequest(item)}
-                  onStatusChange={handleStatusChange}
-                />
-              </div>
+              <MobileRequestList
+                data={finalData}
+                isAdmin={isAdmin}
+                onRowClick={(item) => setSelectedRequest(item)}
+                onPrepare={(item) => navigate(`/request/${item.id}/prepare`)}
+                onReject={(item) => setRejectTarget(item)}
+                isProcessingId={isRejecting ? rejectTarget?.id : null}
+              />
             </TabsContent>
           )
         })}
       </Tabs>
 
-      {/* Request Detail Drawer */}
       <RequestDetailDrawer
         item={selectedRequest}
         open={selectedRequest !== null}
         onClose={() => setSelectedRequest(null)}
-        onStatusChange={handleStatusChange}
+        onStatusChange={(id, newStatus, rejectionReason) => {
+          handleStatusChange(id, newStatus, rejectionReason)
+          setSelectedRequest(prev => prev ? { ...prev, status: newStatus, ...(rejectionReason && { rejectionReason }) } : null)
+        }}
+      />
+
+      {/* Modal Input Catatan Tolak Permintaan */}
+      <RejectRequestModal
+        isOpen={rejectTarget !== null}
+        onOpenChange={(open) => !open && !isRejecting && setRejectTarget(null)}
+        onSubmit={handleRejectConfirm}
+        isSubmitting={isRejecting}
       />
     </div>
   )
 }
 
-/**
- * Drawer detail permintaan. Menampilkan informasi lengkap dari sebuah request.
- */
 function RequestDetailDrawer({
   item,
   open,
@@ -483,11 +520,14 @@ function RequestDetailDrawer({
   item: DashboardRequest | null
   open: boolean
   onClose: () => void
-  onStatusChange?: (id: string, newStatus: string) => void
+  onStatusChange?: (id: string, newStatus: string, rejectionReason?: string) => void
 }) {
   const navigate = useNavigate()
   const [detailData, setDetailData] = useState<DashboardRequest | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
 
   useEffect(() => {
     if (!open || !item?.id) {
@@ -503,41 +543,52 @@ function RequestDetailDrawer({
           headers: getHeaders(),
         })
         if (!res.ok) throw new Error("Gagal mengambil detail")
-        const data = await res.json()
+        const json = await res.json()
+        const data = json.data || json
+
         const formatted: DashboardRequest = {
           id: data.id,
           requestNumber: data.requestNumber,
+          type: data.type,
           requesterName: data.requester?.profile?.nama || data.requester?.username,
           partnerCategory: data.requester?.profile?.partnerType || "Mitra",
           status: data.status,
           notes: data.notes || "-",
+          rejectionReason: data.rejectionReason || data.adminRemarks || data.adminNotes || data.remarks,
           requestedAt: data.requestedAt,
-          itemsCount: data.requestItems?.reduce((acc: number, ri: any) => acc + ri.quantity, 0),
-          requestItems: data.requestItems?.map((ri: any) => ({
-            id: ri.id,
-            category: ri.materialCategory?.nama,
-            brand: ri.brand?.nama,
-            model: ri.model?.nama || ri.model?.name || "-",
-            quantity: ri.quantity,
-            unit: getUnitByCategory(ri.materialCategory?.nama)
+          itemsCount: data.requestItems?.reduce((acc: number, i: any) => acc + (i.quantity || 1), 0) || 0,
+          requestItems: data.requestItems?.map((item: any) => ({
+            id: item.id,
+            category: getCleanCategoryName(item.materialCategory?.nama || item.category?.nama || item.category),
+            brand: item.brand?.nama || item.brand || "-",
+            model: item.model?.nama || item.model || "-",
+            quantity: item.quantity,
+            unit: getUnitByCategory(item.materialCategory?.nama || item.category?.nama || item.category)
           })),
-          requestAllocations: data.requestItems?.flatMap((ri: any) =>
-            ri.allocations?.map((alloc: any) => ({
-              id: alloc.id,
-              materialNumber: alloc.item?.paNumber || "-",
-              materialCategory: ri.materialCategory?.nama,
-              brand: alloc.item?.brand?.nama || ri.brand?.nama,
-              materialName: `${getCleanCategoryName(ri.materialCategory?.nama)} ${alloc.item?.brand?.nama || ri.brand?.nama}${alloc.item?.model?.nama ? ` (${alloc.item.model.nama})` : ''}`,
-              serialNumber: alloc.item?.serialNumber,
-              quantity: 1,
-              unit: getUnitByCategory(ri.materialCategory?.nama)
-            })) || []
-          )
+          requestAllocations: data.requestItems?.flatMap((item: any) =>
+            item.allocations?.map((alloc: any) => {
+              const itemObj = alloc.item || alloc
+              const catName = getCleanCategoryName(itemObj?.model?.materialCategory?.nama || itemObj?.kategori || item.materialCategory?.nama || item.category?.nama)
+              const brandName = itemObj?.brand?.nama || itemObj?.model?.brand?.nama || itemObj?.merek || item.brand?.nama || item.brand || "-"
+              const matCode = itemObj?.paNumber || itemObj?.model?.code || itemObj?.tipe || "-"
+              return {
+                id: alloc.id || itemObj?.id,
+                materialNumber: matCode,
+                materialCategory: catName,
+                brand: brandName,
+                materialName: `${catName} ${brandName}${itemObj?.model?.nama ? ` (${itemObj.model.nama})` : ''}`,
+                serialNumber: itemObj?.serialNumber || "-",
+                quantity: 1,
+                unit: getUnitByCategory(catName)
+              }
+            }) || []
+          ),
+          deliveryDocument: data.deliveryDocument,
         }
         setDetailData(formatted)
-      } catch (error) {
-        console.error("Gagal memuat detail request:", error)
-        toast.error("Gagal memuat detail alokasi barang")
+      } catch (e) {
+        console.error(e)
+        toast.error("Gagal memuat detail permintaan")
       } finally {
         setIsLoading(false)
       }
@@ -546,182 +597,174 @@ function RequestDetailDrawer({
     fetchDetail()
   }, [open, item?.id])
 
-  if (!item) return null
-
   const displayItem = detailData || item
 
-  const handleAction = async (newStatus: string, requireConfirm: boolean = false) => {
-    if (!displayItem?.id || !onStatusChange) return;
+  const handleAction = async (newStatus: string, needsConfirm = false, reason?: string) => {
+    if (!displayItem) return
 
     if (newStatus === "Siap") {
-      onClose()
       navigate(`/request/${displayItem.id}/prepare`)
-      return;
+      onClose()
+      return
     }
 
-    if (requireConfirm) {
-      const isConfirmed = await confirm("Apakah Anda yakin ingin melakukan tindakan ini pada permintaan?");
-      if (!isConfirmed) {
-        return;
+    if (needsConfirm) {
+      const confirmed = window.confirm(`Yakin ingin mengubah status menjadi "${newStatus}"?`)
+      if (!confirmed) return
+    }
+
+    try {
+      const payload: any = {
+        status: newStatus.toUpperCase(),
+        ...(reason && {
+          rejectionReason: reason,
+          adminRemarks: reason,
+          adminNotes: reason,
+          remarks: reason,
+          notes: reason,
+          catatan: reason,
+        })
+      };
+      const res = await fetch(`${getBaseUrl()}/requests/${displayItem.id}/status`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.message || "Gagal mengubah status")
       }
+      toast.success(`Status berhasil diubah menjadi ${newStatus}`)
+      if (onStatusChange) onStatusChange(displayItem.id, newStatus, reason)
+    } catch (e: any) {
+      toast.error(e?.message || "Gagal mengubah status")
     }
+  }
 
-    onStatusChange(displayItem.id, newStatus);
-    onClose();
-  };
+  if (!displayItem) return null
 
   return (
-    <Drawer direction={"bottom"} open={open} onOpenChange={(o) => !o && onClose()}>
-      <DrawerContent>
-        <DrawerHeader className="gap-1">
-          <DrawerTitle>{displayItem.requestNumber}</DrawerTitle>
-          <DrawerDescription>
-            Detail Permintaan
+    <Drawer open={open} onOpenChange={(val) => { if (!val) onClose() }}>
+      <DrawerContent className="max-h-[85svh] flex flex-col">
+        {/* Header */}
+        <DrawerHeader className="text-left shrink-0 pb-2">
+          <div className="flex items-center justify-between">
+            <DrawerTitle className="text-lg font-bold">{displayItem.requestNumber}</DrawerTitle>
+            <Badge variant="secondary" className={cn(
+              "uppercase text-xs font-bold px-2.5 py-1",
+              displayItem.status?.toLowerCase() === "menunggu" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400" :
+                displayItem.status?.toLowerCase() === "siap" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400" :
+                  displayItem.status?.toLowerCase() === "selesai" || displayItem.status?.toLowerCase() === "diterima" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" :
+                    displayItem.status?.toLowerCase() === "ditolak" ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400" :
+                      "bg-muted text-muted-foreground"
+            )}>
+              {displayItem.status}
+            </Badge>
+          </div>
+          <DrawerDescription className="mt-1">
+            {displayItem.requesterName} · {displayItem.partnerCategory} · {new Date(displayItem.requestedAt).toLocaleDateString("id-ID")}
           </DrawerDescription>
         </DrawerHeader>
-        <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 text-sm min-h-[150px] justify-center">
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-3">
+          {/* BAST Actions */}
+          <BastActions request={displayItem} onStatusChange={onStatusChange} />
+
+          {/* Rejection Reason Banner */}
+          {displayItem.status?.toLowerCase() === "ditolak" && displayItem.rejectionReason && (
+            <div className="p-3.5 bg-destructive/10 rounded-xl text-sm text-destructive border border-destructive/20 flex flex-col gap-1">
+              <span className="font-semibold text-xs flex items-center gap-1.5">
+                <span className="size-4 rounded-full bg-destructive/20 flex items-center justify-center text-[10px]">!</span>
+                Alasan Penolakan:
+              </span>
+              <p className="text-foreground/90 font-medium text-xs leading-relaxed">{displayItem.rejectionReason}</p>
+            </div>
+          )}
+
+          {/* Notes */}
+          {displayItem.notes && displayItem.notes !== "-" && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-500/10 rounded-xl text-sm text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/20">
+              <span className="font-semibold">Catatan: </span>{displayItem.notes}
+            </div>
+          )}
+
+          {/* Items */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+            <div className="flex items-center justify-center py-10 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Memuat detail alokasi...</span>
+              <span className="text-sm">Memuat detail...</span>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {['SIAP', 'SELESAI', 'DITERIMA'].includes(displayItem.status?.toUpperCase() || "") ? (
-                <div className="rounded-lg border overflow-hidden overflow-x-auto">
-                  <Table className="whitespace-nowrap">
-                    <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-12">No</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Nama Material</TableHead>
-                        <TableHead>Material Number</TableHead>
-                        <TableHead>Merek</TableHead>
-                        <TableHead className="text-right">Jumlah</TableHead>
-                        <TableHead className="text-right">Satuan</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayItem.requestAllocations && displayItem.requestAllocations.length > 0 ? (
-                        displayItem.requestAllocations.map((ra, idx) => (
-                          <TableRow key={ra.id}>
-                            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{ra.materialCategory}</TableCell>
-                            <TableCell className="truncate max-w-[200px]" title={ra.materialName}>{ra.materialName}</TableCell>
-                            <TableCell className="font-medium text-muted-foreground" title={ra.materialNumber}>{ra.materialNumber}</TableCell>
-                            <TableCell>{ra.brand}</TableCell>
-                            <TableCell className="text-right font-medium">{ra.quantity}</TableCell>
-                            <TableCell className="text-right font-medium">{ra.unit}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                            Belum ada alokasi material spesifik.
-                          </TableCell>
-                        </TableRow>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Daftar Barang</p>
+              {['SIAP', 'SELESAI', 'DITERIMA'].includes(displayItem.status?.toUpperCase() || "") && displayItem.requestAllocations && displayItem.requestAllocations.length > 0 ? (
+                displayItem.requestAllocations.map((ra, idx) => (
+                  <div key={ra.id} className="bg-muted/40 dark:bg-zinc-900/60 border border-border/60 rounded-xl p-3 flex items-center gap-3">
+                    <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted w-7 h-7 rounded-full flex items-center justify-center">{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{ra.materialName || ra.brand || "-"}</p>
+                      <p className="text-xs text-muted-foreground">{ra.materialCategory} · {ra.materialNumber}</p>
+                      {ra.serialNumber && ra.serialNumber !== "-" && (
+                        <p className="text-[11px] font-mono text-primary/90 mt-0.5">SN: {ra.serialNumber}</p>
                       )}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : displayItem.status?.toUpperCase() === 'DISETUJUI' ? (
-                <div className="rounded-lg border overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-12">No</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Merek</TableHead>
-                        <TableHead>Tipe/Model</TableHead>
-                        <TableHead className="text-right">Jumlah</TableHead>
-                        <TableHead className="text-right">Satuan</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayItem.requestItems && displayItem.requestItems.length > 0 ? (
-                        displayItem.requestItems.map((ri, idx) => (
-                          <TableRow key={ri.id}>
-                            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{ri.category}</TableCell>
-                            <TableCell>{ri.brand}</TableCell>
-                            <TableCell>{ri.model || "-"}</TableCell>
-                            <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
-                            <TableCell className="text-right font-medium">{ri.unit}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                            Tidak ada item.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-bold">{ra.quantity}</p>
+                      <p className="text-xs text-muted-foreground">{ra.unit}</p>
+                    </div>
+                  </div>
+                ))
               ) : displayItem.requestItems && displayItem.requestItems.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-12">No</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Merek</TableHead>
-                        <TableHead>Tipe/Model</TableHead>
-                        <TableHead className="text-right">Jumlah</TableHead>
-                        <TableHead className="text-right">Satuan</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayItem.requestItems.map((ri, idx) => (
-                        <TableRow key={ri.id}>
-                          <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                          <TableCell className="font-medium">{ri.category}</TableCell>
-                          <TableCell>{ri.brand}</TableCell>
-                          <TableCell>{ri.model || "-"}</TableCell>
-                          <TableCell className="text-right font-medium">{ri.quantity}</TableCell>
-                          <TableCell className="text-right font-medium">{ri.unit}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                displayItem.requestItems.map((ri, idx) => (
+                  <div key={ri.id} className="bg-muted/40 dark:bg-zinc-900/60 border border-border/60 rounded-xl p-3 flex items-center gap-3">
+                    <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted w-7 h-7 rounded-full flex items-center justify-center">{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{ri.brand || "-"}</p>
+                      <p className="text-xs text-muted-foreground">{ri.category}{ri.model && ri.model !== "-" ? ` · ${ri.model}` : ""}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-bold">{ri.quantity}</p>
+                      <p className="text-xs text-muted-foreground">{ri.unit}</p>
+                    </div>
+                  </div>
+                ))
               ) : (
-                <p className="text-muted-foreground italic">Tidak ada item.</p>
+                <p className="text-muted-foreground italic text-sm px-1">Tidak ada item.</p>
               )}
             </div>
           )}
         </div>
-        <DrawerFooter className="w-full pt-2">
-          <div className="flex w-full gap-2">
-            {['MENUNGGU'].includes(displayItem.status?.toUpperCase() || "") && (
+
+        <DrawerFooter className="shrink-0 p-4 pb-12 bg-background border-t shadow-[0_-4px_20px_-8px_rgba(0,0,0,0.15)]">
+          <div className="flex w-full gap-3">
+            {isAdmin && ['MENUNGGU'].includes(displayItem.status?.toUpperCase() || "") && (
               <>
-                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Disetujui")}>Setujui</Button>
-                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Ditolak", true)}>Batalkan Permintaan</Button>
+                <Button className="flex-1 h-12 font-bold text-sm bg-primary text-primary-foreground shadow-md" onClick={() => { navigate(`/request/${displayItem.id}/prepare`); onClose(); }}>Siapkan Material</Button>
+                <Button variant="destructive" className="flex-1 h-12 font-bold text-sm shadow-md" onClick={() => setRejectModalOpen(true)}>Tolak</Button>
               </>
             )}
-            {
-              ['DISETUJUI'].includes(displayItem.status?.toUpperCase() || "") && (
-                <>
-                  <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Siapkan</Button>
-                  <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
-                </>
-              )
-            }
-            {
-              ['SIAP'].includes(displayItem.status?.toUpperCase() || "") && (
-                <>
-                  <Button variant="default" className="flex-1 cursor-pointer" onClick={() => navigate(`/request/${displayItem.id}/prepare`)}>Edit</Button>
-                  <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
-                </>
-              )
-            }
+            {isAdmin && ['SIAP'].includes(displayItem.status?.toUpperCase() || "") && (
+              <>
+                <Button className="flex-1 h-12 font-bold text-sm bg-primary text-primary-foreground shadow-md" onClick={() => { navigate(`/request/${displayItem.id}/prepare`); onClose(); }}>Edit Alokasi</Button>
+                <Button variant="destructive" className="flex-1 h-12 font-bold text-sm shadow-md" onClick={() => handleAction("Dibatalkan", true)}>Batalkan</Button>
+              </>
+            )}
             <DrawerClose asChild>
-              <Button variant="outline" className="flex-1 cursor-pointer">Tutup</Button>
+              <Button variant="outline" className="flex-1 h-12 font-bold text-sm border-border/60">Tutup</Button>
             </DrawerClose>
           </div>
         </DrawerFooter>
       </DrawerContent>
+
+      <RejectRequestModal
+        isOpen={rejectModalOpen}
+        onOpenChange={setRejectModalOpen}
+        onSubmit={(reason) => {
+          handleAction("Ditolak", false, reason)
+          setRejectModalOpen(false)
+        }}
+      />
     </Drawer>
   )
 }

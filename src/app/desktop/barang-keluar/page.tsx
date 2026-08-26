@@ -24,6 +24,8 @@ export default function BarangKeluarPage() {
           setSelectedPartnerId={logic.setSelectedPartnerId}
           keterangan={logic.keterangan}
           setKeterangan={logic.setKeterangan}
+          ticketGangguan={logic.ticketGangguan}
+          setTicketGangguan={logic.setTicketGangguan}
           focusKodeBarangInput={logic.focusKodeBarangInput}
         />
 

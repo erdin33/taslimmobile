@@ -1,6 +1,6 @@
-# Tauri + React + Typescript
+# taslimmobile
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Tauri + React + Typescript mobile & desktop inventory management application.
 
 ## Recommended IDE Setup
 

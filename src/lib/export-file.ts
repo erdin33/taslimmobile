@@ -48,14 +48,14 @@ export async function saveExportFile({
       data = contents;
     }
 
-    const path = await invoke<string>("save_arxiva_file", {
+    const path = await invoke<string>("save_taslim_file", {
       subfolder: "excel",
       filename: fileName,
       data,
     });
     return { saved: true, path };
   } catch (error) {
-    console.error("Gagal menyimpan file ekspor ke folder arxiva/excel:", error);
+    console.error("Gagal menyimpan file ekspor ke folder taslim/excel:", error);
     return { saved: false };
   }
 }

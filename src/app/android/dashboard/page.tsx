@@ -3,8 +3,21 @@ import { ChartBarMixed } from "@/features/dashboard/components/bar-chart"
 import { ChartInboundOutbound } from "@/features/dashboard/components/chart-inbound-outbound"
 import { RequestSection } from "@/features/dashboard/components/RequestSection"
 import { ActivityFeedCard } from "@/features/dashboard/components/ActivityFeedCard"
+import { LeaderboardCard } from "@/features/dashboard/components/LeaderboardCard"
+import { IdleStockAlert } from "@/features/dashboard/components/IdleStockAlert"
+import { ProductivityTable } from "@/features/dashboard/components/ProductivityTable"
 import { useDashboard } from "./use-dashboard"
 import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
+import { AlertCircle } from "lucide-react"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function DashboardPage() {
     const {
@@ -12,6 +25,7 @@ export default function DashboardPage() {
         transactions,
         inventoryStats,
         mitraDistribution,
+        mitraPerformanceMetrics,
         transactionSeries,
         timeRange,
         setTimeRange,
@@ -20,10 +34,47 @@ export default function DashboardPage() {
         recentTransactions,
         isLoadingRequests,
         isLoadingActivity,
+        isLoading,
     } = useDashboard();
 
+    const [showStockAlert, setShowStockAlert] = useState(false);
+
+    useEffect(() => {
+        if (!isLoading && user?.role?.toLowerCase() === "mitra") {
+            const hasShown = sessionStorage.getItem("hasShownStockAlert");
+            if (!hasShown && inventoryStats.tersedia < 3) {
+                setShowStockAlert(true);
+                sessionStorage.setItem("hasShownStockAlert", "true");
+            }
+        }
+    }, [isLoading, user, inventoryStats.tersedia]);
+
     return (
-        <div className="@container/main flex flex-col gap-4 p-4 md:gap-6 md:p-6 lg:p-8">
+        <div className="@container/main flex flex-col gap-4 p-4 pb-28 md:gap-6 md:p-6 md:pb-32 lg:p-8 lg:pb-32 min-h-[100dvh] overflow-y-auto">
+            
+            <AlertDialog open={showStockAlert} onOpenChange={setShowStockAlert}>
+                <AlertDialogContent className="w-[90%] max-w-[400px] rounded-3xl p-6">
+                    <div className="flex flex-col items-center text-center space-y-4">
+                        <div className="size-16 rounded-full bg-amber-100 flex items-center justify-center">
+                            <AlertCircle className="size-8 text-amber-600" />
+                        </div>
+                        <div className="space-y-2">
+                            <AlertDialogTitle className="text-xl font-bold">Stok Menipis!</AlertDialogTitle>
+                            <AlertDialogDescription className="text-base">
+                                Sisa kuota stok Anda saat ini kurang dari 3 unit ({inventoryStats.tersedia} tersedia).
+                                Segera ajukan permintaan barang ke gudang pusat.
+                            </AlertDialogDescription>
+                        </div>
+                    </div>
+                    <AlertDialogFooter className="sm:justify-center mt-6">
+                        <AlertDialogAction className="w-full sm:w-auto h-12 rounded-xl text-base font-semibold">
+                            Mengerti
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Row 1: Section KPI Cards */}
             <SectionCards
                 stats={inventoryStats}
                 totalLabel={
@@ -32,6 +83,27 @@ export default function DashboardPage() {
                         : "Total Aset"
                 }
             />
+
+            {/* Idle Stock Alert (Admin only) */}
+            {user?.role !== "mitra" && (
+                <IdleStockAlert metrics={mitraPerformanceMetrics} isLoading={isLoading} />
+            )}
+
+            {/* Row: Mitra Performance - Top Velocity & Productivity Table (Admin only) */}
+            {user?.role !== "mitra" && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <LeaderboardCard
+                        metrics={mitraPerformanceMetrics}
+                        isLoading={isLoading}
+                        className="lg:col-span-1"
+                    />
+                    <ProductivityTable
+                        metrics={mitraPerformanceMetrics}
+                        isLoading={isLoading}
+                        className="lg:col-span-2"
+                    />
+                </div>
+            )}
 
             {/* Row 2: Charts (50/50) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

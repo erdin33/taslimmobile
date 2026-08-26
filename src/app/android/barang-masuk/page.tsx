@@ -13,11 +13,20 @@ export default function BarangMasukPage() {
   const [openScanner, setOpenScanner] = useState(false);
   const processedCodesRef = useRef<Set<string>>(new Set());
   
-  // Custom scanner handler that delegates to logic.handleSubmit
   const handleScanSuccess = useCallback(async (scannedCode: string | string[]) => {
+    const isValidIdentifier = (code: string) => {
+      if (!logic.dbBrands || logic.dbBrands.length === 0) return true; // fallback if not loaded
+      const normalizedCode = code.trim().toUpperCase();
+      return logic.dbBrands.some((brand) => {
+        const id = brand.identifier?.trim().toUpperCase();
+        return id && normalizedCode.startsWith(id);
+      });
+    };
+
     if (Array.isArray(scannedCode)) {
       let count = 0;
       for (const code of scannedCode) {
+        if (!isValidIdentifier(code)) continue;
         if (processedCodesRef.current.has(code)) continue;
         processedCodesRef.current.add(code);
         setTimeout(() => { processedCodesRef.current.delete(code); }, 2000);
@@ -25,9 +34,12 @@ export default function BarangMasukPage() {
         await logic.handleSubmit(code);
         count++;
       }
-      return { success: count > 0, message: count > 0 ? `Berhasil memproses ${count} barcode.` : "Tidak ada barcode baru." };
+      return { success: count > 0, message: count > 0 ? `Berhasil memproses ${count} barcode.` : "Tidak ada barcode valid." };
     } else {
       const codeToProcess = scannedCode;
+      if (!isValidIdentifier(codeToProcess)) {
+        return { success: false, ignored: true, message: "Bukan identifier yang valid" };
+      }
       if (processedCodesRef.current.has(codeToProcess)) return { success: false, ignored: true, message: "Sudah discan di sesi ini" };
       processedCodesRef.current.add(codeToProcess);
       setTimeout(() => { processedCodesRef.current.delete(codeToProcess); }, 2000);
@@ -78,6 +90,10 @@ export default function BarangMasukPage() {
           handleSubmit={logic.handleSubmit}
           itemCondition={logic.itemCondition}
           setItemCondition={logic.setItemCondition}
+          paNumber={logic.paNumber}
+          setPaNumber={logic.setPaNumber}
+          ticketGangguan={logic.ticketGangguan}
+          setTicketGangguan={logic.setTicketGangguan}
           tipeBarang={logic.tipeBarang}
           setTipeBarang={logic.setTipeBarang}
           brand={logic.brand}
@@ -109,6 +125,7 @@ export default function BarangMasukPage() {
 
         {/* Use the shared ScannedItemsTable for identical UI to desktop */}
         <ScannedItemsTable
+          user={logic.user}
           barangMasuk={logic.session.barangMasuk}
           dbBrands={logic.dbBrands}
           dbCategories={logic.dbCategories}

@@ -6,7 +6,7 @@ export const getBaseUrl = () => {
 };
 
 export const getHeaders = () => {
-    const token = localStorage.getItem("arxiva-auth-token");
+    const token = localStorage.getItem("taslim-auth-token");
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
     };
@@ -18,9 +18,15 @@ export const getHeaders = () => {
 
 export const DashboardService = {
     async fetchTransactions() {
-        const res = await fetch(`${getBaseUrl()}/transactions`, { method: "GET", headers: getHeaders() });
-        const raw = await res.json();
-        return Array.isArray(raw.data || raw) ? (raw.data || raw) : [];
+        try {
+            const res = await fetch(`${getBaseUrl()}/transactions`, { method: "GET", headers: getHeaders() });
+            if (!res.ok) return [];
+            const raw = await res.json();
+            return Array.isArray(raw.data || raw) ? (raw.data || raw) : [];
+        } catch (e) {
+            console.error("Failed to fetch transactions:", e);
+            return [];
+        }
     },
     async fetchItems() {
         const res = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() });
@@ -66,8 +72,14 @@ export const DashboardService = {
     },
     
     async fetchMitraPerformance() {
-        const res = await fetch(`${getBaseUrl()}/dashboard/stats/mitra-performance`, { method: "GET", headers: getHeaders() });
-        const raw = await res.json();
-        return Array.isArray(raw.data) ? raw.data : [];
+        try {
+            const res = await fetch(`${getBaseUrl()}/dashboard/stats/mitra-performance`, { method: "GET", headers: getHeaders() });
+            if (!res.ok) return [];
+            const raw = await res.json();
+            return Array.isArray(raw.data) ? raw.data : [];
+        } catch (e) {
+            console.error("Failed to fetch mitra performance:", e);
+            return [];
+        }
     }
 };

@@ -9,7 +9,7 @@ import type { BrandDefinition, LocationDefinition, LokasiOption } from "@/types/
 
 interface ScannedTableRowProps {
   item: BarangMasukItem;
-  index: number;
+  index?: number;
   dbBrands: BrandDefinition[];
   dbCategories: string[];
   dbModels: any[];
@@ -20,11 +20,11 @@ interface ScannedTableRowProps {
   handleUpdateLokasi: (id: number, val: LokasiOption) => void;
   handleDeleteItem: (id: number) => void;
   focusKodeBarangInput: () => void;
+  isMitra?: boolean;
 }
 
 export const ScannedTableRow = memo(({
   item,
-  index,
   dbBrands,
   dbCategories,
   dbModels,
@@ -34,12 +34,38 @@ export const ScannedTableRow = memo(({
   handleUpdateInline,
   handleUpdateLokasi,
   handleDeleteItem,
-  focusKodeBarangInput
+  focusKodeBarangInput,
+  isMitra,
 }: ScannedTableRowProps) => {
   return (
     <TableRow>
-      <TableCell className="font-medium">{index + 1}</TableCell>
-      <TableCell className="text-muted-foreground">{item.nomor}</TableCell>
+      <TableCell className="font-medium">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-sm text-foreground">{item.nomor}</span>
+          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+            {item.kondisi && (
+              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-semibold ${
+                item.kondisi.toLowerCase() === "rusak"
+                  ? "bg-red-500/10 text-red-600 border-red-500/20"
+                  : item.kondisi.toLowerCase() === "dismantle"
+                  ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                  : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+              }`}>
+                {item.kondisi}
+              </Badge>
+            )}
+            {item.paNumber && (
+              <span className="text-[10px] font-mono text-muted-foreground bg-muted/60 px-1 py-0.2 rounded border">PA: {item.paNumber}</span>
+            )}
+            {item.ticketGangguan && (
+              <span className="text-[10px] font-mono text-destructive bg-destructive/10 px-1 py-0.2 rounded border border-destructive/20">Tiket: {item.ticketGangguan}</span>
+            )}
+          </div>
+          {item.catatan && (
+            <span className="text-[11px] text-muted-foreground italic mt-0.5 truncate max-w-45" title={item.catatan}>Ket: {item.catatan}</span>
+          )}
+        </div>
+      </TableCell>
       <TableCell>
         {item.source === "Baru" ? (
           <Select value={item.merek} onValueChange={(val) => handleUpdateInline(item.id, "merek", val)}>
@@ -78,39 +104,43 @@ export const ScannedTableRow = memo(({
       </TableCell>
       <TableCell>{item.asal || asalBarang}</TableCell>
       <TableCell>
-        <Select
-          value={item.lokasi}
-          onValueChange={(value) => {
-            const selectedLokasi = value as LokasiOption;
-            handleUpdateLokasi(item.id, selectedLokasi);
-            focusKodeBarangInput();
-          }}
-        >
-          <SelectTrigger className="w-220px">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
-                <SelectItem value={item.lokasi}>
-                  {item.lokasi}
-                </SelectItem>
-              )}
-              {dbLocations.map((lokasi) => {
-                const isDisabled = kuota[lokasi.name] <= 0;
-                return (
-                  <SelectItem
-                    key={lokasi.name}
-                    value={lokasi.name}
-                    disabled={isDisabled}
-                  >
-                    {lokasi.name}{isDisabled ? " (Kuota penuh)" : ""}
+        {isMitra ? (
+          <div className="font-medium text-sm text-foreground">SBU Regional Jawa Barat</div>
+        ) : (
+          <Select
+            value={item.lokasi}
+            onValueChange={(value) => {
+              const selectedLokasi = value as LokasiOption;
+              handleUpdateLokasi(item.id, selectedLokasi);
+              focusKodeBarangInput();
+            }}
+          >
+            <SelectTrigger className="w-220px">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {!dbLocations.some((lokasi) => lokasi.name === item.lokasi) && (
+                  <SelectItem value={item.lokasi}>
+                    {item.lokasi}
                   </SelectItem>
-                );
-              })}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+                )}
+                {dbLocations.map((lokasi) => {
+                  const isDisabled = kuota[lokasi.name] <= 0;
+                  return (
+                    <SelectItem
+                      key={lokasi.name}
+                      value={lokasi.name}
+                      disabled={isDisabled}
+                    >
+                      {lokasi.name}{isDisabled ? " (Kuota penuh)" : ""}
+                    </SelectItem>
+                  );
+                })}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        )}
       </TableCell>
       <TableCell className="text-center">
         <Button

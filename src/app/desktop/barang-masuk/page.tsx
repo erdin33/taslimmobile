@@ -32,6 +32,10 @@ export default function BarangMasukPage() {
           handleSubmit={logic.handleSubmit}
           itemCondition={logic.itemCondition}
           setItemCondition={logic.setItemCondition}
+          paNumber={logic.paNumber}
+          setPaNumber={logic.setPaNumber}
+          ticketGangguan={logic.ticketGangguan}
+          setTicketGangguan={logic.setTicketGangguan}
           tipeBarang={logic.tipeBarang}
           setTipeBarang={logic.setTipeBarang}
           brand={logic.brand}
@@ -46,6 +50,7 @@ export default function BarangMasukPage() {
         />
 
         <ScannedItemsTable
+          user={logic.user}
           barangMasuk={logic.session.barangMasuk}
           dbBrands={logic.dbBrands}
           dbCategories={logic.dbCategories}

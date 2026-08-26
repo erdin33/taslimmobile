@@ -9,6 +9,7 @@ import type { BarangMasukItem } from "@/types/transaction";
 import type { BrandDefinition, LocationDefinition, LokasiOption } from "@/types/inventory";
 
 interface ScannedItemsTableProps {
+  user?: any;
   barangMasuk: BarangMasukItem[];
   dbBrands: BrandDefinition[];
   dbCategories: string[];
@@ -25,6 +26,7 @@ interface ScannedItemsTableProps {
 }
 
 export function ScannedItemsTable({
+  user,
   barangMasuk,
   dbBrands,
   dbCategories,
@@ -39,11 +41,14 @@ export function ScannedItemsTable({
   handleValidateAll,
   focusKodeBarangInput
 }: ScannedItemsTableProps) {
+  const isMitra = user?.role === "mitra";
+  const tableTitle = isMitra ? "Daftar Barang Yang Akan Dikembalikan" : "Daftar Barang Masuk";
+
   return (
     <Card className="@container/card flex flex-1 flex-col @5xl/main:min-h-[calc(100svh-var(--header-height)-15rem)]">
       <CardHeader className="flex flex-col gap-3 border-b pb-4 @lg/card:flex-row @lg/card:items-center @lg/card:justify-between">
         <div className="space-y-1">
-          <CardTitle>Daftar Barang Masuk</CardTitle>
+          <CardTitle>{tableTitle}</CardTitle>
         </div>
         <Badge variant="outline" className="w-fit">
           {barangMasuk.length} Item
@@ -60,8 +65,8 @@ export function ScannedItemsTable({
                 <TableHead>Merek</TableHead>
                 <TableHead>Kategori</TableHead>
                 <TableHead>Model</TableHead>
-                <TableHead>Asal</TableHead>
-                <TableHead>Lokasi</TableHead>
+                <TableHead>{isMitra ? "Asal (Mitra)" : "Asal"}</TableHead>
+                <TableHead>{isMitra ? "Lokasi Tujuan" : "Lokasi"}</TableHead>
                 <TableHead className="w-16 text-center">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -88,6 +93,7 @@ export function ScannedItemsTable({
                     handleUpdateLokasi={handleUpdateLokasi}
                     handleDeleteItem={handleDeleteItem}
                     focusKodeBarangInput={focusKodeBarangInput}
+                    isMitra={isMitra}
                   />
                 ))
               )}

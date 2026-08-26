@@ -21,7 +21,7 @@ const getBaseUrl = () => {
  * @returns {Record<string, string>} Object header HTTP.
  */
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -69,13 +69,13 @@ export default function KategoriBarangPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   useEffect(() => {
-    const savedMode = localStorage.getItem("arxiva_kategori_view_mode") as "grid" | "table" | null;
+    const savedMode = localStorage.getItem("taslim_kategori_view_mode") as "grid" | "table" | null;
     if (savedMode) setViewMode(savedMode);
   }, []);
 
   const handleViewModeChange = (mode: "grid" | "table") => {
     setViewMode(mode);
-    localStorage.setItem("arxiva_kategori_view_mode", mode);
+    localStorage.setItem("taslim_kategori_view_mode", mode);
   };
 
   // Sheet state

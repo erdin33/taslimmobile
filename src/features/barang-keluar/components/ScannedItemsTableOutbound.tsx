@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Archive, PackageMinus, X, Loader2 } from "lucide-react";
 import type { BarangKeluarItem } from "@/types/transaction";
+import { formatItemStatus } from "@/lib/status-helper";
 
 function EmptyScanTableState() {
   return (
@@ -52,69 +53,124 @@ export function ScannedItemsTableOutbound({
       </CardHeader>
 
       <CardContent className="relative flex-1 overflow-auto p-0">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
-            <TableRow>
-              <TableHead className="w-14">No</TableHead>
-              <TableHead>Serial Number</TableHead>
-              <TableHead>Merek</TableHead>
-              <TableHead>Kategori</TableHead>
-              <TableHead>Model Material</TableHead>
-              <TableHead>Asal Lokasi</TableHead>
-              {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
-              {user?.role === "mitra" && <TableHead>PA / Keterangan</TableHead>}
-              <TableHead>{user?.role === "mitra" ? "Status" : "Status Validasi"}</TableHead>
-              <TableHead className="w-16 text-center">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {barangKeluar.length === 0 ? (
+        {/* Desktop View: Table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur-md">
               <TableRow>
-                <TableCell colSpan={9} className="h-[300px] p-0">
-                  <EmptyScanTableState />
-                </TableCell>
+                <TableHead className="w-14">No</TableHead>
+                <TableHead>Serial Number</TableHead>
+                <TableHead>Merek</TableHead>
+                <TableHead>Kategori</TableHead>
+                {user?.role !== "mitra" && <TableHead>Model Material</TableHead>}
+                {user?.role !== "mitra" && <TableHead>Asal Lokasi</TableHead>}
+                {user?.role !== "mitra" && <TableHead>Mitra</TableHead>}
+                {user?.role === "mitra" && <TableHead>Nomor PA / Keterangan</TableHead>}
+                <TableHead>{user?.role === "mitra" ? "Status" : "Status Validasi"}</TableHead>
+                <TableHead className="w-16 text-center">Aksi</TableHead>
               </TableRow>
-            ) : (
-              barangKeluar.map((item, index) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{index + 1}</TableCell>
-                  <TableCell className="font-mono">{item.nomor}</TableCell>
-                  <TableCell>{item.merek}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
-                      {item.kategori}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{item.tipe || "-"}</TableCell>
-                  <TableCell>{item.lokasi}</TableCell>
-                  {user?.role !== "mitra" && <TableCell>{item.mitra}</TableCell>}
-                  {user?.role === "mitra" && <TableCell>{item.keterangan}</TableCell>}
-                  <TableCell>
-                    <Badge variant="secondary" className="gap-1.5 font-normal px-2.5 py-0.5">
-                      <div
-                        className={`size-1.5 rounded-full ${
-                          user?.role === "mitra" ? "bg-sky-500" : "bg-emerald-500"
-                        }`}
-                      />
-                      {user?.role === "mitra" ? "Diluar" : item.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDeleteItem(item.id as number)}
-                    >
-                      <X className="size-4" />
-                      <span className="sr-only">Hapus item</span>
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {barangKeluar.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="h-[300px] p-0">
+                    <EmptyScanTableState />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                barangKeluar.map((item, index) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell className="font-mono">{item.nomor}</TableCell>
+                    <TableCell>{item.merek}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
+                        {item.kategori}
+                      </Badge>
+                    </TableCell>
+                    {user?.role !== "mitra" && <TableCell className="text-sm text-muted-foreground">{item.tipe || "-"}</TableCell>}
+                    {user?.role !== "mitra" && <TableCell className="text-sm">{item.lokasi}</TableCell>}
+                    {user?.role !== "mitra" && <TableCell className="text-sm font-medium">{item.mitra}</TableCell>}
+                    {user?.role === "mitra" && <TableCell className="text-sm">{item.keterangan}</TableCell>}
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className="gap-1.5 font-normal px-2.5 py-0.5 border-none bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400"
+                      >
+                        <div
+                          className={`size-1.5 rounded-full ${user?.role === "mitra" ? "bg-emerald-500" : "bg-emerald-500"}`}
+                        />
+                        {formatItemStatus(item.status, user?.role)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteItem(item.id as number)}
+                      >
+                        <X className="size-4" />
+                        <span className="sr-only">Hapus item</span>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile View: Card List */}
+        <div className="flex flex-col gap-3 p-4 md:hidden">
+          {barangKeluar.length === 0 ? (
+            <div className="py-8"><EmptyScanTableState /></div>
+          ) : (
+            barangKeluar.map((item, index) => (
+              <div key={item.id} className="relative flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                      {index + 1}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="font-mono text-sm font-bold tracking-tight text-foreground">{item.nomor}</span>
+                      <span className="text-xs text-muted-foreground line-clamp-1">{item.merek} &bull; {item.kategori}</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => handleDeleteItem(item.id as number)}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {user?.role === "mitra" && item.keterangan && (
+                    <Badge variant="outline" className="font-mono text-[10px] uppercase text-muted-foreground bg-muted/30">
+                      PA: {item.keterangan}
+                    </Badge>
+                  )}
+                  {user?.role !== "mitra" && (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground bg-muted/30">
+                      Ke: {item.mitra}
+                    </Badge>
+                  )}
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto gap-1.5 font-normal px-2 py-0.5 border-none bg-emerald-500/10 text-[10px] text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                  >
+                    <div className="size-1.5 rounded-full bg-emerald-500" />
+                    {formatItemStatus(item.status, user?.role)}
+                  </Badge>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </CardContent>
 
       <CardFooter className="shrink-0 flex-col items-start justify-between gap-4 border-t bg-muted/20 p-4 sm:flex-row sm:items-center">

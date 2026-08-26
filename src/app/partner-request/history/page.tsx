@@ -12,6 +12,9 @@ import {
   Pencil,
   RefreshCw,
   Search,
+  Calendar,
+  Package,
+  CheckCircle2,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,8 +31,11 @@ import { api, getBaseUrl } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { DigitalSignatureDialog } from "@/app/request/components/DigitalSignatureDialog"
+import { PengambilanMitraModal } from "@/features/transactions/components/PengambilanMitraModal"
+import { PackageCheck } from "lucide-react"
 import type { AuthUser } from "@/types/auth"
 import type { DashboardRequest, RequestItem } from "@/types/transaction"
+import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 10
 
@@ -135,6 +141,8 @@ const normalizeRequest = (value: unknown): DashboardRequest => {
   const requesterProfile = asRecord(requester.profile)
   const rawItems = Array.isArray(request.requestItems) ? request.requestItems : []
   const requestItems = rawItems.map(normalizeRequestItem)
+  const requestAllocations = Array.isArray(request.requestAllocations) ? request.requestAllocations : []
+
   const adminRemarks = readFirstText(
     request.adminRemarks,
     request.adminNotes,
@@ -173,9 +181,11 @@ const normalizeRequest = (value: unknown): DashboardRequest => {
     status: readFirstText(request.status, "Menunggu"),
     notes: readFirstText(request.notes),
     adminRemarks: adminRemarks || undefined,
+    rejectionReason: adminRemarks || undefined,
     requestedAt: readFirstText(request.requestedAt, request.createdAt, request.updatedAt),
     requestedDeliveryDate: readFirstText(request.requestedDeliveryDate),
     requestItems,
+    requestAllocations: requestAllocations as any[],
     deliveryDocument,
   }
 }
@@ -236,6 +246,7 @@ const getItemsSummary = (request: DashboardRequest) => {
 }
 
 const getAdminRemarks = (request: DashboardRequest) => {
+  if (request.rejectionReason?.trim()) return request.rejectionReason
   if (request.adminRemarks?.trim()) return request.adminRemarks
 
   const statusKey = getStatusKey(request.status)
@@ -290,6 +301,15 @@ export default function PartnerRequestHistoryPage() {
   const [signDialogOpen, setSignDialogOpen] = useState(false)
   const [signingRequestId, setSigningRequestId] = useState<string | null>(null)
   const [openingPdfId, setOpeningPdfId] = useState<string | null>(null)
+  
+  // Validasi & Ambil (Scanner) state
+  const [validasiMitraOpen, setValidasiMitraOpen] = useState(false)
+  const [activeRequest, setActiveRequest] = useState<DashboardRequest | null>(null)
+
+  const handleOpenValidasi = useCallback((req: DashboardRequest) => {
+    setActiveRequest(req)
+    setValidasiMitraOpen(true)
+  }, [])
 
   const fetchRequests = useCallback(async () => {
     if (!user) {
@@ -329,7 +349,7 @@ export default function PartnerRequestHistoryPage() {
   const handleOpenBastPdf = useCallback(async (requestId: string) => {
     setOpeningPdfId(requestId)
     try {
-      const token = localStorage.getItem("arxiva-auth-token") || ""
+      const token = localStorage.getItem("taslim-auth-token") || ""
       const url = `${getBaseUrl()}/requests/${requestId}/bast-pdf?token=${token}`
       await openUrl(url)
     } catch {
@@ -339,10 +359,7 @@ export default function PartnerRequestHistoryPage() {
     }
   }, [])
 
-  const handleOpenSignDialog = useCallback((requestId: string) => {
-    setSigningRequestId(requestId)
-    setSignDialogOpen(true)
-  }, [])
+
 
   const handleSignComplete = useCallback(async (signatureDataUrl?: string) => {
     if (!signingRequestId) return
@@ -406,17 +423,17 @@ export default function PartnerRequestHistoryPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-fade-in bg-background/50 min-h-full">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Riwayat Permintaan</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Riwayat Permintaan</h1>
+          <p className="mt-1 text-sm text-muted-foreground font-medium">
             Pantau status semua permintaan material yang telah Anda ajukan
           </p>
         </div>
         <Button
           id="btn-ajukan-request-baru"
-          className="shrink-0 gap-2 cursor-pointer"
+          className="shrink-0 gap-2 cursor-pointer mt-2 sm:mt-0 rounded-xl shadow-lg shadow-primary/20 font-bold"
           onClick={() => navigate("/partner-request/new")}
         >
           <FilePlus className="h-4 w-4" />
@@ -424,13 +441,13 @@ export default function PartnerRequestHistoryPage() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-[9px] size-4 text-muted-foreground" />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-4 top-[14px] size-[18px] text-muted-foreground" />
           <Input
             id="search-request-history"
             placeholder="Cari no. request atau item..."
-            className="pl-9"
+            className="pl-11 h-12 rounded-xl bg-card border-border shadow-sm text-[15px] focus-visible:ring-primary/30"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -438,16 +455,17 @@ export default function PartnerRequestHistoryPage() {
         <Button
           variant="outline"
           size="icon"
-          className="cursor-pointer"
+          className="cursor-pointer h-12 w-12 rounded-xl bg-card border-border shadow-sm hover:bg-accent"
           onClick={fetchRequests}
           disabled={isLoading}
           aria-label="Muat ulang riwayat permintaan"
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-5 w-5 ${isLoading ? "animate-spin text-primary" : "text-muted-foreground"}`} />
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
+      {/* DESKTOP VIEW: Table */}
+      <div className="hidden md:block overflow-hidden rounded-lg border">
         <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -571,17 +589,17 @@ export default function PartnerRequestHistoryPage() {
                             BAST
                           </Button>
 
-                          {/* PIC Sign button — only on SIAP */}
+                          {/* PIC Sign / Validasi button — only on SIAP */}
                           {canSign && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
-                              title="Tanda tangani BAST"
-                              onClick={() => handleOpenSignDialog(req.id)}
+                              title="Validasi & Ambil Barang"
+                              onClick={() => handleOpenValidasi(req)}
                             >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Tanda Tangan
+                              <PackageCheck className="h-3.5 w-3.5" />
+                              Validasi (Mitra)
                             </Button>
                           )}
 
@@ -606,6 +624,145 @@ export default function PartnerRequestHistoryPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* MOBILE VIEW: Vertical Cards */}
+      <div className="md:hidden flex flex-col gap-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32 gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Memuat riwayat permintaan...</span>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center gap-3 h-48 justify-center text-muted-foreground bg-muted/30 rounded-xl border border-dashed">
+            <AlertTriangle className="h-10 w-10 text-destructive/70" />
+            <p className="text-sm font-medium">{loadError}</p>
+            <Button size="sm" variant="outline" className="mt-1 gap-1.5" onClick={fetchRequests}>
+              <RefreshCw className="h-4 w-4" /> Muat Ulang
+            </Button>
+          </div>
+        ) : paginatedRequests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 h-48 bg-muted/30 rounded-xl border border-dashed text-muted-foreground">
+            <ClipboardList className="h-10 w-10 opacity-30" />
+            {searchTerm ? (
+              <p className="text-sm">Tidak ada hasil pencarian</p>
+            ) : (
+              <div className="text-center flex flex-col items-center gap-2">
+                <p className="text-sm font-medium">Belum ada permintaan</p>
+                <Button size="sm" className="mt-1 gap-1.5" onClick={() => navigate("/partner-request/new")}>
+                  <FilePlus className="h-4 w-4" /> Ajukan Request
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          paginatedRequests.map((req) => {
+            const itemSummary = getItemsSummary(req)
+            const adminRemarks = getAdminRemarks(req)
+            const statusUpper = req.status?.toUpperCase?.()?.trim() ?? ""
+            const hasBast = ["SIAP", "SELESAI", "DITERIMA"].includes(statusUpper)
+            const canSign = statusUpper === "SIAP" && !req.deliveryDocument?.picSignedById
+            const isSigned = !!req.deliveryDocument?.picSignedById
+            const isOpeningPdf = openingPdfId === req.id
+
+            return (
+              <div
+                key={req.id || req.requestNumber}
+                className="group relative overflow-hidden flex flex-col bg-card border border-border rounded-2xl shadow-sm transition-all active:scale-[0.98]"
+              >
+                {/* Header Card (No Request & Status) */}
+                <div className="flex justify-between items-start p-4 pb-3 border-b border-border/50 bg-muted/20">
+                  <div className="flex flex-col gap-1 pr-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                      <FileText className="w-3 h-3" />
+                      {req.requestNumber || "-"}
+                    </span>
+                    <h3 className="text-[15px] font-bold text-foreground leading-snug line-clamp-2 mt-1">
+                      {itemSummary}
+                    </h3>
+                  </div>
+                  <div className="shrink-0 mt-0.5">
+                    <StatusBadge status={req.status} />
+                  </div>
+                </div>
+
+                {/* Body Details */}
+                <div className="p-4 flex flex-col gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Tanggal</span>
+                      <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4 text-primary/70" />
+                        {formatDate(req.requestedAt)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Total</span>
+                      <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                        <Package className="w-4 h-4 text-primary/70" />
+                        {req.itemsCount ?? "-"} item
+                      </span>
+                    </div>
+                  </div>
+
+                  {adminRemarks && adminRemarks !== "-" && (
+                    <div className={cn(
+                      "p-3 rounded-xl flex items-start gap-2.5 border text-xs",
+                      statusUpper === "DITOLAK"
+                        ? "bg-red-500/10 dark:bg-red-950/40 border-red-500/30 text-red-600 dark:text-red-400"
+                        : "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400"
+                    )}>
+                      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          {statusUpper === "DITOLAK" ? "Alasan Penolakan" : "Catatan Admin"}
+                        </span>
+                        <span className="text-[13px] font-medium leading-relaxed text-foreground/90 dark:text-red-200">
+                          {adminRemarks}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  {hasBast && (
+                    <div className="flex items-center gap-2 mt-2 pt-1 border-t border-border/30">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-10 gap-2 text-[13px] font-semibold flex-1 rounded-xl shadow-sm cursor-pointer hover:bg-primary/5 hover:text-primary hover:border-primary/30"
+                        disabled={isOpeningPdf}
+                        onClick={() => handleOpenBastPdf(req.id)}
+                      >
+                        {isOpeningPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                        Lihat BAST
+                      </Button>
+                      
+                      {canSign && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-10 gap-2 text-[13px] font-bold flex-1 rounded-xl shadow-md cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+                          onClick={() => handleOpenValidasi(req)}
+                        >
+                          <PackageCheck className="h-4 w-4" />
+                          Ambil Barang
+                        </Button>
+                      )}
+                      
+                      {!canSign && isSigned && (
+                        <Badge variant="secondary" className="h-10 gap-1.5 flex-1 justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-none font-bold text-[13px]">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Sudah Validasi
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })
+        )}
       </div>
 
       {!isLoading && filteredRequests.length > PAGE_SIZE && (
@@ -654,6 +811,19 @@ export default function PartnerRequestHistoryPage() {
         description="Berikan tanda tangan Anda sebagai pihak penerima untuk dokumen BAST ini."
         onSignComplete={handleSignComplete}
       />
+
+      {/* Validasi & Ambil (Scanner) Modal */}
+      {activeRequest && (
+        <PengambilanMitraModal
+          isOpen={validasiMitraOpen}
+          onOpenChange={setValidasiMitraOpen}
+          request={activeRequest}
+          onSuccess={() => {
+            fetchRequests()
+            toast.success("Barang berhasil divalidasi dan diambil!")
+          }}
+        />
+      )}
     </div>
   )
 }

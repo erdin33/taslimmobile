@@ -25,6 +25,7 @@ import {
   MapPinHouse,
   PackageMinus,
   PackagePlus,
+  PackageCheck,
   Settings,
   Shapes,
   Zap,
@@ -41,6 +42,14 @@ const data = {
           url: "/barang-masuk",
           icon: (
             <PackagePlus />
+          ),
+          isActive: false,
+        },
+        {
+          title: "Terima Retur",
+          url: "/penerimaan-retur",
+          icon: (
+            <PackageCheck />
           ),
           isActive: false,
         },
@@ -118,6 +127,14 @@ const data = {
       title: "Operasional",
       items: [
         {
+          title: "Pengembalian",
+          url: "/barang-masuk",
+          icon: (
+            <PackagePlus />
+          ),
+          isActive: false,
+        },
+        {
           title: "Barang Keluar",
           url: "/barang-keluar",
           icon: (
@@ -191,7 +208,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip="Arxiva Inventory"
+              tooltip="Taslim Inventory"
               className="pointer-events-none"
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-yellow-300">

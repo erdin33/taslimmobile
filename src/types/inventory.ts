@@ -1,4 +1,4 @@
-export type StatusUnit = "Tersedia" | "Terdistribusi" | "Rusak" | "Hilang";
+export type StatusUnit = "Tersedia" | "Terdistribusi" | "Rusak" | "Hilang" | "Dismantle";
 
 export interface InventoryItem {
   id: string;
@@ -7,6 +7,10 @@ export interface InventoryItem {
   merek: string;
   tipe?: string;
   status: string;
+  kondisi?: string;
+  paNumber?: string;
+  ticketGangguan?: string;
+  catatan?: string;
   lokasiPenyimpanan: string;
   tanggalMasuk: string;
   tanggalKeluar?: string;
@@ -20,6 +24,10 @@ export interface BarangUnit {
   merek: string;
   tipe?: string;
   status: StatusUnit;
+  kondisi?: string;
+  paNumber?: string;
+  ticketGangguan?: string;
+  catatan?: string;
   lokasiPenyimpanan: string;
   tanggalMasuk: string;
   tanggalKeluar?: string;
@@ -102,7 +110,7 @@ export type Level = {
 export type StorageLocation = {
   id: string;
   name: string;
-  type: "Rak" | "Kardus" | "Pallet";
+  type: "Rak" | "Kardus" | "Pallet" | "Mitra";
   isActive: boolean;
   levels?: Level[];
   capacity?: number;

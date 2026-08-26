@@ -8,9 +8,17 @@ const normalizeStatus = (status: string) => status.trim().toLocaleLowerCase("id-
 export const normalizeText = (text?: string | null) => (text || "").trim().toLocaleLowerCase("id-ID");
 export const normalizeOwner = (owner?: string | null) => normalizeText(owner || ADMIN_LOCATION);
 
-export const isOutsideStatus = (status: string) => {
+export const isOutsideStatus = (status: string, role?: string) => {
   const normalizedStatus = normalizeStatus(status);
-  return normalizedStatus === "keluar" || normalizedStatus === "diluar";
+  
+  if (role === "mitra" || role === "Mitra") {
+    // Bagi mitra, barang berstatus "terdistribusi" atau "diluar" adalah barang "Tersedia" untuk dipakai.
+    // Yang tidak boleh dipakai adalah jika sudah "keluar" (sudah dipasang ke pelanggan).
+    return normalizedStatus === "keluar";
+  }
+  
+  // Untuk Admin Gudang, semua status pengiriman ke luar dilarang dikeluarkan dua kali
+  return normalizedStatus === "keluar" || normalizedStatus === "diluar" || normalizedStatus === "terdistribusi";
 };
 
 export const getEntryDateTime = (item: InventoryItem) => {
@@ -36,7 +44,8 @@ export const getQueuedSerialNumbers = (items: BarangKeluarItem[]) =>
 export const findOlderFifoItem = (
   items: InventoryItem[],
   requestedItem: InventoryItem,
-  queuedSerialNumbers: Set<string>
+  queuedSerialNumbers: Set<string>,
+  role?: string
 ) => {
   const requestedSerial = normalizeKodeBarang(requestedItem.serialNumber);
   const requestedEntryTime = getEntryDateTime(requestedItem);
@@ -48,7 +57,7 @@ export const findOlderFifoItem = (
         itemSerial &&
         itemSerial !== requestedSerial &&
         !queuedSerialNumbers.has(itemSerial) &&
-        !isOutsideStatus(item.status) &&
+        !isOutsideStatus(item.status, role) &&
         isSameFifoGroup(item, requestedItem) &&
         getEntryDateTime(item) < requestedEntryTime
       );

@@ -20,7 +20,7 @@ const getBaseUrl = () => {
 };
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -38,15 +38,17 @@ export const isTextInputTarget = (target: EventTarget | null) => {
 export const useBarangKeluarLogic = () => {
   const { user } = useAuth();
   const session = useOutboundSession();
-  
+
   const [kodeBarang, setKodeBarang] = useState("");
   const [kuota, setKuota] = useState<Record<string, number>>({});
+  const [destinationType, setDestinationType] = useState<"PA" | "MITRA">("PA");
   const inputRef = useRef<HTMLInputElement>(null);
   const kodeBarangRef = useRef("");
   const [dbItems, setDbItems] = useState<InventoryItem[]>([]);
   const [dbPartners, setDbPartners] = useState<Partner[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [ticketGangguan, setTicketGangguan] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -114,7 +116,7 @@ export const useBarangKeluarLogic = () => {
               const actualUsed = (Array.isArray(items) ? items : []).filter((item: any) => {
                 if (!item.lokasiPenyimpanan) return false;
                 const st = (item.status || "").trim().toLowerCase();
-                return item.lokasiPenyimpanan.trim() === name.trim() && st !== "diluar" && st !== "keluar";
+                return item.lokasiPenyimpanan.trim() === name.trim() && st !== "diluar" && st !== "keluar" && st !== "terdistribusi";
               }).length;
               newKuota[name] = Math.max(0, lvl.capacity - actualUsed);
             });
@@ -122,7 +124,7 @@ export const useBarangKeluarLogic = () => {
             const actualUsed = (Array.isArray(items) ? items : []).filter((item: any) => {
               if (!item.lokasiPenyimpanan) return false;
               const st = (item.status || "").trim().toLowerCase();
-              return item.lokasiPenyimpanan.trim() === loc.name.trim() && st !== "diluar" && st !== "keluar";
+              return item.lokasiPenyimpanan.trim() === loc.name.trim() && st !== "diluar" && st !== "keluar" && st !== "terdistribusi";
             }).length;
             newKuota[loc.name] = Math.max(0, (loc.capacity || 0) - actualUsed);
           }
@@ -150,7 +152,7 @@ export const useBarangKeluarLogic = () => {
     inputRef.current?.focus();
   }, []);
 
-  const handleSubmit = useCallback(async (kodeOverride = kodeBarang) => {
+  const handleSubmit = useCallback(async (kodeOverride: any = kodeBarang) => {
     let codeStr = kodeBarang;
     if (typeof kodeOverride === "string") {
       codeStr = kodeOverride;
@@ -158,21 +160,27 @@ export const useBarangKeluarLogic = () => {
       codeStr = kodeOverride[0];
     }
     const trimmedKode = codeStr.trim();
-    if (!trimmedKode) return;
+    if (!trimmedKode) return { success: false, message: "Kode barang kosong" };
 
-    const selectedPartner = user?.role === "mitra" ? null : dbPartners.find((partner) => partner.id === selectedPartnerId);
-    const targetMitraName = user?.role === "mitra" ? user.displayName : selectedPartner?.name;
+    const isMitraTargetingMitra = user?.role?.toLowerCase() === "mitra" && destinationType === "MITRA";
+    const selectedPartner = user?.role?.toLowerCase() === "mitra" && !isMitraTargetingMitra 
+      ? null 
+      : dbPartners.find((partner) => partner.id === selectedPartnerId);
 
-    if (!targetMitraName) {
+    const targetMitraName = user?.role?.toLowerCase() === "mitra" && !isMitraTargetingMitra 
+      ? user.displayName 
+      : selectedPartner?.name;
+
+    if (!targetMitraName && (user?.role?.toLowerCase() !== "mitra" || isMitraTargetingMitra)) {
       toast.error("Pilih mitra tujuan sebelum menambahkan barang keluar.");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Pilih mitra tujuan" };
     }
 
-    if (user?.role === "mitra" && !keterangan.trim()) {
+    if (user?.role?.toLowerCase() === "mitra" && destinationType === "PA" && !keterangan.trim()) {
       toast.error("PA / keterangan wajib diisi sebelum menambahkan barang keluar.");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "PA/keterangan wajib diisi" };
     }
 
     const isDuplicate = session.barangKeluar.some(
@@ -183,7 +191,7 @@ export const useBarangKeluarLogic = () => {
       toast.error("Serial number sudah ada di sesi ini.", { description: trimmedKode });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Sudah ada di sesi ini" };
     }
 
     const matchedItem = dbItems.find(
@@ -194,20 +202,22 @@ export const useBarangKeluarLogic = () => {
       toast.error("Data serial number tidak ditemukan.", { description: trimmedKode });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Serial number tidak ditemukan" };
     }
 
-    if (isOutsideStatus(matchedItem.status)) {
+    if (isOutsideStatus(matchedItem.status, user?.role)) {
       toast.error("Barang ini sudah berada di luar dan tidak dapat dikeluarkan kembali.", {
         description: `Status saat ini: ${matchedItem.status}`,
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "Barang sudah di luar" };
     }
 
-    const queuedSerialNumbers = getQueuedSerialNumbers(session.barangKeluar);
-    const olderFifoItem = findOlderFifoItem(dbItems, matchedItem, queuedSerialNumbers);
+    // FIFO ditiadakan untuk Mitra karena mereka bekerja di lapangan
+    const olderFifoItem = (user?.role?.toLowerCase() === "mitra") 
+      ? null 
+      : findOlderFifoItem(dbItems, matchedItem, getQueuedSerialNumbers(session.barangKeluar), user?.role);
 
     if (olderFifoItem) {
       toast.error("FIFO aktif: keluarkan barang yang lebih lama terlebih dahulu.", {
@@ -215,7 +225,7 @@ export const useBarangKeluarLogic = () => {
       });
       updateKodeBarang("");
       focusKodeBarangInput();
-      return;
+      return { success: false, message: "FIFO aktif" };
     }
 
     const originalLoc = matchedItem.lokasiPenyimpanan || "-";
@@ -227,8 +237,9 @@ export const useBarangKeluarLogic = () => {
       kategori: matchedItem.kategori || "-",
       tipe: matchedItem.tipe || undefined,
       lokasi: originalLoc as LokasiOption,
-      mitra: targetMitraName,
-      keterangan: user?.role === "mitra" ? keterangan.trim() : "",
+      mitra: targetMitraName || "",
+      keterangan: user?.role?.toLowerCase() === "mitra" ? keterangan.trim() : "",
+      ticketGangguan: (user?.role?.toLowerCase() === "mitra" && (user as any)?.partnerType === "GANGGUAN") || (selectedPartner?.partnerType === "GANGGUAN") ? ticketGangguan.trim() : undefined,
       status: "Valid",
     });
 
@@ -239,6 +250,7 @@ export const useBarangKeluarLogic = () => {
 
     updateKodeBarang("");
     focusKodeBarangInput();
+    return { success: true };
   }, [
     session, dbItems, dbPartners, focusKodeBarangInput, kodeBarang, keterangan,
     selectedPartnerId, updateKodeBarang, user
@@ -312,29 +324,29 @@ export const useBarangKeluarLogic = () => {
         }
       });
       const sessionNomor = `${prefix}${(maxNum + 1).toString().padStart(4, '0')}`;
-      
+
       const resLatestItems = await fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() });
       const rawLatestItems = await resLatestItems.json();
       const latestItems: InventoryItem[] = Array.isArray(rawLatestItems.data || rawLatestItems) ? (rawLatestItems.data || rawLatestItems) : [];
-      
+
       const latestVisibleItems = user?.role === "mitra"
-          ? latestItems.filter((item) => {
-            if (!item.mitra) return false
-            const itemMitra = normalizeOwner(item.mitra)
-            return (
-              itemMitra === normalizeOwner(user.displayName) ||
-              itemMitra === normalizeOwner(user.username) ||
-              (user.identityCode && itemMitra.includes(normalizeOwner(user.identityCode)))
-            )
-          })
-          : latestItems;
+        ? latestItems.filter((item) => {
+          if (!item.mitra) return false
+          const itemMitra = normalizeOwner(item.mitra)
+          return (
+            itemMitra === normalizeOwner(user.displayName) ||
+            itemMitra === normalizeOwner(user.username) ||
+            (user.identityCode && itemMitra.includes(normalizeOwner(user.identityCode)))
+          )
+        })
+        : latestItems;
 
       const findLatestSessionItem = (nomor: string) =>
         latestVisibleItems.find((dbItem) => normalizeKodeBarang(dbItem.serialNumber) === normalizeKodeBarang(nomor));
 
       const invalidItem = session.barangKeluar.find((item) => {
         const latestItem = findLatestSessionItem(item.nomor);
-        return !latestItem || isOutsideStatus(latestItem.status);
+        return !latestItem || isOutsideStatus(latestItem.status, user?.role);
       });
 
       if (invalidItem) {
@@ -351,14 +363,16 @@ export const useBarangKeluarLogic = () => {
       }
 
       const queuedSerialNumbers = getQueuedSerialNumbers(session.barangKeluar);
-      const fifoInvalidItem = session.barangKeluar.find((item) => {
-        const latestItem = findLatestSessionItem(item.nomor);
-        return latestItem ? Boolean(findOlderFifoItem(latestVisibleItems, latestItem, queuedSerialNumbers)) : false;
-      });
+      const fifoInvalidItem = (user?.role?.toLowerCase() === "mitra") 
+        ? undefined 
+        : session.barangKeluar.find((item) => {
+            const latestItem = findLatestSessionItem(item.nomor);
+            return latestItem ? Boolean(findOlderFifoItem(latestVisibleItems, latestItem, queuedSerialNumbers, user?.role)) : false;
+          });
 
       if (fifoInvalidItem) {
         const latestItem = findLatestSessionItem(fifoInvalidItem.nomor);
-        const olderFifoItem = latestItem ? findOlderFifoItem(latestVisibleItems, latestItem, queuedSerialNumbers) : undefined;
+        const olderFifoItem = latestItem ? findOlderFifoItem(latestVisibleItems, latestItem, queuedSerialNumbers, user?.role) : undefined;
         toast.error("FIFO aktif: masih ada barang lama yang harus keluar lebih dulu.", {
           description: olderFifoItem ? getFifoToastDescription(olderFifoItem) : fifoInvalidItem.nomor,
         });
@@ -402,7 +416,9 @@ export const useBarangKeluarLogic = () => {
           asal: originalLoc,
           tujuan: item.mitra,
           mitra: item.mitra,
-          keterangan: user?.role === "mitra" ? keterangan.trim() : null,
+          keterangan: item.ticketGangguan
+            ? `${item.keterangan ? item.keterangan + " | " : ""}Tiket Gangguan: ${item.ticketGangguan}`
+            : (item.keterangan || null),
         };
         const resAddTrx = await fetch(`${getBaseUrl()}/transactions`, {
           method: "POST",
@@ -413,18 +429,42 @@ export const useBarangKeluarLogic = () => {
       }
 
       toast.success(`${session.barangKeluar.length} barang keluar berhasil disimpan.`);
-      
+
+      if (user?.role === "mitra" && session.barangKeluar.length > 0) {
+        const notificationId = `permintaan-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const requestCount = session.barangKeluar.length;
+        const title = `Permintaan barang mitra ${user.displayName}`;
+        const message = `${user.displayName} mengajukan permintaan ${requestCount} barang keluar.${keterangan ? ` Keterangan: ${keterangan}` : ""}`;
+
+        try {
+          await fetch(`${getBaseUrl()}/notifications`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+              userId: user.id,
+              title,
+              message,
+              type: "REQUEST",
+              referenceId: notificationId
+            })
+          });
+        } catch (notificationError) {
+          console.error("Gagal membuat notifikasi permintaan:", notificationError);
+        }
+      }
+
       // Update local dbItems to match changes
       const updatedVisibleItems = latestVisibleItems.map(item => {
         if (queuedSerialNumbers.has(normalizeKodeBarang(item.serialNumber))) {
-           return { ...item, status: "Keluar", lokasiPenyimpanan: "Keluar" };
+          return { ...item, status: "Keluar", lokasiPenyimpanan: "Keluar" };
         }
         return item;
       });
       setDbItems(updatedVisibleItems);
       session.clearSession();
       setKeterangan("");
-      
+      setTicketGangguan("");
+
       // Emit event jika menggunakan Tauri
       if ((window as any).__TAURI_INTERNALS__) {
         try {
@@ -455,11 +495,15 @@ export const useBarangKeluarLogic = () => {
     setSelectedPartnerId,
     keterangan,
     setKeterangan,
+    ticketGangguan,
+    setTicketGangguan,
     isSaving,
     updateKodeBarang,
     focusKodeBarangInput,
     handleSubmit,
     handleDeleteItem,
     handleValidateAll,
+    destinationType,
+    setDestinationType,
   };
 };

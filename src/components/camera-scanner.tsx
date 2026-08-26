@@ -5,7 +5,7 @@ import { Camera, Zap, ZapOff, RefreshCw, CheckCircle2, AlertCircle, X, Image } f
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 
 const SCAN_FORMATS = [
   Html5QrcodeSupportedFormats.QR_CODE,
@@ -100,7 +100,6 @@ export function CameraScanner({
   }
 
   const location = useLocation()
-  const navigate = useNavigate()
   React.useEffect(() => {
     handleOpen(false)
   }, [location.pathname])
@@ -111,6 +110,7 @@ export function CameraScanner({
   }, [onScan])
 
   const qrScannerRef = React.useRef<Html5Qrcode | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   const scannedCodesSetRef = React.useRef<Set<string>>(new Set())
   const lastScannedCodeRef = React.useRef<{ code: string; time: number } | null>(null)
   const nativeDetectorRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
@@ -202,16 +202,8 @@ export function CameraScanner({
               { code: decodedText, status: "error", message: errMsg, timestamp: new Date() },
               ...prev.slice(0, 49),
             ])
-            toast.error(errMsg, { 
-              description: decodedText,
-              action: {
-                label: "Request Admin",
-                onClick: () => {
-                  handleOpen(false);
-                  navigate("/partner-request/new");
-                }
-              }
-            })
+            // Hapus toast.error agar tidak menghalangi layar
+            // Tetap berikan feedback visual (flash merah) dan suara (beep error)
           } finally {
             setTimeout(() => setScanFlash(null), 500)
           }
@@ -283,7 +275,7 @@ export function CameraScanner({
                       { code, status: "error", message: errMsg, timestamp: new Date() },
                       ...prev.slice(0, 49),
                     ])
-                    toast.error(errMsg, { description: code })
+                    // Hapus toast.error agar tidak menghalangi layar
                   } finally {
                     setTimeout(() => setScanFlash(null), 500)
                   }
@@ -322,6 +314,7 @@ export function CameraScanner({
     qrScannerRef.current = null
     lastScannedCodeRef.current = null
     scannedCodesSetRef.current.clear()
+    setScannedCodes([]) // Reset daftar hasil scan di UI kamera
     setIsTorchOn(false)
     setHasTorch(false)
     setCameraActive(false)
@@ -468,15 +461,7 @@ export function CameraScanner({
         
         const errorScans = detectedTexts.map((code) => ({ code, status: "error" as const, message: errMsg, timestamp: new Date() }))
         setScannedCodes((prev) => [...errorScans, ...prev].slice(0, 20))
-        toast.error(errMsg, {
-          action: {
-            label: "Request Admin",
-            onClick: () => {
-              handleOpen(false);
-              navigate("/partner-request/new");
-            }
-          }
-        })
+        // Hapus toast.error untuk error validasi file
       }
     } catch (err) {
       console.error("Gagal mendeteksi barcode dari gambar", err)
@@ -524,7 +509,7 @@ export function CameraScanner({
           <div className="flex items-center gap-2">
             <input
               type="file"
-              id="file-scanner-input"
+              ref={fileInputRef}
               accept="image/*"
               className="hidden"
               onChange={handleFileUpload}
@@ -533,7 +518,7 @@ export function CameraScanner({
               variant="outline"
               size="sm"
               className="h-9 border-zinc-800 text-zinc-300 bg-zinc-900/80 hover:bg-zinc-800 hover:text-white cursor-pointer px-3.5 rounded-full backdrop-blur-md gap-1.5"
-              onClick={() => document.getElementById("file-scanner-input")?.click()}
+              onClick={() => fileInputRef.current?.click()}
             >
               <Image className="size-4 text-blue-400" />
               Upload Foto
@@ -662,33 +647,24 @@ export function CameraScanner({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 px-6 flex flex-col gap-2 pointer-events-auto">
-          {scannedCodes.length === 0 ? (
+          {scannedCodes.filter(c => c.status === "success").length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-zinc-500 py-4 text-center gap-1.5 select-none">
               <Camera className="size-5 opacity-40 animate-pulse" />
               <span className="text-xs">Pindai barcode untuk melihat hasil di sini</span>
             </div>
           ) : (
-            scannedCodes.map((item, idx) => (
+            scannedCodes
+              .filter(c => c.status === "success")
+              .map((item, idx) => (
               <div
                 key={idx}
-                className={`flex items-start justify-between p-2.5 rounded-xl border text-xs backdrop-blur-md ${
-                  item.status === "success"
-                    ? "border-emerald-500/25 bg-emerald-500/10 text-zinc-100 shadow-[0_2px_8px_rgba(16,185,129,0.1)]"
-                    : "border-rose-500/25 bg-rose-500/10 text-zinc-100 shadow-[0_2px_8px_rgba(239,68,68,0.1)]"
-                }`}
+                className="flex items-start justify-between p-2.5 rounded-xl border text-xs backdrop-blur-md border-emerald-500/25 bg-emerald-500/10 text-zinc-100 shadow-[0_2px_8px_rgba(16,185,129,0.1)]"
               >
                 <div className="min-w-0 flex-1 pr-3">
                   <p className="font-mono font-semibold truncate text-[13px]">{item.code}</p>
-                  {item.message && (
-                    <p className="text-[10px] text-rose-400 font-medium mt-0.5">{item.message}</p>
-                  )}
                 </div>
                 <div className="shrink-0 flex items-center h-full">
-                  {item.status === "success" ? (
-                    <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded-md">Valid</span>
-                  ) : (
-                    <span className="text-[9px] bg-rose-500/20 text-rose-400 font-bold px-1.5 py-0.5 rounded-md">Gagal</span>
-                  )}
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded-md">Valid</span>
                 </div>
               </div>
             ))

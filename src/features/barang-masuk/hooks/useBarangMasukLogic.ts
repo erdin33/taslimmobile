@@ -25,9 +25,11 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
 
   // Form state
   const [kodeBarang, setKodeBarang] = useState("");
-  const [asalBarang, setAsalBarang] = useState<string>("SBU Regional Jawa Barat");
+  const [asalBarang, setAsalBarang] = useState<string>(user?.role === "mitra" ? (user.displayName || "") : "SBU Regional Jawa Barat");
   const [asalBarangManual, setAsalBarangManual] = useState<boolean>(false);
-  const [itemCondition, setItemCondition] = useState<"baru" | "dismantle" | "rusak">("baru");
+  const [itemCondition, setItemCondition] = useState<"baru" | "dismantle" | "rusak">(user?.role === "mitra" ? "dismantle" : "baru");
+  const [paNumber, setPaNumber] = useState<string>("");
+  const [ticketGangguan, setTicketGangguan] = useState<string>("");
   const [catatan, setCatatan] = useState<string>("");
   const [tipeBarang, setTipeBarang] = useState<string>("");
   const [brand, setBrand] = useState<string>("");
@@ -106,7 +108,7 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
     }
   }, [kodeBarang, dbPartners, asalBarangManual]);
 
-  const handleSubmit = useCallback(async (kodeOverride = kodeBarang) => {
+  const handleSubmit = useCallback(async (kodeOverride: string | string[] = kodeBarang) => {
     let codeStr = kodeBarang;
     if (typeof kodeOverride === "string") {
       codeStr = kodeOverride;
@@ -237,7 +239,9 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
               ? "Mitra"
               : "Baru",
       asal: asalBarang,
-      kondisi: itemCondition === "rusak" ? "Rusak" : "Bagus",
+      kondisi: itemCondition === "rusak" ? "Rusak" : itemCondition === "dismantle" ? "Dismantle" : "Baru",
+      paNumber: itemCondition === "dismantle" && paNumber.trim() ? paNumber.trim() : undefined,
+      ticketGangguan: itemCondition === "rusak" && ticketGangguan.trim() ? ticketGangguan.trim() : undefined,
       catatan: isDismantleBad ? catatan : undefined,
     };
 
@@ -365,7 +369,10 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
           throw new Error(`${item.nomor} tidak ditemukan di KP dan tidak dapat dibuat oleh Mitra.`);
         }
 
-        const itemStatus = item.status === "Rusak" ? "Rusak" : "Tersedia";
+        const isMitraRetur = user?.role === "mitra";
+        const itemStatus = isMitraRetur ? (existingItem?.status || "Terdistribusi") : (item.status === "Rusak" ? "Rusak" : "Tersedia");
+        const itemLocation = isMitraRetur ? "Dalam Perjalanan" : item.lokasi;
+
         if (existingItem) {
           const updatedItem: InventoryItem = {
             ...existingItem,
@@ -374,10 +381,10 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
             merek: item.merek,
             tipe: item.tipe || undefined,
             status: itemStatus,
-            lokasiPenyimpanan: item.lokasi,
-            tanggalMasuk: sessionDate,
+            lokasiPenyimpanan: itemLocation,
+            tanggalMasuk: isMitraRetur ? existingItem.tanggalMasuk : sessionDate,
             tanggalKeluar: undefined,
-            mitra: user?.role === "mitra" ? (user.displayName || "") : "KP Tasikmalaya",
+            mitra: "KP Tasikmalaya",
           };
           const resUp = await fetch(`${getBaseUrl()}/items/${updatedItem.id}`, {
             method: "PUT",
@@ -393,9 +400,9 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
             merek: item.merek,
             tipe: item.tipe || undefined,
             status: itemStatus,
-            lokasiPenyimpanan: item.lokasi,
+            lokasiPenyimpanan: itemLocation,
             tanggalMasuk: sessionDate,
-            mitra: user?.role === "mitra" ? (user.displayName || "") : "KP Tasikmalaya",
+            mitra: isMitraRetur ? (user.displayName || "") : "KP Tasikmalaya",
           };
           const resAdd = await fetch(`${getBaseUrl()}/items`, {
             method: "POST",
@@ -427,7 +434,29 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
           if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
         }
       }
-      toast.success(`${session.barangMasuk.length} barang masuk berhasil disimpan.`);
+
+      if (user?.role === "mitra") {
+        // Create Request Retur Ticket
+        const newReturRequest = {
+          id: crypto.randomUUID(),
+          requestNumber: `RTR-${Date.now()}`,
+          type: "RETUR",
+          requesterName: user.displayName || user.username || "",
+          status: "Menunggu",
+          notes: "Pengembalian barang (Dismantle/Rusak)",
+          requestedAt: sessionDate,
+          itemsCount: session.barangMasuk.length,
+          returItems: session.barangMasuk
+        };
+        const existingReturs = JSON.parse(localStorage.getItem("mock_retur_requests") || "[]");
+        existingReturs.push(newReturRequest);
+        localStorage.setItem("mock_retur_requests", JSON.stringify(existingReturs));
+        
+        toast.success(`Tiket pengembalian berhasil dibuat. Menunggu konfirmasi Admin.`);
+      } else {
+        toast.success(`${session.barangMasuk.length} barang masuk berhasil disimpan.`);
+      }
+
       session.clearSession();
       await refreshItems();
     } catch (error) {
@@ -460,6 +489,10 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
     setBrand,
     kategori,
     setKategori,
+    paNumber,
+    setPaNumber,
+    ticketGangguan,
+    setTicketGangguan,
     catatan,
     setCatatan,
     isSaving,

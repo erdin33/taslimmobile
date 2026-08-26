@@ -153,7 +153,7 @@ export function DigitalSignatureDialog({
         }
       }
       
-      onSignComplete(signatureDataUrl);
+      onSignComplete(signatureDataUrl || undefined);
       
     } catch (error) {
       toast.error("Gagal memproses tanda tangan");

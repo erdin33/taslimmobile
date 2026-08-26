@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
 import type { DashboardRequest } from "@/types/transaction"
-import { Check, ArrowUpDown, Edit } from "lucide-react"
+import { Check, ArrowUpDown, Edit, AlertTriangle } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import {
     Select,
@@ -45,6 +45,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { BastActions } from "./BastActions"
+import { RejectRequestModal } from "./RejectRequestModal"
 
 function ScrollShadowWrapper({ children, className }: { children: React.ReactNode, className?: string }) {
     const [canScrollTop, setCanScrollTop] = React.useState(false)
@@ -102,14 +103,14 @@ function ScrollShadowWrapper({ children, className }: { children: React.ReactNod
 /** Meta yang dapat diakses oleh kolom tabel. Bukan `any` — fully typed. */
 export type TableMeta = {
     onRowClick?: (item: DashboardRequest) => void
-    onStatusChange?: (id: string, status: string) => void
+    onStatusChange?: (id: string, status: string, rejectionReason?: string) => void
 }
 
 export type DataTableProps = {
     data: DashboardRequest[]
     className?: string
     onRowClick?: (item: DashboardRequest) => void
-    onStatusChange?: (id: string, status: string) => void
+    onStatusChange?: (id: string, status: string, rejectionReason?: string) => void
     /** ID kolom yang ingin disembunyikan. Contoh: ["requestItems"] */
     hiddenColumns?: string[]
 }
@@ -169,13 +170,14 @@ function ActionMenu({
 }) {
     const status = row.original.status?.toUpperCase()?.trim()
     const meta = table.options.meta as TableMeta | undefined
+    const [rejectModalOpen, setRejectModalOpen] = React.useState(false)
 
     const navigate = useNavigate()
 
     const handleStatusChange = React.useCallback(
-        (e: React.MouseEvent, newStatus: string) => {
-            e.stopPropagation()
-            meta?.onStatusChange?.(row.original.id, newStatus)
+        (e: React.MouseEvent | null, newStatus: string, reason?: string) => {
+            if (e) e.stopPropagation()
+            meta?.onStatusChange?.(row.original.id, newStatus, reason)
         },
         [meta, row.original.id]
     )
@@ -187,6 +189,16 @@ function ActionMenu({
         },
         [navigate, row.original.id]
     )
+
+    const handleRejectClick = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        setRejectModalOpen(true)
+    }
+
+    const handleRejectSubmit = (reason: string) => {
+        handleStatusChange(null, "Ditolak", reason)
+        setRejectModalOpen(false)
+    }
 
     return (
         <div className="flex items-center gap-1 justify-center">
@@ -225,7 +237,7 @@ function ActionMenu({
                         variant="ghost"
                         size="icon-lg"
                         className="text-xs font-medium text-muted-foreground hover:text-destructive cursor-pointer"
-                        onClick={(e) => handleStatusChange(e, "Ditolak")}
+                        onClick={handleRejectClick}
                     >
                         <IconX size={18} className="" />
                     </Button>
@@ -252,6 +264,12 @@ function ActionMenu({
                     </Button>
                 </div>
             )}
+            
+            <RejectRequestModal
+                isOpen={rejectModalOpen}
+                onOpenChange={setRejectModalOpen}
+                onSubmit={handleRejectSubmit}
+            />
         </div>
     )
 }
@@ -455,6 +473,15 @@ export function DataTable({ data, className, onRowClick, onStatusChange, hiddenC
                                             <span className="font-medium text-foreground leading-tight">{item.itemsCount} Item</span>
                                         </div>
                                     </div>
+
+                                    {item.status?.toLowerCase() === 'ditolak' && item.rejectionReason && (
+                                        <div className="p-2.5 bg-red-500/10 dark:bg-red-950/40 border border-red-500/30 rounded-xl text-xs flex flex-col gap-1 text-red-600 dark:text-red-400">
+                                            <span className="font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 text-red-700 dark:text-red-300">
+                                                <AlertTriangle className="size-3.5 shrink-0" /> Alasan Penolakan:
+                                            </span>
+                                            <p className="text-foreground/90 dark:text-red-200 font-medium leading-relaxed">{item.rejectionReason}</p>
+                                        </div>
+                                    )}
 
                                     {table.getState().columnVisibility.document !== false && (
                                         <div className="mt-2 pt-3 border-t border-border flex justify-end">

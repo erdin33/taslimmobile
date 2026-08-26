@@ -167,22 +167,48 @@ export function useDashboard() {
 
             const visibleTransactions = transactionData.filter(
                 (transaction: any) =>
-                    user?.role !== "mitra" ||
+                    user?.role?.toLowerCase() !== "mitra" ||
                     transaction.mitra?.trim().toLowerCase() === user?.displayName?.trim().toLowerCase()
             );
+            const mitraItemSNs = new Set(
+                visibleTransactions.map((t: any) => t.sn || t.serialNumber)
+            );
+
             const visibleItems = itemData.filter(
                 (item: any) =>
-                    user?.role !== "mitra" ||
-                    item.mitra?.trim().toLowerCase() === user?.displayName?.trim().toLowerCase()
+                    user?.role?.toLowerCase() !== "mitra" ||
+                    item.mitra?.trim().toLowerCase() === user?.displayName?.trim().toLowerCase() ||
+                    mitraItemSNs.has(item.serialNumber)
             );
             const visibleRequests = requestData.filter(
                 (req: any) =>
-                    user?.role !== "mitra" ||
+                    user?.role?.toLowerCase() !== "mitra" ||
                     requestBelongsToUser(req, user)
             );
 
             // Grouping by Mitra
             const mitraMap = new Map<string, { tersedia: number; diluar: number }>();
+            
+            const trxBySN = new Map<string, any[]>();
+            transactionData.forEach((t: any) => {
+                const sn = t.sn || t.serialNumber;
+                if (!sn) return;
+                if (!trxBySN.has(sn)) trxBySN.set(sn, []);
+                trxBySN.get(sn)!.push(t);
+            });
+
+            // For tracking latest
+            const latestTrxBySN = new Map<string, any>();
+            transactionData.forEach((t: any) => {
+                const sn = t.sn || t.serialNumber;
+                if (!sn) return;
+                const existing = latestTrxBySN.get(sn);
+                const tDate = new Date(t.createdAt || t.tanggal || 0).getTime();
+                if (!existing || tDate > new Date(existing.createdAt || existing.tanggal || 0).getTime()) {
+                    latestTrxBySN.set(sn, t);
+                }
+            });
+
             visibleItems.forEach((item: any) => {
                 const mitra = (item.mitra || "Lainnya").trim();
                 const status = (item.status || "").trim().toLowerCase();
@@ -191,10 +217,28 @@ export function useDashboard() {
                     mitraMap.set(mitra, { tersedia: 0, diluar: 0 });
                 }
                 const current = mitraMap.get(mitra)!;
-                if (status === "tersedia") {
-                    current.tersedia += 1;
+                const isMitraRole = user?.role?.toLowerCase() === "mitra";
+                const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
+                const latestTrx = latestTrxBySN.get(item.serialNumber);
+                
+                if (isMitraRole) {
+                    if (latestTrx && (latestTrx.kategori?.toUpperCase() === "KELUAR" || latestTrx.kategori?.toUpperCase() === "RETUR")) {
+                        current.diluar += 1;
+                    } else if (latestTrx && latestTrx.kategori?.toUpperCase() === "MASUK") {
+                        current.tersedia += 1;
+                    } else if (loc === "keluar" || loc === "diluar" || status === "keluar" || status === "diluar") {
+                        current.diluar += 1;
+                    } else if (status === "tersedia" || status === "terdistribusi") {
+                        current.tersedia += 1;
+                    }
                 } else {
-                    current.diluar += 1;
+                    if (latestTrx && (latestTrx.kategori?.toUpperCase() === "KELUAR" || latestTrx.kategori?.toUpperCase() === "RETUR")) {
+                        current.diluar += 1;
+                    } else if (loc === "keluar" || loc === "diluar" || status === "terdistribusi" || status === "keluar" || status === "diluar") {
+                        current.diluar += 1;
+                    } else if (status === "tersedia") {
+                        current.tersedia += 1;
+                    }
                 }
             });
             const distribution = Array.from(mitraMap.entries())
@@ -249,10 +293,48 @@ export function useDashboard() {
 
             setChartTransactions(visibleTransactions);
 
+            const isMitra = user?.role === "mitra";
             setInventoryStats({
                 totalItems: visibleItems.length,
-                tersedia: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "tersedia").length,
-                diluar: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "diluar").length,
+                tersedia: visibleItems.filter((item: any) => {
+                    const st = item.status.trim().toLowerCase();
+                    const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
+                    const trxs = trxBySN.get(item.serialNumber) || [];
+                    const keluarCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "KELUAR").length;
+                    const returCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "RETUR").length;
+
+                    if (isMitra) {
+                        // Jika sudah diretur, barang tidak lagi di Mitra
+                        if (returCount > 0) return false;
+                        // Jika transaksi KELUAR baru 1 (Artinya dari Gudang ke Mitra) -> Tersedia di Mitra
+                        if (keluarCount === 1) return true;
+                        // Jika transaksi KELUAR >= 2 (Artinya Mitra sudah keluarin ke Pelanggan) -> Bukan Tersedia
+                        if (keluarCount >= 2) return false;
+                        // Fallback (misal status bypass)
+                        return st === "tersedia" || st === "terdistribusi";
+                    }
+                    if (loc === "keluar" || loc === "diluar") return false;
+                    return st === "tersedia";
+                }).length,
+                diluar: visibleItems.filter((item: any) => {
+                    const st = item.status.trim().toLowerCase();
+                    const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
+                    const trxs = trxBySN.get(item.serialNumber) || [];
+                    const keluarCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "KELUAR").length;
+                    const returCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "RETUR").length;
+
+                    if (isMitra) {
+                        if (returCount > 0) return false; 
+                        // Jika Mitra sudah mengeluarkan ke pelanggan (KELUAR ke-2)
+                        if (keluarCount >= 2) return true;
+                        // Jika baru di Mitra (Tersedia), maka belum Di Luar
+                        if (keluarCount === 1) return false;
+                        // Fallback
+                        return st === "diluar" || st === "keluar"; 
+                    }
+                    if (loc === "keluar" || loc === "diluar") return true;
+                    return st === "diluar" || st === "keluar" || st === "terdistribusi"; 
+                }).length,
                 rusak: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "rusak").length,
                 hilang: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "hilang").length,
             });

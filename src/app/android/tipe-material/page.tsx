@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -18,7 +18,7 @@ const getBaseUrl = () => {
 };
 
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   return {
     "Content-Type": "application/json",
     ...(token ? { "Authorization": token } : {})
@@ -213,7 +213,7 @@ export default function TipeMaterialPage() {
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -252,14 +252,14 @@ export default function TipeMaterialPage() {
         )}
       </div>
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
-          <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
-            <SheetTitle className="text-xl text-foreground">{editId ? "Edit Model Material" : "Tambah Model Material"}</SheetTitle>
-            <SheetDescription className="text-muted-foreground">Kelola informasi referensi model material utama.</SheetDescription>
-          </SheetHeader>
-          <div className="p-6 flex-1 overflow-y-auto">
-            <div className="grid gap-5">
+      <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <DialogContent className="w-[92%] sm:max-w-md rounded-2xl p-0 max-h-[85vh] flex flex-col border-border bg-popover text-foreground overflow-hidden">
+          <DialogHeader className="p-5 pb-3 border-b border-border/50 bg-muted/40 text-left">
+            <DialogTitle className="text-lg font-bold text-foreground">{editId ? "Edit Model Material" : "Tambah Model Material"}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">Kelola informasi referensi model material utama.</DialogDescription>
+          </DialogHeader>
+          <div className="p-5 flex-1 overflow-y-auto">
+            <div className="grid gap-4">
               <div className="space-y-2">
                 <Label>Kode Material</Label>
                 <Input value={code} onChange={e => setCode(e.target.value)} placeholder="Masukkan Kode Material" className="bg-background border-border" />
@@ -302,15 +302,15 @@ export default function TipeMaterialPage() {
               </div>
             </div>
           </div>
-          <SheetFooter className="p-6 border-t border-border/50 bg-muted/50 flex sm:justify-end gap-3 sm:gap-2">
-            <Button variant="outline" onClick={() => setIsSheetOpen(false)} disabled={isSaving}>Batal</Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+          <DialogFooter className="p-4 border-t border-border/50 bg-muted/40 flex flex-row justify-end gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setIsSheetOpen(false)} disabled={isSaving} className="flex-1">Batal</Button>
+            <Button onClick={handleSave} disabled={isSaving} className="flex-1 font-semibold">
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Simpan
+              {editId ? "Simpan Perubahan" : "Tambah Model"}
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteAlertData.isOpen} onOpenChange={(open) => !open && !isDeleting && setDeleteAlertData({ ...deleteAlertData, isOpen: false })}>
         <AlertDialogContent>

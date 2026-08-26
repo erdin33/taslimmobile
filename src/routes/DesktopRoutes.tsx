@@ -18,6 +18,7 @@ import MobileSignPage from "@/app/mobile-sign/page";
 import PartnerRequestNewPage from "@/app/partner-request/new/page";
 import PartnerRequestHistoryPage from "@/app/partner-request/history/page";
 import RequestPreparePage from "@/app/request/prepare/page";
+import PenerimaanReturPage from "@/app/desktop/penerimaan-retur/page";
 
 export function DesktopRoutes() {
 	return (
@@ -33,6 +34,11 @@ export function DesktopRoutes() {
 				}>
 				<Route index element={<DashboardPage />} />
 				<Route path="barang-masuk" element={<BarangMasukPage />} />
+				<Route path="penerimaan-retur" element={
+					<ProtectedRoute adminOnly>
+						<PenerimaanReturPage />
+					</ProtectedRoute>
+				} />
 				<Route path="barang-keluar" element={<BarangKeluarPage />} />
 				<Route path="request" element={<DataTransaksiPage />} />
 				<Route path="request/:id" element={<DataTransaksiDetailPage />} />

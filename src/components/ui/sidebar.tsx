@@ -17,11 +17,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { TooltipContent } from "@/components/ui/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
@@ -508,14 +504,12 @@ const SidebarMenuButton = React.forwardRef<
       isActive = false,
       variant = "default",
       size = "default",
-      tooltip,
       className,
       ...props
     },
     ref
   ) => {
     const Comp = asChild ? Slot.Root : "button"
-    const { isMobile, state } = useSidebar()
 
     const button = (
       <Comp

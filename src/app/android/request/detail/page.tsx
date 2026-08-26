@@ -1,3 +1,4 @@
+import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -7,12 +8,52 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { useRequestDetail } from "@/features/request-detail/hooks/useRequestDetail";
 import { BastActions } from "@/features/transactions/components/BastActions";
+import { RejectRequestModal } from "@/features/transactions/components/RejectRequestModal";
+import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const { request, isLoading } = useRequestDetail(id);
+  const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
+
+  const handleAction = async (newStatus: string, reason?: string) => {
+    if (newStatus === "Siap") {
+      navigate(`/request/${id}/prepare`);
+      return;
+    }
+
+    try {
+      const payload: any = { 
+        status: newStatus.toUpperCase(),
+        ...(reason && {
+          rejectionReason: reason,
+          adminRemarks: reason,
+          adminNotes: reason,
+          remarks: reason,
+          notes: reason,
+          catatan: reason,
+        })
+      };
+      
+      await api.put(`/requests/${id}/status`, payload);
+      toast.success("Status berhasil diubah");
+      window.location.reload();
+    } catch (e: any) {
+      toast.error(e?.message || "Gagal mengubah status");
+      console.error(e);
+    }
+  };
+
+  const handleRejectClick = () => setRejectModalOpen(true);
+  const handleRejectSubmit = (reason: string) => {
+    handleAction("Ditolak", reason);
+    setRejectModalOpen(false);
+  };
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Memuat detail permintaan...</div>;
@@ -43,17 +84,53 @@ export default function RequestDetailPage() {
               Detail Informasi Permintaan
             </p>
           </div>
-          <div className="ml-auto shrink-0">
+          <div className="ml-auto shrink-0 flex items-center gap-2">
             <Badge variant="secondary" className="px-3 py-1.5 text-sm font-medium uppercase tracking-wider">
               {request.status}
             </Badge>
           </div>
         </div>
+
+        {request.status?.toUpperCase() === "DITOLAK" && request.rejectionReason && (
+          <div className="mt-2 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex flex-col gap-1">
+            <span className="font-semibold flex items-center gap-1.5">
+              <span className="size-4 rounded-full bg-destructive/20 flex items-center justify-center text-xs">!</span>
+              Permintaan Ditolak
+            </span>
+            <p className="opacity-90">{request.rejectionReason}</p>
+          </div>
+        )}
         
         {/* Render BastActions di Android (berada di baris baru untuk mengakomodasi layar kecil) */}
         <div className="flex justify-end pt-2 border-t mt-2">
           <BastActions request={request} />
         </div>
+
+        {user?.role === "admin" && ['MENUNGGU', 'DISETUJUI', 'SIAP'].includes(request.status?.toUpperCase() || "") && (
+          <div className="flex w-full gap-2 mt-4 print:hidden sticky bottom-4 z-10 bg-background/80 backdrop-blur-md p-4 rounded-xl border shadow-sm">
+            {['MENUNGGU'].includes(request.status?.toUpperCase() || "") && (
+              <div className="flex gap-2 w-full">
+                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Setujui & Siapkan</Button>
+                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={handleRejectClick}>Tolak</Button>
+              </div>
+            )}
+            {request.status?.toUpperCase() === 'DISETUJUI' && (
+              <>
+                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Siapkan</Button>
+                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan")}>Batalkan</Button>
+              </>
+            )}
+            {request.status?.toUpperCase() === 'SIAP' && (
+              <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Edit Alokasi Barang</Button>
+            )}
+          </div>
+        )}
+        
+        <RejectRequestModal 
+          isOpen={rejectModalOpen}
+          onOpenChange={setRejectModalOpen}
+          onSubmit={handleRejectSubmit}
+        />
       </div>
 
       <div className={`grid gap-6 grid-cols-1 print:block print:gap-0`}>
@@ -180,6 +257,31 @@ export default function RequestDetailPage() {
           </Card>
         </div>
 
+        {user?.role === "admin" && ['MENUNGGU', 'DISETUJUI', 'SIAP'].includes(request.status?.toUpperCase() || "") && (
+          <div className="flex w-full gap-2 mt-4 print:hidden sticky bottom-4 z-10 bg-background/80 backdrop-blur-md p-4 rounded-xl border shadow-sm">
+            {['MENUNGGU'].includes(request.status?.toUpperCase() || "") && (
+              <div className="flex gap-2 w-full">
+                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Setujui & Siapkan</Button>
+                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={handleRejectClick}>Tolak</Button>
+              </div>
+            )}
+            {request.status?.toUpperCase() === 'DISETUJUI' && (
+              <>
+                <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Siapkan</Button>
+                <Button variant="destructive" className="flex-1 cursor-pointer" onClick={() => handleAction("Dibatalkan")}>Batalkan</Button>
+              </>
+            )}
+            {request.status?.toUpperCase() === 'SIAP' && (
+              <Button variant="default" className="flex-1 cursor-pointer" onClick={() => handleAction("Siap")}>Edit Alokasi Barang</Button>
+            )}
+          </div>
+        )}
+        
+        <RejectRequestModal 
+          isOpen={rejectModalOpen}
+          onOpenChange={setRejectModalOpen}
+          onSubmit={handleRejectSubmit}
+        />
       </div>
     </div>
   );

@@ -79,7 +79,7 @@ const getBaseUrl = () => {
  * @returns {Record<string, string>} Object header HTTP.
  */
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -348,15 +348,16 @@ export default function MitraPage() {
       errors.name = "Nama mitra sudah terdaftar."
     }
     
-    // Validasi duplikasi Username login
-    const hasDuplicateUsername = partners.some(
+    // Validasi duplikasi Kode Mitra
+    const hasDuplicateCode = partners.some(
       (partner) =>
-        partner.username?.trim().toLowerCase() ===
-        normalizedUsername.toLowerCase() && partner.id !== editId
+        partner.code?.trim().toLowerCase() === normalizedCode.toLowerCase() &&
+        partner.id !== editId
     )
-    if (hasDuplicateUsername) {
-      errors.username = "Username sudah digunakan."
+    if (hasDuplicateCode) {
+      errors.code = "Kode mitra sudah digunakan."
     }
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       toast.error("Periksa kembali data mitra.")
@@ -415,6 +416,8 @@ export default function MitraPage() {
           const errData = await response.json().catch(() => ({}))
           throw new Error(errData.message || errData.error || "Gagal menambahkan mitra baru.")
         }
+
+
       }
       await loadPartners()
       setIsSheetOpen(false)

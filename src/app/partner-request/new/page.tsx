@@ -119,51 +119,54 @@ function SuccessDialog({ open, onGoToHistory, onClose, items, requesterName, not
 
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!val) onClose() }}>
-      <DialogContent className="max-w-3xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto p-0 bg-white dark:bg-zinc-950 border-none shadow-2xl rounded-3xl" showCloseButton={false}>
+      <DialogContent className="max-w-3xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto p-0 bg-background border border-border/50 shadow-2xl rounded-3xl" showCloseButton={false}>
         
-        {/* Close Button X (Global to modal, better for mobile) */}
+        {/* Close Button X */}
         <button
-          className="absolute right-4 top-4 z-10 rounded-full p-2 bg-white/50 backdrop-blur-sm md:bg-transparent hover:bg-slate-200/50 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+          className="absolute right-4 top-4 z-20 rounded-full p-2 bg-white/50 backdrop-blur-md md:bg-transparent hover:bg-slate-200/80 dark:bg-black/30 dark:hover:bg-white/10 transition-all cursor-pointer"
           onClick={onClose}
         >
-          <X className="h-5 w-5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+          <X className="h-5 w-5 text-slate-700 dark:text-slate-300" />
         </button>
 
         <div className="flex flex-col md:grid md:grid-cols-12 min-h-[480px]">
           
           {/* Top/Left Panel: Status & Congratulations */}
-          <div className="md:col-span-5 bg-white dark:bg-zinc-950 p-6 md:p-8 flex flex-col items-center justify-center text-center space-y-6">
+          <div className="md:col-span-5 relative overflow-hidden bg-gradient-to-br from-emerald-500/10 via-background to-background p-8 flex flex-col items-center justify-center text-center space-y-6">
             
-            {/* Circular Green Tick */}
-            <div className="relative flex items-center justify-center mt-4 md:mt-0">
-              <div className="h-20 w-20 md:h-24 md:w-24 rounded-full bg-emerald-500/10 dark:bg-emerald-500/5 flex items-center justify-center shadow-lg shadow-emerald-500/5 animate-in zoom-in-75 duration-300">
-                <div className="h-12 w-12 md:h-16 md:w-16 rounded-full bg-[#008060] flex items-center justify-center">
-                  <Check className="h-6 w-6 md:h-8 md:w-8 text-white stroke-[3px]" />
+            {/* Background Glow Effect */}
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-emerald-500/20 blur-[50px] rounded-full pointer-events-none"></div>
+
+            {/* Circular Green Tick with Pulse */}
+            <div className="relative flex items-center justify-center z-10 mt-2 md:mt-0">
+              <div className="h-24 w-24 rounded-full bg-emerald-500/15 flex items-center justify-center animate-[pulse_2s_ease-in-out_infinite]">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                  <Check className="h-8 w-8 text-white stroke-[3.5px] animate-in zoom-in-50 duration-500 delay-150" />
                 </div>
               </div>
             </div>
 
             {/* Title & Description */}
-            <div className="space-y-2 md:space-y-3">
-              <DialogTitle className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight leading-tight">
-                Permintaan material Anda sedang diajukan!
+            <div className="space-y-2.5 z-10">
+              <DialogTitle className="text-xl md:text-2xl font-black text-foreground tracking-tight leading-tight">
+                Permintaan Berhasil<br/>Diajukan!
               </DialogTitle>
-              <DialogDescription className="text-xs md:text-sm text-slate-500 dark:text-slate-400 px-2 md:px-0 leading-relaxed">
-                Kami telah mengirimkannya ke sistem admin dan sedang menunggu konfirmasi/persetujuan.
+              <DialogDescription className="text-[13px] md:text-sm text-muted-foreground px-2 md:px-0 leading-relaxed font-medium">
+                Data telah terkirim ke sistem admin dan sedang menunggu validasi & persetujuan.
               </DialogDescription>
             </div>
 
             {/* Actions Stack (Moved here for desktop, hidden on mobile for better flow) */}
-            <div className="hidden md:flex w-full flex-col space-y-3 pt-4">
+            <div className="hidden md:flex w-full flex-col space-y-3 pt-6 z-10">
               <Button
-                className="w-full h-11 bg-[#008060] hover:bg-[#006b50] text-white font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+                className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
                 onClick={onGoToHistory}
               >
                 Lihat Riwayat Permintaan
               </Button>
               <Button
-                variant="ghost"
-                className="w-full h-11 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl transition-all cursor-pointer"
+                variant="outline"
+                className="w-full h-12 border-border/60 hover:bg-muted text-foreground font-semibold rounded-xl transition-all cursor-pointer"
                 onClick={onClose}
               >
                 Ajukan Permintaan Baru
@@ -173,100 +176,100 @@ function SuccessDialog({ open, onGoToHistory, onClose, items, requesterName, not
           </div>
 
           {/* Bottom/Right Panel: Summary & Details */}
-          <div className="md:col-span-7 bg-[#f8f9fa] dark:bg-zinc-900/50 p-6 md:p-8 relative flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100 dark:border-zinc-800">
+          <div className="md:col-span-7 bg-muted/20 p-6 md:p-8 relative flex flex-col justify-between border-t md:border-t-0 md:border-l border-border/50">
             
-            <div className="space-y-5 md:space-y-6">
-              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg leading-none mt-2 md:mt-0">
+            <div className="space-y-6">
+              <h4 className="font-bold text-foreground text-lg leading-none mt-1 md:mt-0">
                 Ringkasan Permintaan
               </h4>
 
               {/* Metadata Fields */}
-              <div className="grid grid-cols-2 gap-3 md:gap-4">
-                <div>
-                  <span className="text-[10px] md:text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                     Pengaju (Mitra)
                   </span>
-                  <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">
+                  <p className="text-sm font-bold text-foreground">
                     {requesterName}
                   </p>
                 </div>
-                <div>
-                  <span className="text-[10px] md:text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                     Keterangan
                   </span>
-                  <p className="text-xs md:text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1 line-clamp-2 truncate max-w-full">
+                  <p className="text-sm font-semibold text-foreground line-clamp-2 truncate max-w-full">
                     {notes || "Tidak ada catatan"}
                   </p>
                 </div>
               </div>
 
               {/* Items Card List */}
-              <div className="rounded-2xl border border-slate-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3 md:p-4 space-y-3 shadow-sm md:shadow-none">
-                <div className="max-h-[140px] md:max-h-[160px] overflow-y-auto pr-1 space-y-3">
+              <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-4 shadow-sm">
+                <div className="max-h-[160px] overflow-y-auto pr-1 space-y-3">
                   {items.map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex justify-between items-center text-xs md:text-sm pb-2 border-b border-slate-100 dark:border-zinc-800/80 last:border-0 last:pb-0"
+                      className="flex justify-between items-center text-sm pb-3 border-b border-border/50 last:border-0 last:pb-0"
                     >
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">{item.categoryName}</span>
-                        <span className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 font-medium">{item.brandName}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-bold text-foreground">{item.categoryName}</span>
+                        <span className="text-xs text-muted-foreground font-medium">{item.brandName}</span>
                       </div>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">{item.quantity} Unit</span>
+                      <span className="font-bold text-foreground bg-muted px-2.5 py-1 rounded-md">{item.quantity} Unit</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-zinc-800 font-bold text-[#008060] dark:text-emerald-500 text-xs md:text-sm">
-                  <span>Total</span>
+                <div className="flex justify-between items-center pt-3 border-t border-border/50 font-black text-emerald-600 dark:text-emerald-400 text-[15px]">
+                  <span>TOTAL ITEM</span>
                   <span>{totalQuantity} Unit</span>
                 </div>
               </div>
 
               {/* Secondary Statistics Details */}
-              <div className="space-y-2 text-[11px] md:text-xs text-slate-500 dark:text-slate-400 bg-white md:bg-transparent dark:bg-zinc-950 p-3 md:p-0 rounded-xl md:rounded-none border border-slate-100 md:border-none dark:border-zinc-800">
-                <div className="flex justify-between">
-                  <span>Kategori Material</span>
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">{items.length} Kategori</span>
+              <div className="flex flex-col gap-2.5 text-xs text-muted-foreground bg-card p-4 rounded-2xl border border-border/60 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold uppercase tracking-wider text-[10px]">Kategori Material</span>
+                  <span className="font-bold text-foreground">{items.length} Kategori</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Tanggal Diajukan</span>
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">{todayFormatted}</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold uppercase tracking-wider text-[10px]">Tanggal Pengajuan</span>
+                  <span className="font-bold text-foreground">{todayFormatted}</span>
                 </div>
               </div>
 
               {/* Status on mobile inside the flow */}
-              <div className="flex flex-row justify-between items-center md:hidden pt-2">
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
+              <div className="flex flex-row justify-between items-center md:hidden pt-2 bg-emerald-500/5 px-4 py-3 rounded-2xl border border-emerald-500/20">
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 uppercase tracking-widest font-black">
                   Status
                 </span>
-                <span className="text-xl font-black text-[#008060] dark:text-emerald-500 tracking-tight">
+                <span className="text-[17px] font-black text-emerald-600 dark:text-emerald-400 tracking-tight animate-pulse">
                   MENUNGGU
                 </span>
               </div>
             </div>
 
             {/* Desktop Status highlighting */}
-            <div className="hidden md:flex flex-col items-end border-t border-slate-200/60 dark:border-zinc-800/80 pt-4 mt-6">
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
+            <div className="hidden md:flex flex-col items-end border-t border-border/50 pt-5 mt-6">
+              <span className="text-[11px] text-muted-foreground uppercase tracking-widest font-bold">
                 Status Permintaan
               </span>
-              <span className="text-3xl font-black text-[#008060] dark:text-emerald-500 mt-1 tracking-tight">
+              <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight">
                 MENUNGGU
               </span>
             </div>
 
             {/* Mobile Actions Stack */}
-            <div className="flex md:hidden w-full flex-col space-y-2 pt-6 mt-auto">
+            <div className="flex md:hidden w-full flex-col space-y-3 pt-6 mt-auto">
               <Button
-                className="w-full h-12 bg-[#008060] hover:bg-[#006b50] text-white font-semibold rounded-xl shadow-md transition-all cursor-pointer"
+                className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
                 onClick={onGoToHistory}
               >
                 Lihat Riwayat Permintaan
               </Button>
               <Button
                 variant="outline"
-                className="w-full h-12 bg-white hover:bg-slate-50 dark:bg-zinc-950 dark:hover:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl transition-all cursor-pointer"
+                className="w-full h-12 bg-card border-border hover:bg-muted text-foreground font-bold rounded-xl transition-all cursor-pointer"
                 onClick={onClose}
               >
                 Ajukan Permintaan Baru
@@ -290,6 +293,7 @@ export default function PartnerRequestNewPage() {
   // Form state
   const [items, setItems] = useState<ItemRow[]>([createEmptyRow(1)])
   const [notes, setNotes] = useState("")
+  const [targetPartnerId, setTargetPartnerId] = useState<string>("admin")
   const [errors, setErrors] = useState<FormErrors>({ items: {} })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -299,6 +303,7 @@ export default function PartnerRequestNewPage() {
   // Dropdown data
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [brands, setBrands] = useState<BrandOption[]>([])
+  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
   const [loadingDropdowns, setLoadingDropdowns] = useState(true)
   const [dropdownError, setDropdownError] = useState<string | null>(null)
 
@@ -307,9 +312,14 @@ export default function PartnerRequestNewPage() {
     setLoadingDropdowns(true)
     setDropdownError(null)
     try {
-      const [catRes, brandRes] = await Promise.all([
+      const [catRes, brandRes, usersRes] = await Promise.all([
         api.get("/categories"),
         api.get("/brands"),
+        api.get("/users").catch((err) => {
+          console.error("Failed to load users:", err);
+          toast.warning("Tidak dapat memuat daftar mitra lain. Permintaan hanya bisa ke Pusat.");
+          return { data: [] };
+        }),
       ])
 
       const categoryOptions = unwrapArray(catRes.data, "categories")
@@ -326,16 +336,28 @@ export default function PartnerRequestNewPage() {
         })
         .filter((o) => o.id !== undefined && o.id !== null && o.name)
 
+      const rawUsers = usersRes?.data || {}
+      const usersList = Array.isArray(rawUsers) ? rawUsers : (rawUsers.data || rawUsers.users || [])
+      const partnerOptions = usersList
+        .filter((u: any) => u.role?.toUpperCase() === "MITRA" && String(u.id) !== String(user?.id))
+        .map((u: any) => ({
+          id: String(u.id),
+          name: u.profile?.nama || u.profile?.name || u.name || u.username || "Unknown Partner"
+        }))
+
       setCategories(categoryOptions)
       setBrands(brandOptions)
+      setPartners(partnerOptions)
 
       if (categoryOptions.length === 0 || brandOptions.length === 0)
         setDropdownError("Data kategori atau merek belum tersedia. Muat ulang data sebelum mengirim permintaan.")
-    } catch {
+    } catch (err: any) {
       setCategories([])
       setBrands([])
-      setDropdownError("Gagal memuat data kategori / merek. Silakan coba lagi.")
-      toast.error("Gagal memuat data kategori / merek. Silakan coba lagi.")
+      setPartners([])
+      const msg = err?.message || "Gagal memuat data kategori / merek / user. Silakan coba lagi."
+      setDropdownError(msg)
+      toast.error(msg)
     } finally {
       setLoadingDropdowns(false)
     }
@@ -407,6 +429,7 @@ export default function PartnerRequestNewPage() {
     try {
       const payload = {
         requesterId: user.id,
+        targetPartnerId: targetPartnerId === "admin" ? null : Number(targetPartnerId),
         notes: notes.trim(),
         items: items.map((row) => ({
           materialCategoryId: Number(row.categoryId),
@@ -457,15 +480,42 @@ export default function PartnerRequestNewPage() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ajukan Permintaan</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Isi formulir di bawah untuk mengajukan permintaan material
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          Ajukan Permintaan
+        </h1>
+        <p className="text-sm font-medium text-slate-500 mt-1">
+          Silakan isi rincian material yang ingin dipesan.
+        </p>
+      </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        
+        {/* Target Partner Selection */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Tujuan Permintaan</CardTitle>
+            <CardDescription>Pilih kemana permintaan ini akan diajukan</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">Tujuan (Gudang Pusat / Mitra Lain)</Label>
+              <Select value={targetPartnerId} onValueChange={setTargetPartnerId} disabled={loadingDropdowns}>
+                <SelectTrigger className="w-full sm:w-[300px]">
+                  <SelectValue placeholder="Pilih tujuan permintaan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Gudang Pusat (Admin)</SelectItem>
+                  {partners.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Item rows */}
         <Card>
           <CardHeader className="pb-3">

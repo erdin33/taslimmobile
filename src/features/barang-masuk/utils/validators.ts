@@ -1,6 +1,8 @@
 import type { InventoryItem } from "@/types/inventory";
 
-const ADMIN_LOCATION = "KP Tasikmalaya";
+export const REQUIRED_FIELDS_MITRA = [
+  "kondisi",
+];
 
 export const normalizeKodeBarang = (code: string) => code.trim().toUpperCase();
 export const normalizeBrand = (brand: string) => brand.trim().toLocaleLowerCase("id-ID");
@@ -25,28 +27,22 @@ export const isValidMitraInboundSource = (
   const status = normalizeStatus(item.status);
   const location = normalizeStatus(item.lokasiPenyimpanan || "");
 
-  // Barang dianggap "di luar KP" jika statusnya keluar/diluar,
-  // ATAU lokasinya adalah "Keluar"/"Diluar"
+  // Barang dianggap "bisa dikembalikan" jika tidak sedang berada di Gudang Pusat (Masuk)
+  // Atau secara eksplisit statusnya menandakan barang di luar.
   const isOutbound =
     status === "keluar" ||
     status === "diluar" ||
+    status === "terdistribusi" ||
     location === "keluar" ||
-    location === "diluar";
+    location === "diluar" ||
+    owner === normalizeOwner(mitraName);
 
   if (!isOutbound) return false;
 
-  // Jika lokasi fisik sudah "Diluar"/"Keluar", barang terbukti berada
-  // di luar gudang KP — izinkan mitra menerimanya tanpa validasi owner ketat,
-  // karena pengecekan owner bisa gagal akibat perbedaan nama/spasi.
-  if (location === "keluar" || location === "diluar") return true;
+  // Jika barang ada di Gudang Utama dan statusnya Valid/Masuk, maka tidak bisa dikembalikan lagi oleh Mitra
+  if ((location === "gudang utama" || location === "inbound") && (status === "valid" || status === "masuk" || status === "rusak")) {
+    return false;
+  }
 
-  // Jika hanya status yang menandakan keluar (lokasi masih di KP),
-  // validasi owner agar hanya barang milik mitra sendiri atau KP yang bisa diterima.
-  return (
-    owner === normalizeOwner(mitraName) ||
-    owner === normalizeOwner(ADMIN_LOCATION) ||
-    owner === normalizeOwner("KP Tasikmalaya") ||
-    owner === normalizeOwner("KP") ||
-    owner === ""
-  );
+  return true;
 };

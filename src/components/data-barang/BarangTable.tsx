@@ -1,4 +1,4 @@
-import { MoreVertical, Edit, Trash2 } from "lucide-react"
+import { MoreVertical } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
@@ -15,9 +15,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import type { BarangUnit, StatusUnit } from "@/types/inventory"
+import { formatItemLocation } from "@/lib/status-helper"
 
 interface BarangTableProps {
   items: BarangUnit[]
@@ -30,7 +30,7 @@ interface BarangTableProps {
   userRole?: string
   currentPage: number
   pageSize: number
-  getStatusBadgeProps: (status: StatusUnit) => { text: string; dotClass?: string; badgeClass?: string }
+  getStatusBadgeProps: (status: StatusUnit, lokasi?: string) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
 }
@@ -71,6 +71,7 @@ export function BarangTable({
             <TableHead className="w-44 text-xs font-semibold">Serial Number (SN)</TableHead>
             <TableHead className="w-32 text-xs font-semibold">Merek</TableHead>
             <TableHead className="w-32 text-xs font-semibold">Kategori</TableHead>
+            <TableHead className="w-24 text-xs text-center font-semibold">Kondisi</TableHead>
             <TableHead className="w-32 text-xs text-center font-semibold">Status</TableHead>
             <TableHead className="text-xs text-center font-semibold">Lokasi Penyimpanan</TableHead>
             {userRole === "admin" && (
@@ -83,8 +84,12 @@ export function BarangTable({
         </TableHeader>
         <TableBody>
           {items.map((item, index) => {
-            const badge = getStatusBadgeProps(item.status)
+            const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan)
             const isSelected = selectedIds.includes(item.id)
+            const itemKondisi = (item as any).kondisi || (item.status === "Rusak" ? "Rusak" : item.status === "Dismantle" ? "Dismantle" : "Baru")
+            const isRusak = itemKondisi.toLowerCase() === "rusak"
+            const isDismantle = itemKondisi.toLowerCase() === "dismantle"
+
             return (
               <TableRow
                 key={item.id}
@@ -110,11 +115,24 @@ export function BarangTable({
                 <TableCell>{item.merek}</TableCell>
                 <TableCell>{item.kategori}</TableCell>
                 <TableCell className="text-center">
+                  <span className={`inline-flex items-center justify-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${
+                    isRusak
+                      ? "bg-red-500/10 text-red-600 border-red-500/20"
+                      : isDismantle
+                      ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                      : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                  }`}>
+                    {itemKondisi}
+                  </span>
+                </TableCell>
+                <TableCell className="text-center">
                   <div className={`inline-flex items-center justify-center rounded-lg px-2.5 py-2 font-medium text-xs leading-none ${badge.badgeClass || ""}`}>
                     {badge.text}
                   </div>
                 </TableCell>
-                <TableCell className="text-center">{item.lokasiPenyimpanan}</TableCell>
+                <TableCell className="text-center">
+                  {formatItemLocation(item.status, item.lokasiPenyimpanan)}
+                </TableCell>
                 {userRole === "admin" && (
                   <TableCell>
                     {item.mitra || ADMIN_LOCATION}

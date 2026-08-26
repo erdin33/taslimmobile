@@ -20,7 +20,7 @@ const getBaseUrl = () => {
  * @returns {Record<string, string>} Object header HTTP.
  */
 const getHeaders = () => {
-  const token = localStorage.getItem("arxiva-auth-token");
+  const token = localStorage.getItem("taslim-auth-token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -34,7 +34,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -361,16 +361,16 @@ export default function MerekBarangPage() {
         )}
       </div>
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-md border-border bg-popover p-0 flex flex-col text-foreground">
-          <SheetHeader className="p-6 border-b border-border/50 bg-muted/50">
-            <SheetTitle className="text-xl text-foreground">{editId ? "Edit Merek" : "Tambah Merek Baru"}</SheetTitle>
-            <SheetDescription className="text-muted-foreground">
-              Isi formulir di bawah ini untuk mengelola informasi merek barang.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="p-6 flex-1 overflow-y-auto">
-            <div className="grid gap-5">
+      <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <DialogContent className="w-[92%] sm:max-w-md rounded-2xl p-0 max-h-[85vh] flex flex-col border-border bg-popover text-foreground overflow-hidden">
+          <DialogHeader className="p-5 pb-3 border-b border-border/50 bg-muted/40 text-left">
+            <DialogTitle className="text-lg font-bold text-foreground">{editId ? "Edit Merek" : "Tambah Merek Baru"}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Isi formulir di bawah ini untuk mengelola informasi merek.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-5 flex-1 overflow-y-auto">
+            <div className="grid gap-4">
               <div className="space-y-2">
                 <Label>Nama Merek</Label>
                 <Input
@@ -434,15 +434,15 @@ export default function MerekBarangPage() {
               </div>
             </div>
           </div>
-          <SheetFooter className="p-6 border-t border-border/50 bg-muted/50 flex sm:justify-end gap-3 sm:gap-2">
-            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="hover:bg-muted text-foreground" disabled={isSaving}>Batal</Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+          <DialogFooter className="p-4 border-t border-border/50 bg-muted/40 flex flex-row sm:justify-end gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setIsSheetOpen(false)} className="flex-1" disabled={isSaving}>Batal</Button>
+            <Button onClick={handleSave} disabled={isSaving} className="flex-1 font-semibold">
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Simpan Perubahan
+              {editId ? "Simpan Perubahan" : "Tambah Merek"}
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteAlertData.isOpen} onOpenChange={(open) => !open && !isDeleting && setDeleteAlertData({ ...deleteAlertData, isOpen: false })}>
         <AlertDialogContent>

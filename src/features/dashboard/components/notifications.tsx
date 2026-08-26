@@ -24,6 +24,7 @@ type NotificationItem = {
   type: string
   date: string
   isRead: boolean
+  targetRole?: string
 }
 
 export function Notifications() {
@@ -47,7 +48,7 @@ export function Notifications() {
   
   const fetchNotifications = React.useCallback(async () => {
     try {
-      const data = await invoke<NotificationItem[]>("get_notifications")
+      const data = await invoke<NotificationItem[]>("get_notifications", { role: user?.role || "all" })
       
       // Auto-sync notifications for Admin from new requests
       if (isAdmin) {
@@ -68,7 +69,8 @@ export function Notifications() {
                   message: `${req.requester?.profile?.nama || req.requester?.username || "Mitra"} mengajukan request sejumlah ${req.itemsCount || 0} item.`,
                   type: "info",
                   date: req.requestedAt || new Date().toISOString(),
-                  isRead: false
+                  isRead: false,
+                  targetRole: "admin"
                 }
                 
                 try {
@@ -82,7 +84,7 @@ export function Notifications() {
           }
           
           if (hasNew) {
-            const newData = await invoke<NotificationItem[]>("get_notifications")
+            const newData = await invoke<NotificationItem[]>("get_notifications", { role: user?.role || "all" })
             setItems(newData)
             return
           }
@@ -114,10 +116,10 @@ export function Notifications() {
 
   const markAllAsRead = async () => {
     try {
-      await invoke("mark_all_notifications_read")
+      await invoke("mark_all_notifications_read", { role: user?.role || "all" })
       fetchNotifications()
-    } catch (error) {
-      console.error("Failed to mark all as read:", error)
+    } catch (err) {
+      console.error("Failed to mark all as read:", err)
     }
   }
 

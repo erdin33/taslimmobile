@@ -11,25 +11,33 @@ import { ScannedItemsTableOutbound } from "@/features/barang-keluar/components/S
 export default function BarangKeluarPage() {
   const logic = useBarangKeluarLogic();
   const [openScanner, setOpenScanner] = useState(false);
-  const processedCodesRef = useRef<Set<string>>(new Set());
 
   const handleScanSuccess = useCallback(async (scannedCode: string | string[]) => {
+    const isValidItem = (code: string) => {
+      if (!logic.dbItems || logic.dbItems.length === 0) return true; // fallback
+      const normalizedCode = code.trim().toUpperCase();
+      return logic.dbItems.some((item) => {
+        const id = item.serialNumber?.trim().toUpperCase();
+        return id && normalizedCode === id;
+      });
+    };
+
     if (Array.isArray(scannedCode)) {
-      let count = 0;
-      for (const code of scannedCode) {
-        if (processedCodesRef.current.has(code)) continue;
-        processedCodesRef.current.add(code);
-        setTimeout(() => { processedCodesRef.current.delete(code); }, 2000);
-        await logic.handleSubmit(code);
-        count++;
+      if (scannedCode.length === 0) return { success: false, message: "Tidak ada barcode valid." };
+
+      const firstValidCode = scannedCode.find(code => isValidItem(code));
+      if (!firstValidCode) {
+        return { success: false, message: "Barang tidak terdaftar di sistem" };
       }
-      return { success: count > 0, message: count > 0 ? `Berhasil memproses ${count} barcode.` : "Tidak ada barcode baru." };
+
+      logic.updateKodeBarang(firstValidCode);
+      return { success: true, message: "Barcode berhasil di-scan. Silakan isi keterangan lalu klik Tambah." };
     } else {
       const codeToProcess = scannedCode;
-      if (processedCodesRef.current.has(codeToProcess)) return { success: false, ignored: true, message: "Sudah discan di sesi ini" };
-      processedCodesRef.current.add(codeToProcess);
-      setTimeout(() => { processedCodesRef.current.delete(codeToProcess); }, 2000);
-      await logic.handleSubmit(codeToProcess);
+      if (!isValidItem(codeToProcess)) {
+        return { success: false, ignored: true, message: "Barang tidak terdaftar di sistem" };
+      }
+      logic.updateKodeBarang(codeToProcess);
       return { success: true };
     }
   }, [logic]);
@@ -61,7 +69,7 @@ export default function BarangKeluarPage() {
   return (
     <div className="@container/main flex min-h-[calc(100svh-3rem)] select-none flex-col gap-4 py-4 md:gap-6 md:py-6 @5xl/main:h-full @5xl/main:overflow-y-hidden">
       <div className="flex flex-col flex-1 h-full gap-4 px-4 lg:px-6 @5xl/main:grid @5xl/main:h-full @5xl/main:grid-cols-[minmax(320px,380px)_1fr]">
-        
+
         <OutboundFormCard
           user={logic.user}
           kodeBarang={logic.kodeBarang}
@@ -74,6 +82,8 @@ export default function BarangKeluarPage() {
           setSelectedPartnerId={logic.setSelectedPartnerId}
           keterangan={logic.keterangan}
           setKeterangan={logic.setKeterangan}
+          ticketGangguan={logic.ticketGangguan}
+          setTicketGangguan={logic.setTicketGangguan}
           focusKodeBarangInput={logic.focusKodeBarangInput}
           cameraScannerSlot={
             <CameraScanner
