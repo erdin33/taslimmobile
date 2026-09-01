@@ -12,7 +12,7 @@ import {
 import { Link } from "react-router-dom"
 import type { StatusUnit } from "@/types/inventory"
 
-const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Rusak", "Hilang"]
+const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Digunakan", "Rusak", "Hilang"]
 
 interface BarangFilterBarProps {
   searchTerm: string
@@ -79,7 +79,10 @@ export function BarangFilterBar({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua Status</SelectItem>
-              {STATUS_OPTIONS.map((status) => (
+              {(userRole === "mitra"
+                ? STATUS_OPTIONS.filter((s) => s !== "Terdistribusi")
+                : STATUS_OPTIONS
+              ).map((status) => (
                 <SelectItem key={status} value={status}>
                   {status}
                 </SelectItem>

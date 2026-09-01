@@ -102,7 +102,7 @@ export function MobileBottomNav() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom,0px)] border-t bg-background/80 backdrop-blur-lg md:hidden">
       <div className="grid h-16 items-center justify-around px-2 min-w-0 grid-cols-5">
-        
+
         {/* Dashboard */}
         <Link
           to="/"
@@ -129,7 +129,7 @@ export function MobileBottomNav() {
 
         {/* Scan Barcode (Floating in the center) */}
         <div className="flex justify-center items-center h-full relative">
-          <CameraScanner 
+          <CameraScanner
             showModeTabs={true}
             defaultMode="masuk"
             onScan={async (code, mode) => {
@@ -149,12 +149,12 @@ export function MobileBottomNav() {
               })
 
               if (validCodes.length === 0) {
-                return { 
-                  success: false, 
-                  message: "Barcode tidak sesuai dengan identifier merek apa pun." 
+                return {
+                  success: false,
+                  message: "Barcode tidak sesuai dengan identifier merek apa pun."
                 }
               }
-              
+
               const codeStr = validCodes.join(',')
 
               if (mode === "masuk") {
@@ -284,9 +284,9 @@ export function MobileBottomNav() {
                   </div>
                   <ChevronRight className="size-4 text-muted-foreground/60" />
                 </Link>
-                
+
                 <div className="border-t border-border/20 my-2"></div>
-                
+
                 <Link
                   to="/tugas-harian"
                   className={cn(
@@ -298,13 +298,31 @@ export function MobileBottomNav() {
                     <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
                       <ClipboardCheck className="size-4" />
                     </div>
-                    <span>Tugas Recon (Mitra)</span>
+                    <span>Recon (Mitra)</span>
                   </div>
                   <ChevronRight className="size-4 text-muted-foreground/60" />
                 </Link>
 
+                {isAdmin && (
+                  <Link
+                    to="/laporan-recon"
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-xl border bg-card/50 hover:bg-accent text-foreground text-sm font-medium",
+                      currentPath === "/laporan-recon" && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
+                        <ClipboardCheck className="size-4" />
+                      </div>
+                      <span>Laporan Recon (Admin)</span>
+                    </div>
+                    <ChevronRight className="size-4 text-muted-foreground/60" />
+                  </Link>
+                )}
+                    
                 <div className="border-t border-border/20 my-2"></div>
-                
+
                 <button
                   onClick={handleLogout}
                   className="flex items-center justify-between p-3 rounded-xl border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 text-destructive text-sm font-medium"
@@ -329,7 +347,7 @@ export function MobileBottomNav() {
             )}
           >
             <ClipboardCheck className="size-5" />
-            <span className="text-[10px] tracking-wide">Tugas</span>
+            <span className="text-[10px] tracking-wide">Recon</span>
           </Link>
         )}
 

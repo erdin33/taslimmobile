@@ -35,16 +35,18 @@ type ItemRow = {
   id: number
   categoryId: string
   brandId: string
+  cableLength?: string
   quantity: string
 }
 
 type FormErrors = {
-  items: Record<number, { categoryId?: string; brandId?: string; quantity?: string }>
+  items: Record<number, { categoryId?: string; brandId?: string; cableLength?: string; quantity?: string }>
 }
 
 type PreviewItem = {
   categoryName: string
   brandName: string
+  cableLength?: string
   quantity: string
 }
 
@@ -54,6 +56,7 @@ const createEmptyRow = (id: number): ItemRow => ({
   id,
   categoryId: "",
   brandId: "",
+  cableLength: "150 Meter",
   quantity: "",
 })
 
@@ -293,7 +296,6 @@ export default function PartnerRequestNewPage() {
   // Form state
   const [items, setItems] = useState<ItemRow[]>([createEmptyRow(1)])
   const [notes, setNotes] = useState("")
-  const [targetPartnerId, setTargetPartnerId] = useState<string>("admin")
   const [errors, setErrors] = useState<FormErrors>({ items: {} })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -303,7 +305,6 @@ export default function PartnerRequestNewPage() {
   // Dropdown data
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [brands, setBrands] = useState<BrandOption[]>([])
-  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
   const [loadingDropdowns, setLoadingDropdowns] = useState(true)
   const [dropdownError, setDropdownError] = useState<string | null>(null)
 
@@ -312,14 +313,9 @@ export default function PartnerRequestNewPage() {
     setLoadingDropdowns(true)
     setDropdownError(null)
     try {
-      const [catRes, brandRes, usersRes] = await Promise.all([
+      const [catRes, brandRes] = await Promise.all([
         api.get("/categories"),
         api.get("/brands"),
-        api.get("/users").catch((err) => {
-          console.error("Failed to load users:", err);
-          toast.warning("Tidak dapat memuat daftar mitra lain. Permintaan hanya bisa ke Pusat.");
-          return { data: [] };
-        }),
       ])
 
       const categoryOptions = unwrapArray(catRes.data, "categories")
@@ -336,26 +332,15 @@ export default function PartnerRequestNewPage() {
         })
         .filter((o) => o.id !== undefined && o.id !== null && o.name)
 
-      const rawUsers = usersRes?.data || {}
-      const usersList = Array.isArray(rawUsers) ? rawUsers : (rawUsers.data || rawUsers.users || [])
-      const partnerOptions = usersList
-        .filter((u: any) => u.role?.toUpperCase() === "MITRA" && String(u.id) !== String(user?.id))
-        .map((u: any) => ({
-          id: String(u.id),
-          name: u.profile?.nama || u.profile?.name || u.name || u.username || "Unknown Partner"
-        }))
-
       setCategories(categoryOptions)
       setBrands(brandOptions)
-      setPartners(partnerOptions)
 
       if (categoryOptions.length === 0 || brandOptions.length === 0)
         setDropdownError("Data kategori atau merek belum tersedia. Muat ulang data sebelum mengirim permintaan.")
     } catch (err: any) {
       setCategories([])
       setBrands([])
-      setPartners([])
-      const msg = err?.message || "Gagal memuat data kategori / merek / user. Silakan coba lagi."
+      const msg = err?.message || "Gagal memuat data kategori / merek. Silakan coba lagi."
       setDropdownError(msg)
       toast.error(msg)
     } finally {
@@ -427,10 +412,24 @@ export default function PartnerRequestNewPage() {
 
     setIsSubmitting(true)
     try {
+      const cableDetails = items
+        .filter((r) => {
+          const cat = categories.find((c) => String(c.id) === String(r.categoryId))
+          return cat && (cat.name.toLowerCase().includes("kabel") || cat.name.toLowerCase().includes("dropcore") || cat.name.toLowerCase().includes("cable"))
+        })
+        .map((r) => {
+          const cat = categories.find((c) => String(c.id) === String(r.categoryId))
+          return `${cat?.name || "Kabel"} (${r.cableLength || "150 Meter"}) x ${r.quantity}`
+        })
+
+      const finalNotes = [
+        notes.trim(),
+        cableDetails.length > 0 ? `[Spesifikasi Kabel: ${cableDetails.join(", ")}]` : ""
+      ].filter(Boolean).join("\n")
+
       const payload = {
         requesterId: user.id,
-        targetPartnerId: targetPartnerId === "admin" ? null : Number(targetPartnerId),
-        notes: notes.trim(),
+        notes: finalNotes,
         items: items.map((row) => ({
           materialCategoryId: Number(row.categoryId),
           brandId: Number(row.brandId),
@@ -459,9 +458,11 @@ export default function PartnerRequestNewPage() {
   const previewItems: PreviewItem[] = items.map((row) => {
     const cat = categories.find((c) => String(c.id) === String(row.categoryId))
     const brand = brands.find((b) => String(b.id) === String(row.brandId))
+    const isCable = cat && (cat.name.toLowerCase().includes("kabel") || cat.name.toLowerCase().includes("dropcore") || cat.name.toLowerCase().includes("cable"))
     return {
-      categoryName: cat?.name || "-",
+      categoryName: cat?.name ? (isCable && row.cableLength ? `${cat.name} (${row.cableLength})` : cat.name) : "-",
       brandName: brand?.name || "-",
+      cableLength: row.cableLength,
       quantity: row.quantity,
     }
   })
@@ -485,37 +486,12 @@ export default function PartnerRequestNewPage() {
           Ajukan Permintaan
         </h1>
         <p className="text-sm font-medium text-slate-500 mt-1">
-          Silakan isi rincian material yang ingin dipesan.
+          Silakan isi rincian material yang ingin dipesan ke Gudang Pusat.
         </p>
       </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        
-        {/* Target Partner Selection */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Tujuan Permintaan</CardTitle>
-            <CardDescription>Pilih kemana permintaan ini akan diajukan</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs text-muted-foreground">Tujuan (Gudang Pusat / Mitra Lain)</Label>
-              <Select value={targetPartnerId} onValueChange={setTargetPartnerId} disabled={loadingDropdowns}>
-                <SelectTrigger className="w-full sm:w-[300px]">
-                  <SelectValue placeholder="Pilih tujuan permintaan" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Gudang Pusat (Admin)</SelectItem>
-                  {partners.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Item rows */}
         <Card>
           <CardHeader className="pb-3">
@@ -539,99 +515,139 @@ export default function PartnerRequestNewPage() {
                   </div>
                 )}
 
-                {items.map((row, idx) => (
-                  <div
-                    key={row.id}
-                    className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px_auto] gap-3 items-start border rounded-lg p-3 bg-muted/30 relative"
-                  >
-                    <span className="absolute top-3 left-3.5 text-xs text-muted-foreground font-medium select-none">
-                      {idx + 1}
-                    </span>
+                {items.map((row, idx) => {
+                  const selectedCat = categories.find((c) => String(c.id) === String(row.categoryId))
+                  const isCable = selectedCat && (
+                    selectedCat.name.toLowerCase().includes("kabel") ||
+                    selectedCat.name.toLowerCase().includes("dropcore") ||
+                    selectedCat.name.toLowerCase().includes("cable")
+                  )
 
-                    {/* Category */}
-                    <div className="flex flex-col gap-1.5 sm:pl-5">
-                      <Label className="text-xs text-muted-foreground">
-                        Kategori <span className="text-destructive">*</span>
-                      </Label>
-                      <Select value={row.categoryId} onValueChange={(v) => updateRow(row.id, "categoryId", v)}>
-                        <SelectTrigger id={`cat-${row.id}`} className={errors.items[row.id]?.categoryId ? "border-destructive" : ""}>
-                          <SelectValue placeholder="Pilih kategori..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.length > 0 ? (
-                            categories.map((c) => (
-                              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                            ))
-                          ) : (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground">Tidak ada kategori</div>
+                  return (
+                    <div
+                      key={row.id}
+                      className="flex flex-col gap-3.5 border border-border/80 rounded-2xl p-4 bg-muted/20 shadow-xs"
+                    >
+                      {/* Card Header with Item Number and Remove Button */}
+                      <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <span className="flex items-center justify-center size-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                            {idx + 1}
+                          </span>
+                          Barang #{idx + 1}
+                        </span>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                          disabled={items.length <= 1}
+                          onClick={() => removeRow(row.id)}
+                          aria-label="Hapus item"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                          Hapus
+                        </Button>
+                      </div>
+
+                      {/* Card Inputs Grid */}
+                      <div className={`grid grid-cols-1 ${isCable ? "sm:grid-cols-2 md:grid-cols-4" : "sm:grid-cols-3"} gap-3.5 items-start`}>
+                        {/* Category */}
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground">
+                            Kategori <span className="text-destructive">*</span>
+                          </Label>
+                          <Select value={row.categoryId} onValueChange={(v) => updateRow(row.id, "categoryId", v)}>
+                            <SelectTrigger id={`cat-${row.id}`} className={errors.items[row.id]?.categoryId ? "border-destructive" : ""}>
+                              <SelectValue placeholder="Pilih kategori..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.length > 0 ? (
+                                categories.map((c) => (
+                                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">Tidak ada kategori</div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {errors.items[row.id]?.categoryId && (
+                            <p className="text-xs text-destructive">{errors.items[row.id].categoryId}</p>
                           )}
-                        </SelectContent>
-                      </Select>
-                      {errors.items[row.id]?.categoryId && (
-                        <p className="text-xs text-destructive">{errors.items[row.id].categoryId}</p>
-                      )}
-                    </div>
+                        </div>
 
-                    {/* Brand */}
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs text-muted-foreground">
-                        Merek <span className="text-destructive">*</span>
-                      </Label>
-                      <Select value={row.brandId} onValueChange={(v) => updateRow(row.id, "brandId", v)}>
-                        <SelectTrigger id={`brand-${row.id}`} className={errors.items[row.id]?.brandId ? "border-destructive" : ""}>
-                          <SelectValue placeholder="Pilih merek..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {brands.length > 0 ? (
-                            brands.map((b) => (
-                              <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                            ))
-                          ) : (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground">Tidak ada merek</div>
+                        {/* Brand */}
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground">
+                            Merek <span className="text-destructive">*</span>
+                          </Label>
+                          <Select value={row.brandId} onValueChange={(v) => updateRow(row.id, "brandId", v)}>
+                            <SelectTrigger id={`brand-${row.id}`} className={errors.items[row.id]?.brandId ? "border-destructive" : ""}>
+                              <SelectValue placeholder="Pilih merek..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {brands.length > 0 ? (
+                                brands.map((b) => (
+                                  <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">Tidak ada merek</div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {errors.items[row.id]?.brandId && (
+                            <p className="text-xs text-destructive">{errors.items[row.id].brandId}</p>
                           )}
-                        </SelectContent>
-                      </Select>
-                      {errors.items[row.id]?.brandId && (
-                        <p className="text-xs text-destructive">{errors.items[row.id].brandId}</p>
-                      )}
-                    </div>
+                        </div>
 
-                    {/* Quantity */}
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor={`qty-${row.id}`} className="text-xs text-muted-foreground">
-                        Jumlah <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id={`qty-${row.id}`}
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="0"
-                        value={row.quantity}
-                        onChange={(e) => updateRow(row.id, "quantity", e.target.value)}
-                        className={errors.items[row.id]?.quantity ? "border-destructive" : ""}
-                      />
-                      {errors.items[row.id]?.quantity && (
-                        <p className="text-xs text-destructive">{errors.items[row.id].quantity}</p>
-                      )}
-                    </div>
+                        {/* Cable Length Dropdown if Cable */}
+                        {isCable ? (
+                          <div className="flex flex-col gap-1.5">
+                            <Label className="text-xs text-primary font-semibold">
+                              Panjang (Meter) <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={row.cableLength || "150 Meter"}
+                              onValueChange={(v) => updateRow(row.id, "cableLength", v)}
+                            >
+                              <SelectTrigger className="bg-primary/5 border-primary/30 font-medium text-xs">
+                                <SelectValue placeholder="Pilih Panjang" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="100 Meter">100 Meter</SelectItem>
+                                <SelectItem value="150 Meter">150 Meter</SelectItem>
+                                <SelectItem value="250 Meter">250 Meter</SelectItem>
+                                <SelectItem value="300 Meter">300 Meter</SelectItem>
+                                <SelectItem value="1000 Meter (Drum)">1000 Meter (Drum)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : null}
 
-                    {/* Remove */}
-                    <div className="flex items-end justify-end sm:justify-center pb-0.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                        disabled={items.length <= 1}
-                        onClick={() => removeRow(row.id)}
-                        aria-label="Hapus item"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        {/* Quantity */}
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor={`qty-${row.id}`} className="text-xs font-semibold text-muted-foreground">
+                            Jumlah <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id={`qty-${row.id}`}
+                            type="number"
+                            min="1"
+                            step="1"
+                            placeholder="0"
+                            value={row.quantity}
+                            onChange={(e) => updateRow(row.id, "quantity", e.target.value)}
+                            className={errors.items[row.id]?.quantity ? "border-destructive" : ""}
+                          />
+                          {errors.items[row.id]?.quantity && (
+                            <p className="text-xs text-destructive">{errors.items[row.id].quantity}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
 
                 <Button type="button" variant="outline" size="sm" className="self-start gap-1.5 cursor-pointer" onClick={addRow}>
                   <Plus className="h-4 w-4" />

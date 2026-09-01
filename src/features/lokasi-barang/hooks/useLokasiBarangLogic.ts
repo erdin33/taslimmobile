@@ -17,13 +17,24 @@ const getHeaders = () => {
   return headers;
 };
 
+export interface CategoryStat {
+  name: string;
+  count: number;
+  pct: number;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+}
+
 export const useLokasiBarangLogic = () => {
   const [locations, setLocations] = useState<StorageLocation[]>([]);
   const [brands, setBrands] = useState<string[]>(["Campuran"]);
+  const [items, setItems] = useState<any[]>([]);
   const [sheetMode, setSheetMode] = useState<SheetMode>("closed");
   const [activeItem, setActiveItem] = useState<{ parentId?: string; levelId?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"rak" | "kardus" | "pallet" | "mitra">("rak");
+  const [filterType, setFilterType] = useState<"rak" | "kardus" | "pallet">("rak");
   const [sortBy, setSortBy] = useState<"util-desc" | "util-asc" | "name">("name");
 
   // Form States
@@ -36,17 +47,35 @@ export const useLokasiBarangLogic = () => {
     isOpen: boolean; type: "location" | "level" | null; id: string; name: string;
   }>({ isOpen: false, type: null, id: "", name: "" });
 
+  const [relocateDialog, setRelocateDialog] = useState<{
+    isOpen: boolean;
+    sourceLocation: string;
+    sourceName: string;
+  }>({
+    isOpen: false,
+    sourceLocation: "",
+    sourceName: "",
+  });
+
   const [isSaving, setIsSaving] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRelocating, setIsRelocating] = useState(false);
 
-  const loadLocations = async () => {
+  const loadLocationsAndItems = async () => {
     try {
-      // Fetch locations dan users (mitra) secara paralel
-      const [locRes, usersRes] = await Promise.all([
+      // Fetch locations, users (mitra), dan items secara paralel
+      const [locRes, usersRes, itemsRes] = await Promise.all([
         fetch(`${getBaseUrl()}/locations`, { method: "GET", headers: getHeaders() }),
         fetch(`${getBaseUrl()}/users`, { method: "GET", headers: getHeaders() }).catch(() => null),
+        fetch(`${getBaseUrl()}/items`, { method: "GET", headers: getHeaders() }).catch(() => null),
       ]);
+
+      if (itemsRes && itemsRes.ok) {
+        const itemsJson = await itemsRes.json();
+        const rawItems = Array.isArray(itemsJson.data) ? itemsJson.data : (Array.isArray(itemsJson) ? itemsJson : []);
+        setItems(rawItems);
+      }
 
       if (!locRes.ok) throw new Error("Gagal mengambil data lokasi");
       const locJson = await locRes.json();
@@ -66,25 +95,20 @@ export const useLokasiBarangLogic = () => {
         });
       }
 
-      // Reklasifikasi: lokasi bertipe "Kardus" yang namanya cocok dengan Mitra → ubah ke "Mitra"
-      const reclassified = data.map(loc => {
-        if (loc.type === "Kardus" && mitraNames.has(loc.name.toLowerCase())) {
-          return { ...loc, type: "Mitra" as const };
-        }
-        return loc;
-      });
-
       const ADMIN_LOCATION = "KP Tasikmalaya";
       const normalizeOwner = (owner?: string | null) => (owner || ADMIN_LOCATION).trim().toLowerCase();
       const kpOwner = normalizeOwner(ADMIN_LOCATION);
 
       setLocations(
-        reclassified.filter(
+        data.filter(
           (loc) => 
             loc.name !== "Keluar" && 
             loc.name !== "Diluar" &&
             (loc as any).type !== "Partner" &&
             (loc as any).type !== "PARTNER" &&
+            (loc as any).type !== "Mitra" &&
+            (loc as any).type !== "MITRA" &&
+            !mitraNames.has(loc.name.toLowerCase()) &&
             !loc.name.toUpperCase().startsWith("PT ") &&
             !loc.name.toUpperCase().startsWith("PT.") &&
             (normalizeOwner((loc as any).owner) === kpOwner || normalizeOwner((loc as any).owner) === "kp")
@@ -108,27 +132,88 @@ export const useLokasiBarangLogic = () => {
   };
 
   useEffect(() => {
-    loadLocations();
+    loadLocationsAndItems();
     loadBrands();
   }, []);
 
+  // Hitung Breakdown per Kategori Barang di Gudang KP
+  const categoryStats: CategoryStat[] = useMemo(() => {
+    const categoryCounts: Record<string, number> = {};
+    let totalItemsInKp = 0;
+
+    items.forEach((item) => {
+      const status = (item.status || "").toLowerCase();
+      const loc = (item.lokasiPenyimpanan || "").toLowerCase();
+      
+      // Hitung hanya barang yang berada di gudang KP (bukan keluar / di mitra)
+      if (status !== "keluar" && status !== "diluar" && loc !== "keluar" && loc !== "diluar") {
+        const rawCat = (item.kategori || item.category || "Lainnya").trim();
+        const cat = rawCat ? rawCat.toUpperCase() : "LAINNYA";
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        totalItemsInKp++;
+      }
+    });
+
+    const COLOR_PALETTES: Record<string, { color: string; bgColor: string; borderColor: string; textColor: string }> = {
+      ONT: { color: "bg-blue-500", bgColor: "bg-blue-500/10", borderColor: "border-blue-500/30", textColor: "text-blue-600 dark:text-blue-400" },
+      KABEL: { color: "bg-emerald-500", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/30", textColor: "text-emerald-600 dark:text-emerald-400" },
+      DROPCORE: { color: "bg-emerald-500", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/30", textColor: "text-emerald-600 dark:text-emerald-400" },
+      STB: { color: "bg-violet-500", bgColor: "bg-violet-500/10", borderColor: "border-violet-500/30", textColor: "text-violet-600 dark:text-violet-400" },
+      ADAPTOR: { color: "bg-amber-500", bgColor: "bg-amber-500/10", borderColor: "border-amber-500/30", textColor: "text-amber-600 dark:text-amber-400" },
+      ACCESSORIES: { color: "bg-cyan-500", bgColor: "bg-cyan-500/10", borderColor: "border-cyan-500/30", textColor: "text-cyan-600 dark:text-cyan-400" },
+      AKSESORIS: { color: "bg-cyan-500", bgColor: "bg-cyan-500/10", borderColor: "border-cyan-500/30", textColor: "text-cyan-600 dark:text-cyan-400" },
+    };
+
+    const DEFAULT_COLORS = [
+      { color: "bg-indigo-500", bgColor: "bg-indigo-500/10", borderColor: "border-indigo-500/30", textColor: "text-indigo-600 dark:text-indigo-400" },
+      { color: "bg-rose-500", bgColor: "bg-rose-500/10", borderColor: "border-rose-500/30", textColor: "text-rose-600 dark:text-rose-400" },
+      { color: "bg-teal-500", bgColor: "bg-teal-500/10", borderColor: "border-teal-500/30", textColor: "text-teal-600 dark:text-teal-400" },
+    ];
+
+    const result: CategoryStat[] = Object.entries(categoryCounts).map(([catName, count], idx) => {
+      const pct = totalItemsInKp > 0 ? Math.round((count / totalItemsInKp) * 100) : 0;
+      const palette = COLOR_PALETTES[catName] || DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+      return {
+        name: catName,
+        count,
+        pct,
+        ...palette,
+      };
+    });
+
+    // Urutkan dari jumlah terbanyak
+    return result.sort((a, b) => b.count - a.count);
+  }, [items]);
+
+  // Breakdown kategori per nama lokasi / level
+  const locationCategoryMap = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    items.forEach((item) => {
+      const loc = (item.lokasiPenyimpanan || "").trim();
+      if (loc && loc.toLowerCase() !== "keluar" && loc.toLowerCase() !== "diluar") {
+        if (!map[loc]) map[loc] = {};
+        const cat = (item.kategori || "ONT").toUpperCase();
+        map[loc][cat] = (map[loc][cat] || 0) + 1;
+      }
+    });
+    return map;
+  }, [items]);
+
   const stats = useMemo(() => {
-    let totalRak = 0, totalKardus = 0, totalPallet = 0, totalMitra = 0, maxCapacity = 0, usedCapacity = 0;
+    let totalRak = 0, totalKardus = 0, totalPallet = 0, maxCapacity = 0, usedCapacity = 0;
     locations.forEach(loc => {
       if (loc.type === "Rak") {
         totalRak++;
         loc.levels?.forEach(lvl => { maxCapacity += lvl.capacity; usedCapacity += lvl.usedCapacity; });
       } else if (loc.type === "Pallet") {
         totalPallet++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
-      } else if (loc.type === "Mitra") {
-        totalMitra++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
       } else {
         totalKardus++; maxCapacity += loc.capacity || 0; usedCapacity += loc.usedCapacity || 0;
       }
     });
     const utilizationPct = maxCapacity > 0 ? Math.round((usedCapacity / maxCapacity) * 100) : 0;
-    return { totalRak, totalKardus, totalPallet, totalMitra, maxCapacity, usedCapacity, utilizationPct };
-  }, [locations]);
+    return { totalRak, totalKardus, totalPallet, maxCapacity, usedCapacity, utilizationPct, totalItemsInKp: items.length };
+  }, [locations, items]);
 
   const filteredAndSortedLocations = useMemo(() => {
     let result = locations.filter(loc => {
@@ -178,9 +263,9 @@ export const useLokasiBarangLogic = () => {
     if (item && item.parentId) {
       const loc = locations.find(l => l.id === item.parentId);
       if (loc) {
-        if (mode === "edit-rak" || mode === "edit-kardus" || mode === "edit-pallet" || mode === "edit-mitra") {
+        if (mode === "edit-rak" || mode === "edit-kardus" || mode === "edit-pallet") {
           setLocName(loc.name);
-          if (loc.type === "Kardus" || loc.type === "Pallet" || loc.type === "Mitra") {
+          if (loc.type === "Kardus" || loc.type === "Pallet") {
             setLocCapacity(loc.capacity?.toString() || "0");
             setLocBrand(loc.brandRule || "Campuran");
           }
@@ -219,9 +304,9 @@ export const useLokasiBarangLogic = () => {
           const e = await res.json().catch(() => ({}));
           throw new Error(e.message || "Gagal menambahkan rak");
         }
-      } else if (sheetMode === "add-kardus" || sheetMode === "add-pallet" || sheetMode === "add-mitra") {
-        const typeMap = { "add-kardus": "Kardus", "add-pallet": "Pallet", "add-mitra": "Mitra" };
-        const defaultName = { "add-kardus": "Kardus Baru", "add-pallet": "Pallet Baru", "add-mitra": "Mitra Baru" };
+      } else if (sheetMode === "add-kardus" || sheetMode === "add-pallet") {
+        const typeMap = { "add-kardus": "Kardus", "add-pallet": "Pallet" };
+        const defaultName = { "add-kardus": "Kardus Baru", "add-pallet": "Pallet Baru" };
         const payload = {
           name: locName || defaultName[sheetMode as keyof typeof defaultName],
           type: typeMap[sheetMode as keyof typeof typeMap],
@@ -247,7 +332,7 @@ export const useLokasiBarangLogic = () => {
           const e = await res.json().catch(() => ({}));
           throw new Error(e.message || "Gagal memperbarui rak");
         }
-      } else if ((sheetMode === "edit-kardus" || sheetMode === "edit-pallet" || sheetMode === "edit-mitra") && activeItem?.parentId) {
+      } else if ((sheetMode === "edit-kardus" || sheetMode === "edit-pallet") && activeItem?.parentId) {
         const res = await fetch(`${getBaseUrl()}/locations/${activeItem.parentId}`, {
           method: "PUT",
           headers: getHeaders(),
@@ -284,7 +369,7 @@ export const useLokasiBarangLogic = () => {
           throw new Error(e.message || "Gagal memperbarui level");
         }
       }
-      await loadLocations();
+      await loadLocationsAndItems();
       toast.success(sheetMode?.startsWith("add-") ? "Berhasil menambahkan lokasi baru" : "Berhasil menyimpan perubahan");
       setSheetMode("closed");
     } catch (error: any) {
@@ -306,7 +391,7 @@ export const useLokasiBarangLogic = () => {
           body: JSON.stringify({ isActive: !loc.isActive })
         });
         if (!res.ok) throw new Error("Gagal mengubah status lokasi");
-        await loadLocations();
+        await loadLocationsAndItems();
         toast.success(`Berhasil ${!loc.isActive ? 'mengaktifkan' : 'menonaktifkan'} lokasi`);
       }
     } catch {
@@ -329,7 +414,7 @@ export const useLokasiBarangLogic = () => {
           body: JSON.stringify({ isActive: !lvl.isActive })
         });
         if (!res.ok) throw new Error("Gagal mengubah status level");
-        await loadLocations();
+        await loadLocationsAndItems();
         toast.success(`Berhasil ${!lvl.isActive ? 'mengaktifkan' : 'menonaktifkan'} level`);
       }
     } catch {
@@ -351,7 +436,7 @@ export const useLokasiBarangLogic = () => {
     try {
       const res = await fetch(`${getBaseUrl()}/locations/${id}`, { method: "DELETE", headers: getHeaders() });
       if (!res.ok) throw new Error("Gagal menghapus");
-      await loadLocations();
+      await loadLocationsAndItems();
       toast.success(`Berhasil menghapus ${type === "location" ? "lokasi" : "level"}`);
       setDeleteAlertData({ isOpen: false, type: null, id: "", name: "" });
     } catch {
@@ -407,12 +492,107 @@ export const useLokasiBarangLogic = () => {
     }
   };
 
+  const availableTargetLocations = useMemo(() => {
+    const list: { id: string; name: string; type: string; availableCapacity: number; maxCapacity: number; usedCapacity: number }[] = [];
+    locations.forEach((loc) => {
+      if (loc.type === "Rak") {
+        loc.levels?.forEach((lvl) => {
+          list.push({
+            id: lvl.id,
+            name: `${loc.name} - ${lvl.name}`,
+            type: "Rak",
+            availableCapacity: Math.max(0, lvl.capacity - lvl.usedCapacity),
+            maxCapacity: lvl.capacity,
+            usedCapacity: lvl.usedCapacity,
+          });
+        });
+      } else {
+        list.push({
+          id: loc.id,
+          name: loc.name,
+          type: loc.type,
+          availableCapacity: Math.max(0, (loc.capacity || 0) - (loc.usedCapacity || 0)),
+          maxCapacity: loc.capacity || 0,
+          usedCapacity: loc.usedCapacity || 0,
+        });
+      }
+    });
+    return list;
+  }, [locations]);
+
+  const handleRelocateItems = async (
+    sourceLocation: string,
+    targetLocation: string,
+    selectedCategory?: string,
+    selectedCount?: number
+  ) => {
+    if (isRelocating) return;
+    if (!targetLocation) {
+      toast.error("Pilih lokasi tujuan terlebih dahulu.");
+      return;
+    }
+    if (sourceLocation.toLowerCase() === targetLocation.toLowerCase()) {
+      toast.error("Lokasi asal dan tujuan tidak boleh sama.");
+      return;
+    }
+
+    setIsRelocating(true);
+    try {
+      let itemsInSource = items.filter(
+        (i) =>
+          (i.lokasiPenyimpanan || "").trim().toLowerCase() === sourceLocation.trim().toLowerCase()
+      );
+
+      if (selectedCategory && selectedCategory !== "ALL") {
+        itemsInSource = itemsInSource.filter(
+          (i) => (i.kategori || "").toUpperCase() === selectedCategory.toUpperCase()
+        );
+      }
+
+      if (selectedCount && selectedCount > 0 && selectedCount < itemsInSource.length) {
+        itemsInSource = itemsInSource.slice(0, selectedCount);
+      }
+
+      if (itemsInSource.length === 0) {
+        toast.error("Tidak ada barang yang dapat dipindahkan dari lokasi ini.");
+        setIsRelocating(false);
+        return;
+      }
+
+      const promises = itemsInSource.map(async (item) => {
+        const payload = {
+          ...item,
+          lokasiPenyimpanan: targetLocation.trim(),
+        };
+        const res = await fetch(`${getBaseUrl()}/items/${item.id}`, {
+          method: "PUT",
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          throw new Error(`Gagal memindahkan unit ${item.serialNumber}`);
+        }
+        return res;
+      });
+
+      await Promise.all(promises);
+      await loadLocationsAndItems();
+      toast.success(`Berhasil memindahkan ${itemsInSource.length} unit ke ${targetLocation}`);
+      setRelocateDialog({ isOpen: false, sourceLocation: "", sourceName: "" });
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memindahkan barang ke lokasi baru.");
+    } finally {
+      setIsRelocating(false);
+    }
+  };
+
   return {
-    locations, brands, sheetMode, setSheetMode, activeItem,
+    locations, brands, items, categoryStats, locationCategoryMap, sheetMode, setSheetMode, activeItem,
     searchQuery, setSearchQuery, filterType, setFilterType, sortBy, setSortBy,
     locName, setLocName, locCapacity, setLocCapacity, locBrand, setLocBrand,
     locLevelsCount, setLocLevelsCount, levelName, setLevelName,
     deleteAlertData, setDeleteAlertData, isSaving, isDeleting, isToggling,
+    relocateDialog, setRelocateDialog, isRelocating, availableTargetLocations, handleRelocateItems,
     stats, filteredAndSortedLocations, handleOpenSheet, handleSave,
     handleToggleLocation, handleToggleLevel, requestDeleteLocation, requestDeleteLevel,
     confirmDelete, handleDownloadQrCode

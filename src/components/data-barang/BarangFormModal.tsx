@@ -136,6 +136,28 @@ export function BarangFormModal({
               />
             </div>
 
+            {/* Dropdown Terpisah Panjang Kabel jika Kategori Kabel */}
+            {formData.kategori && (formData.kategori.toLowerCase().includes("kabel") || formData.kategori.toLowerCase().includes("dropcore") || formData.kategori.toLowerCase().includes("cable")) && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">Panjang Kabel (Meter)</Label>
+                <Select
+                  value={(formData as any).panjangKabel || "150 Meter"}
+                  onValueChange={(val) => setFormData((prev: any) => ({ ...prev, panjangKabel: val }))}
+                >
+                  <SelectTrigger className="h-9 text-xs bg-primary/5 border-primary/30 font-medium">
+                    <SelectValue placeholder="Pilih Panjang Kabel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="100 Meter">100 Meter</SelectItem>
+                    <SelectItem value="150 Meter">150 Meter</SelectItem>
+                    <SelectItem value="250 Meter">250 Meter</SelectItem>
+                    <SelectItem value="300 Meter">300 Meter</SelectItem>
+                    <SelectItem value="1000 Meter (Drum)">1000 Meter (Drum)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Kondisi Material */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Kondisi Material *</Label>

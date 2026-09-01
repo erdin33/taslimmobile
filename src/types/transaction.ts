@@ -23,6 +23,7 @@ export type BarangMasukItem = {
   merek: string;
   kategori: KategoriOption;
   tipe?: string;
+  panjangKabel?: string;
   lokasi: LokasiOption;
   status: "Valid" | "Invalid" | "Rusak";
   existingItemId?: string;
@@ -43,6 +44,7 @@ export type BarangKeluarItem = {
   merek: string;
   kategori: string;
   tipe?: string;
+  panjangKabel?: string;
   lokasi: LokasiOption;
   mitra: string;
   keterangan: string;

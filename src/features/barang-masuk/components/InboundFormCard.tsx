@@ -27,12 +27,14 @@ interface InboundFormCardProps {
   handleSubmit: (kode?: string) => void;
   itemCondition: "baru" | "dismantle" | "rusak";
   setItemCondition: (val: "baru" | "dismantle" | "rusak") => void;
-  paNumber?: string;
-  setPaNumber?: (val: string) => void;
-  ticketGangguan?: string;
-  setTicketGangguan?: (val: string) => void;
+  paNumber: string;
+  setPaNumber: (val: string) => void;
+  ticketGangguan: string;
+  setTicketGangguan: (val: string) => void;
   tipeBarang: string;
   setTipeBarang: (val: string) => void;
+  panjangKabel?: string;
+  setPanjangKabel?: (val: string) => void;
   brand: string;
   setBrand: (val: string) => void;
   kategori: string;
@@ -66,6 +68,8 @@ export function InboundFormCard({
   setTicketGangguan,
   tipeBarang,
   setTipeBarang,
+  panjangKabel,
+  setPanjangKabel,
   brand,
   setBrand,
   kategori,
@@ -85,7 +89,6 @@ export function InboundFormCard({
         <div className="px-4 md:px-6 pb-1 flex flex-col gap-4">
           <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between gap-2">
-              {/* <Label htmlFor="kode-barang-manual">Serial Number</Label> */}
               <Input
                 ref={inputRef}
                 id="kode-barang-manual"
@@ -121,88 +124,113 @@ export function InboundFormCard({
           <CardContent className="px-4 md:px-6 pb-2 pt-0">
             <div className="border-t border-dashed mb-4"></div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Kolom Kiri */}
-              <div className="flex flex-col gap-4">
-                {user?.role !== "mitra" && (
-                  <>
-                    <div className="flex flex-col gap-3">
-                      <Label htmlFor="asal-barang">Asal Barang</Label>
+            <div className={`grid grid-cols-1 ${user?.role !== "mitra" ? "md:grid-cols-2" : ""} gap-6`}>
+              {/* Kolom Kiri (Khusus Admin untuk input manual Model/Brand/Kategori) */}
+              {user?.role !== "mitra" && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3">
+                    <Label htmlFor="asal-barang">Asal Barang</Label>
+                    <Select
+                      value={asalBarang}
+                      onValueChange={(value) => {
+                        setAsalBarang(value);
+                        setAsalBarangManual(true);
+                        focusKodeBarangInput();
+                      }}
+                    >
+                      <SelectTrigger id="asal-barang" className="w-full">
+                        <SelectValue placeholder="Pilih asal barang..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pusat">Pusat (Kantor / Gudang Pusat)</SelectItem>
+                        <SelectItem value="SBU Regional Jawa Barat">SBU Regional Jawa Barat</SelectItem>
+                        {dbPartners.map((partner) => (
+                          <SelectItem key={partner.id} value={partner.name}>
+                            {partner.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {!asalBarangManual && detectMitraFromSN(kodeBarang, dbPartners) && (
+                    <p className="text-xs text-sky-600 dark:text-sky-400">
+                      Terdeteksi otomatis dari SN
+                    </p>
+                  )}
+
+                  {/* Model Material (Selalu Ada) */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="tipe-barang">Model Material</Label>
+                    <ModelSelectPopover
+                      models={dbModels}
+                      value={tipeBarang}
+                      onChange={setTipeBarang}
+                      onCloseFocus={focusKodeBarangInput}
+                      placeholder="Pilih Model Material (wajib jika SN baru)"
+                    />
+                  </div>
+
+                  {/* Dropdown Terpisah Khusus Panjang Kabel jika Kategori Kabel */}
+                  {kategori && (kategori.toLowerCase().includes("kabel") || kategori.toLowerCase().includes("dropcore") || kategori.toLowerCase().includes("cable")) ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="panjang-kabel" className="text-xs font-semibold text-primary">Panjang Kabel (Meter)</Label>
                       <Select
-                        value={asalBarang}
-                        onValueChange={(value) => {
-                          setAsalBarang(value);
-                          setAsalBarangManual(true);
+                        value={panjangKabel || "150 Meter"}
+                        onValueChange={(val) => {
+                          setPanjangKabel?.(val);
                           focusKodeBarangInput();
                         }}
                       >
-                        <SelectTrigger id="asal-barang" className="w-full">
-                          <SelectValue placeholder="Pilih asal barang..." />
+                        <SelectTrigger id="panjang-kabel" className="w-full bg-primary/5 border-primary/40 font-medium">
+                          <SelectValue placeholder="Pilih Panjang Kabel" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="SBU Regional Jawa Barat">SBU Regional Jawa Barat</SelectItem>
-                          {dbPartners.map((partner) => (
-                            <SelectItem key={partner.id} value={partner.name}>
-                              {partner.name}
+                          <SelectItem value="100 Meter">100 Meter</SelectItem>
+                          <SelectItem value="150 Meter">150 Meter</SelectItem>
+                          <SelectItem value="250 Meter">250 Meter</SelectItem>
+                          <SelectItem value="300 Meter">300 Meter</SelectItem>
+                          <SelectItem value="1000 Meter (Drum)">1000 Meter (Drum)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="brand">Brand</Label>
+                      <Select value={brand} onValueChange={setBrand}>
+                        <SelectTrigger id="brand" className="w-full">
+                          <SelectValue placeholder="Otomatis dari SN" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dbBrands.map((b, i) => (
+                            <SelectItem key={b.id || b.name || i} value={b.name || b.nama}>
+                              {b.name || b.nama}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    {!asalBarangManual && detectMitraFromSN(kodeBarang, dbPartners) && (
-                      <p className="text-xs text-sky-600 dark:text-sky-400">
-                        Terdeteksi otomatis dari SN
-                      </p>
-                    )}
-                  </>
-                )}
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="tipe-barang">Model</Label>
-                  <ModelSelectPopover
-                    models={dbModels}
-                    value={tipeBarang}
-                    onChange={setTipeBarang}
-                    onCloseFocus={focusKodeBarangInput}
-                    placeholder="Pilih Model (wajib jika SN belum terdaftar)"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="brand">Brand</Label>
-                    <Select value={brand} onValueChange={setBrand}>
-                      <SelectTrigger id="brand" className="w-full">
-                        <SelectValue placeholder="Otomatis dari SN" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dbBrands.map((b, i) => (
-                          <SelectItem key={b.id || b.name || i} value={b.name || b.nama}>
-                            {b.name || b.nama}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="kategori">Kategori</Label>
-                    <Select value={kategori} onValueChange={setKategori}>
-                      <SelectTrigger id="kategori" className="w-full">
-                        <SelectValue placeholder="Otomatis dari SN" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dbCategories.map((c, i) => (
-                          <SelectItem key={typeof c === 'string' ? c : (c.id || i)} value={typeof c === 'string' ? c : (c.name || c.nama)}>
-                            {typeof c === 'string' ? c : (c.name || c.nama)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="kategori">Kategori</Label>
+                      <Select value={kategori} onValueChange={setKategori}>
+                        <SelectTrigger id="kategori" className="w-full">
+                          <SelectValue placeholder="Otomatis dari SN" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dbCategories.map((c, i) => (
+                            <SelectItem key={typeof c === 'string' ? c : (c.id || i)} value={typeof c === 'string' ? c : (c.name || c.nama)}>
+                              {typeof c === 'string' ? c : (c.name || c.nama)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Kolom Kanan */}
+              {/* Kolom Kondisi Material */}
               <div className="flex flex-col gap-4">
                 <div className="space-y-1.5">
                   <Label>Kondisi Material</Label>
@@ -221,14 +249,12 @@ export function InboundFormCard({
                     }}
                     className="flex gap-4 mt-2"
                   >
-                    {user?.role !== "mitra" && (
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="baru" id="condition-baru" />
-                        <Label htmlFor="condition-baru" className="cursor-pointer font-normal">
-                          Baru
-                        </Label>
-                      </div>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="baru" id="condition-baru" />
+                      <Label htmlFor="condition-baru" className="cursor-pointer font-normal">
+                        Baru
+                      </Label>
+                    </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="dismantle" id="condition-dismantle" />
                       <Label htmlFor="condition-dismantle" className="cursor-pointer font-normal">

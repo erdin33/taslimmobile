@@ -13,6 +13,10 @@ import {
   Trash2,
   Users,
   Loader2,
+  Copy,
+  Check,
+  CheckCircle2,
+  Share2,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -45,6 +49,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -90,6 +102,18 @@ const getHeaders = () => {
 };
 
 import type { PartnerType, Partner } from "@/types/partner"
+
+const DEFAULT_MITRA_PASSWORD = "Taslim123!"
+
+const slugifyUsername = (name: string) => {
+  return (
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "mitra"
+  )
+}
 
 const PARTNER_TYPES: PartnerType[] = ["AKTIVASI", "GANGGUAN"]
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
@@ -269,6 +293,14 @@ export default function MitraPage() {
     setCurrentPage(1)
   }, [searchQuery, typeFilter, statusFilter, pageSize])
 
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    name: string
+    username: string
+    password: string
+    phone?: string
+  } | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+
   const openAddSheet = () => {
     setEditId(null)
     setFormData(initialForm)
@@ -295,17 +327,32 @@ export default function MitraPage() {
     setIsSheetOpen(true)
   }
 
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedField(field)
+    toast.success(`${field} berhasil disalin!`)
+    setTimeout(() => setCopiedField(null), 2000)
+  }
+
+  const copyAllCredentials = () => {
+    if (!createdCredentials) return
+    const text = `*KREDENSIAL LOGIN TASLIM MOBILE*\n\nNama Mitra: ${createdCredentials.name}\nUsername: ${createdCredentials.username}\nPassword: ${createdCredentials.password}\n\nSilakan gunakan kredensial di atas untuk login ke aplikasi Taslim Mobile.`
+    navigator.clipboard.writeText(text)
+    setCopiedField("all")
+    toast.success("Format pesan kredensial berhasil disalin!")
+    setTimeout(() => setCopiedField(null), 2000)
+  }
+
   /**
    * Menyimpan data mitra ke API Backend.
-   * Jika sukses, secara implisit backend akan membuat kredensial login (user account)
-   * selain profil mitranya.
+   * Kredensial username otomatis diambil dari nama mitra dan password default Taslim123!
    */
   const handleSave = async () => {
     if (isSaving) return
     const errors: Record<string, string> = {}
     const normalizedName = formData.name.trim()
     const normalizedEmail = formData.email.trim()
-    const normalizedUsername = formData.username.trim()
+    const normalizedUsername = (formData.username.trim() || slugifyUsername(normalizedName))
     const normalizedCode = normalizeIdentityCode(formData.code)
 
     if (
@@ -325,17 +372,8 @@ export default function MitraPage() {
     ) {
       errors.email = "Format email tidak valid."
     }
-    if (normalizedUsername.length < 4) {
-      errors.username = "Username minimal 4 karakter."
-    }
-    if (!editId && formData.password.length < 8) {
-      errors.password = "Password minimal 8 karakter."
-    }
-    if (editId && formData.password && formData.password.length < 8) {
-      errors.password = "Password minimal 8 karakter."
-    }
-    if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = "Konfirmasi password tidak sama."
+    if (editId && formData.password && formData.password.length < 6) {
+      errors.password = "Password minimal 6 karakter."
     }
 
     // Validasi duplikasi Nama Mitra
@@ -407,7 +445,7 @@ export default function MitraPage() {
             address: formData.address.trim() || "-",
             isActive: formData.isActive,
             username: normalizedUsername,
-            password: formData.password,
+            password: DEFAULT_MITRA_PASSWORD,
             role: "MITRA",
           }),
         })
@@ -416,14 +454,19 @@ export default function MitraPage() {
           const errData = await response.json().catch(() => ({}))
           throw new Error(errData.message || errData.error || "Gagal menambahkan mitra baru.")
         }
-
-
       }
       await loadPartners()
       setIsSheetOpen(false)
-      toast.success(
-        editId ? "Data mitra berhasil diperbarui." : "Mitra baru berhasil ditambahkan."
-      )
+      if (!editId) {
+        setCreatedCredentials({
+          name: normalizedName,
+          username: normalizedUsername,
+          password: DEFAULT_MITRA_PASSWORD,
+          phone: formData.phone.trim() || undefined,
+        })
+      } else {
+        toast.success("Data mitra berhasil diperbarui.")
+      }
     } catch (error: any) {
       console.error("Gagal menyimpan data mitra:", error)
       toast.error(
@@ -863,22 +906,15 @@ export default function MitraPage() {
               />
             </div>
 
-            <div className="border-t pt-5">
-              <div>
+            {editId && (
+              <div className="border-t pt-5 space-y-4">
+                <div className="mb-2">
+                  <h3 className="font-medium text-sm">Akun Login Mitra</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Kelola akses login untuk mitra ini.
+                  </p>
+                </div>
 
-              </div>
-            </div>
-
-            <div className="border-t pt-5">
-              <div className="mb-4">
-                <h3 className="font-medium">Akun Login Mitra</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Akun ini dibuat oleh admin. Mitra tidak dapat mendaftarkan akun
-                  secara mandiri.
-                </p>
-              </div>
-
-              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="partner-username">Username</Label>
                   <Input
@@ -889,85 +925,42 @@ export default function MitraPage() {
                         ...current,
                         username: event.target.value,
                       }))
-                      setFormErrors((current) => ({
-                        ...current,
-                        username: "",
-                      }))
                     }}
                     autoComplete="off"
-                    placeholder="Minimal 4 karakter"
-                    className={formErrors.username ? "border-destructive" : ""}
+                    placeholder="Username mitra"
                   />
-                  {formErrors.username && (
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="partner-password">
+                    Reset Password (Opsional)
+                  </Label>
+                  <Input
+                    id="partner-password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        password: event.target.value,
+                      }))
+                      setFormErrors((current) => ({
+                        ...current,
+                        password: "",
+                      }))
+                    }}
+                    autoComplete="new-password"
+                    placeholder="Kosongkan jika tetap Taslim123!"
+                    className={formErrors.password ? "border-destructive" : ""}
+                  />
+                  {formErrors.password && (
                     <p className="text-xs text-destructive">
-                      {formErrors.username}
+                      {formErrors.password}
                     </p>
                   )}
                 </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="partner-password">
-                      {editId ? "Password Baru" : "Password"}
-                    </Label>
-                    <Input
-                      id="partner-password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(event) => {
-                        setFormData((current) => ({
-                          ...current,
-                          password: event.target.value,
-                        }))
-                        setFormErrors((current) => ({
-                          ...current,
-                          password: "",
-                        }))
-                      }}
-                      autoComplete="new-password"
-                      placeholder={editId ? "Kosongkan jika tetap" : "Minimal 8 karakter"}
-                      className={formErrors.password ? "border-destructive" : ""}
-                    />
-                    {formErrors.password && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.password}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="partner-password-confirmation">
-                      Konfirmasi Password
-                    </Label>
-                    <Input
-                      id="partner-password-confirmation"
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(event) => {
-                        setFormData((current) => ({
-                          ...current,
-                          confirmPassword: event.target.value,
-                        }))
-                        setFormErrors((current) => ({
-                          ...current,
-                          confirmPassword: "",
-                        }))
-                      }}
-                      autoComplete="new-password"
-                      placeholder="Ulangi password"
-                      className={
-                        formErrors.confirmPassword ? "border-destructive" : ""
-                      }
-                    />
-                    {formErrors.confirmPassword && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.confirmPassword}
-                      </p>
-                    )}
-                  </div>
-                </div>
               </div>
-            </div>
+            )}
           </div>
           <SheetFooter>
             <Button variant="outline" onClick={() => setIsSheetOpen(false)} disabled={isSaving}>
@@ -975,11 +968,113 @@ export default function MitraPage() {
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
-              Simpan Mitra
+              {editId ? "Simpan Perubahan" : "Simpan Mitra"}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Success Credentials Popup Modal */}
+      <Dialog
+        open={createdCredentials !== null}
+        onOpenChange={(open) => {
+          if (!open) setCreatedCredentials(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md rounded-2xl p-6 space-y-4">
+          <DialogHeader className="text-center sm:text-center space-y-2">
+            <div className="size-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center ring-4 ring-emerald-500/20">
+              <CheckCircle2 className="size-6" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-foreground">
+              Mitra Berhasil Ditambahkan!
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground max-w-sm mx-auto">
+              Akun login untuk mitra <strong className="text-foreground">{createdCredentials?.name}</strong> telah dibuat otomatis.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createdCredentials && (
+            <div className="space-y-3 pt-1">
+              <div className="rounded-xl border border-border/80 bg-muted/30 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-background border border-border/60">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                      Username
+                    </span>
+                    <span className="font-mono text-sm font-bold text-foreground block truncate">
+                      {createdCredentials.username}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(createdCredentials.username, "Username")}
+                    className="h-8 px-2.5 rounded-lg text-xs gap-1.5 shrink-0"
+                  >
+                    {copiedField === "Username" ? (
+                      <Check className="size-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="size-3.5 text-muted-foreground" />
+                    )}
+                    Salin
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-background border border-border/60">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                      Password Default
+                    </span>
+                    <span className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400 block">
+                      {createdCredentials.password}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(createdCredentials.password, "Password")}
+                    className="h-8 px-2.5 rounded-lg text-xs gap-1.5 shrink-0"
+                  >
+                    {copiedField === "Password" ? (
+                      <Check className="size-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="size-3.5 text-muted-foreground" />
+                    )}
+                    Salin
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={copyAllCredentials}
+                className="w-full h-9 rounded-xl text-xs font-semibold gap-2 border-primary/30 hover:bg-primary/5 text-primary"
+              >
+                {copiedField === "all" ? (
+                  <Check className="size-4 text-emerald-500" />
+                ) : (
+                  <Share2 className="size-4" />
+                )}
+                Salin Format Pesan Kredensial
+              </Button>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              onClick={() => setCreatedCredentials(null)}
+              className="w-full font-semibold rounded-xl"
+            >
+              Selesai
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={deleteTarget !== null}
@@ -994,9 +1089,12 @@ export default function MitraPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
-              Hapus
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

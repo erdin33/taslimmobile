@@ -30,7 +30,7 @@ interface BarangTableProps {
   userRole?: string
   currentPage: number
   pageSize: number
-  getStatusBadgeProps: (status: StatusUnit, lokasi?: string) => { text: string; dotClass?: string; badgeClass?: string }
+  getStatusBadgeProps: (status: StatusUnit | string, lokasi?: string, mitra?: string | null) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
 }
@@ -64,28 +64,25 @@ export function BarangTable({
                 <Checkbox
                   checked={isAllSelected}
                   onCheckedChange={(checked) => onSelectAll(checked as boolean)}
-                  aria-label="Pilih semua"
+                  aria-label="Pilih semua baris"
                 />
               </TableHead>
             )}
-            <TableHead className="w-44 text-xs font-semibold">Serial Number (SN)</TableHead>
-            <TableHead className="w-32 text-xs font-semibold">Merek</TableHead>
-            <TableHead className="w-32 text-xs font-semibold">Kategori</TableHead>
-            <TableHead className="w-24 text-xs text-center font-semibold">Kondisi</TableHead>
-            <TableHead className="w-32 text-xs text-center font-semibold">Status</TableHead>
-            <TableHead className="text-xs text-center font-semibold">Lokasi Penyimpanan</TableHead>
-            {userRole === "admin" && (
-              <TableHead className="w-36 text-xs font-semibold">Tempat</TableHead>
-            )}
-            {userRole === "admin" && (
-              <TableHead className="w-12 text-right"></TableHead>
-            )}
+            <TableHead className="text-xs font-semibold">Serial Number</TableHead>
+            <TableHead className="text-xs font-semibold">Merek</TableHead>
+            <TableHead className="text-xs font-semibold">Tipe</TableHead>
+            <TableHead className="text-xs font-semibold">Kategori</TableHead>
+            <TableHead className="text-center text-xs font-semibold">Kondisi</TableHead>
+            <TableHead className="text-center text-xs font-semibold">Status</TableHead>
+            <TableHead className="text-center text-xs font-semibold">Lokasi</TableHead>
+            {userRole === "admin" && <TableHead className="text-xs font-semibold">Pemilik</TableHead>}
+            {userRole === "admin" && <TableHead className="w-16 text-right text-xs font-semibold">Aksi</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((item, index) => {
-            const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan)
             const isSelected = selectedIds.includes(item.id)
+            const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan, item.mitra)
             const itemKondisi = (item as any).kondisi || (item.status === "Rusak" ? "Rusak" : item.status === "Dismantle" ? "Dismantle" : "Baru")
             const isRusak = itemKondisi.toLowerCase() === "rusak"
             const isDismantle = itemKondisi.toLowerCase() === "dismantle"
@@ -131,7 +128,7 @@ export function BarangTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
-                  {formatItemLocation(item.status, item.lokasiPenyimpanan)}
+                  {formatItemLocation(item.lokasiPenyimpanan, item.mitra)}
                 </TableCell>
                 {userRole === "admin" && (
                   <TableCell>

@@ -3,6 +3,7 @@ import {
 	ArchiveX,
 	ArrowsUpFromLine,
 	Boxes,
+	CheckCircle2,
 	HelpCircle,
 	TrendingUp,
 	TrendingDown,
@@ -23,7 +24,7 @@ import {
 	ChartTooltipContent,
 	type ChartConfig,
 } from "@/components/ui/chart";
-
+import { useAuth } from "@/lib/auth";
 import type { InventoryStats } from "@/types/dashboard";
 
 const createTrendSeries = (direction: "up" | "down") => {
@@ -42,10 +43,14 @@ const createTrendSeries = (direction: "up" | "down") => {
 export function SectionCards({
 	stats,
 	totalLabel = "Total Barang",
+	isMitra: isMitraProp,
 }: {
 	stats: InventoryStats;
 	totalLabel?: string;
+	isMitra?: boolean;
 }) {
+	const { user } = useAuth();
+	const isMitra = isMitraProp !== undefined ? isMitraProp : user?.role?.toLowerCase() === "mitra";
 	const { totalItems, tersedia, diluar, rusak, hilang } = stats;
 
 	const cards = [
@@ -69,9 +74,9 @@ export function SectionCards({
 		},
 		{
 			key: "diluar",
-			label: "Diluar",
+			label: isMitra ? "Digunakan" : "Terdistribusi",
 			value: diluar,
-			icon: ArrowsUpFromLine,
+			icon: isMitra ? CheckCircle2 : ArrowsUpFromLine,
 			direction: "down" as const,
 			percent: 4.1,
 			className: "col-span-1",
@@ -119,8 +124,13 @@ export function SectionCards({
             gradientClass = "bg-gradient-to-br from-emerald-50/80 to-background border-emerald-100/50 hover:border-emerald-200 dark:from-emerald-950/20 dark:border-emerald-900/30";
             iconBgClass = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
           } else if (key === "diluar") {
-            gradientClass = "bg-gradient-to-br from-amber-50/80 to-background border-amber-100/50 hover:border-amber-200 dark:from-amber-950/20 dark:border-amber-900/30";
-            iconBgClass = "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+            if (isMitra) {
+              gradientClass = "bg-gradient-to-br from-indigo-50/80 to-background border-indigo-100/50 hover:border-indigo-200 dark:from-indigo-950/20 dark:border-indigo-900/30";
+              iconBgClass = "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400";
+            } else {
+              gradientClass = "bg-gradient-to-br from-blue-50/80 to-background border-blue-100/50 hover:border-blue-200 dark:from-blue-950/20 dark:border-blue-900/30";
+              iconBgClass = "bg-blue-500/15 text-blue-600 dark:text-blue-400";
+            }
           } else if (key === "rusak") {
             gradientClass = "bg-gradient-to-br from-rose-50/80 to-background border-rose-100/50 hover:border-rose-200 dark:from-rose-950/20 dark:border-rose-900/30";
             iconBgClass = "bg-rose-500/15 text-rose-600 dark:text-rose-400";

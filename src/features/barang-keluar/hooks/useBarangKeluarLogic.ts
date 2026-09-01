@@ -162,22 +162,22 @@ export const useBarangKeluarLogic = () => {
     const trimmedKode = codeStr.trim();
     if (!trimmedKode) return { success: false, message: "Kode barang kosong" };
 
-    const isMitraTargetingMitra = user?.role?.toLowerCase() === "mitra" && destinationType === "MITRA";
-    const selectedPartner = user?.role?.toLowerCase() === "mitra" && !isMitraTargetingMitra 
+    const isUserMitra = user?.role?.toLowerCase() === "mitra";
+    const selectedPartner = isUserMitra
       ? null 
       : dbPartners.find((partner) => partner.id === selectedPartnerId);
 
-    const targetMitraName = user?.role?.toLowerCase() === "mitra" && !isMitraTargetingMitra 
+    const targetMitraName = isUserMitra
       ? user.displayName 
       : selectedPartner?.name;
 
-    if (!targetMitraName && (user?.role?.toLowerCase() !== "mitra" || isMitraTargetingMitra)) {
+    if (!targetMitraName && !isUserMitra) {
       toast.error("Pilih mitra tujuan sebelum menambahkan barang keluar.");
       focusKodeBarangInput();
       return { success: false, message: "Pilih mitra tujuan" };
     }
 
-    if (user?.role?.toLowerCase() === "mitra" && destinationType === "PA" && !keterangan.trim()) {
+    if (isUserMitra && !keterangan.trim()) {
       toast.error("PA / keterangan wajib diisi sebelum menambahkan barang keluar.");
       focusKodeBarangInput();
       return { success: false, message: "PA/keterangan wajib diisi" };
@@ -391,12 +391,16 @@ export const useBarangKeluarLogic = () => {
       for (const item of fifoSortedBarangKeluar) {
         const originalItem = findLatestSessionItem(item.nomor)!;
         const originalLoc = originalItem.lokasiPenyimpanan || "-";
+        const isMitraRole = user?.role === "mitra";
+        const newStatus = isMitraRole ? "Digunakan" : "Terdistribusi";
+        const newLocation = isMitraRole ? "Digunakan" : (item.mitra || "Terdistribusi");
+
         const updatedItem: InventoryItem = {
           ...originalItem,
-          status: "Keluar",
-          lokasiPenyimpanan: "Keluar",
+          status: newStatus,
+          lokasiPenyimpanan: newLocation,
           tanggalKeluar: sessionDate,
-          mitra: item.mitra,
+          mitra: item.mitra || originalItem.mitra,
         };
         const resUp = await fetch(`${getBaseUrl()}/items/${updatedItem.id}`, {
           method: "PUT",
@@ -454,9 +458,12 @@ export const useBarangKeluarLogic = () => {
       }
 
       // Update local dbItems to match changes
+      const isMitraRole = user?.role === "mitra";
+      const newStatus = isMitraRole ? "Digunakan" : "Terdistribusi";
+      const newLocation = isMitraRole ? "Digunakan" : "Terdistribusi";
       const updatedVisibleItems = latestVisibleItems.map(item => {
         if (queuedSerialNumbers.has(normalizeKodeBarang(item.serialNumber))) {
-          return { ...item, status: "Keluar", lokasiPenyimpanan: "Keluar" };
+          return { ...item, status: newStatus, lokasiPenyimpanan: newLocation };
         }
         return item;
       });

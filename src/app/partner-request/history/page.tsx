@@ -32,6 +32,7 @@ import { useAuth } from "@/lib/auth"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { DigitalSignatureDialog } from "@/app/request/components/DigitalSignatureDialog"
 import { PengambilanMitraModal } from "@/features/transactions/components/PengambilanMitraModal"
+import { BastReturModal } from "@/features/barang-masuk/components/BastReturModal"
 import { PackageCheck } from "lucide-react"
 import type { AuthUser } from "@/types/auth"
 import type { DashboardRequest, RequestItem } from "@/types/transaction"
@@ -301,6 +302,8 @@ export default function PartnerRequestHistoryPage() {
   const [signDialogOpen, setSignDialogOpen] = useState(false)
   const [signingRequestId, setSigningRequestId] = useState<string | null>(null)
   const [openingPdfId, setOpeningPdfId] = useState<string | null>(null)
+  const [bastReturModalOpen, setBastReturModalOpen] = useState(false)
+  const [selectedReturForBast, setSelectedReturForBast] = useState<DashboardRequest | null>(null)
   
   // Validasi & Ambil (Scanner) state
   const [validasiMitraOpen, setValidasiMitraOpen] = useState(false)
@@ -328,9 +331,36 @@ export default function PartnerRequestHistoryPage() {
         .map((raw) => ({ raw, request: normalizeRequest(raw) }))
         .filter(({ raw, request }) => requestBelongsToUser(raw, request, user))
         .map(({ request }) => request)
-        .sort((a, b) => getTimestamp(b.requestedAt) - getTimestamp(a.requestedAt))
 
-      setAllRequests(myRequests)
+      // Include local retur requests for this partner
+      try {
+        const localReturs: any[] = JSON.parse(localStorage.getItem("mock_retur_requests") || "[]")
+        const myReturs = localReturs
+          .filter((r) => r.requesterName === user.displayName || r.requesterName === user.username)
+          .map((r) => ({
+            id: r.id || r.requestNumber,
+            requestNumber: r.requestNumber,
+            type: "RETUR",
+            requesterName: r.requesterName,
+            status: r.status || "Menunggu",
+            notes: r.notes || "Pengembalian barang",
+            requestedAt: r.requestedAt,
+            itemsCount: r.itemsCount || r.returItems?.length || 0,
+            itemsDetail: r.returItems ? `${r.returItems.length} unit material (Retur)` : "Pengembalian material",
+            returItems: r.returItems,
+          }))
+
+        const combinedMap = new Map<string, DashboardRequest>()
+        myRequests.forEach((req) => combinedMap.set(req.id || req.requestNumber, req))
+        myReturs.forEach((req) => combinedMap.set(req.id || req.requestNumber, req as any))
+
+        const merged = Array.from(combinedMap.values()).sort(
+          (a, b) => getTimestamp(b.requestedAt) - getTimestamp(a.requestedAt)
+        )
+        setAllRequests(merged)
+      } catch {
+        setAllRequests(myRequests.sort((a, b) => getTimestamp(b.requestedAt) - getTimestamp(a.requestedAt)))
+      }
     } catch (error) {
       console.error("Gagal memuat riwayat permintaan:", error)
       setLoadError("Gagal memuat riwayat permintaan.")
@@ -346,11 +376,17 @@ export default function PartnerRequestHistoryPage() {
 
   // ── BAST handlers ─────────────────────────────────────────────────────────
 
-  const handleOpenBastPdf = useCallback(async (requestId: string) => {
-    setOpeningPdfId(requestId)
+  const handleOpenBastPdf = useCallback(async (req: DashboardRequest) => {
+    if (req.type === "RETUR" || (req.requestNumber && req.requestNumber.startsWith("RTR-"))) {
+      setSelectedReturForBast(req)
+      setBastReturModalOpen(true)
+      return
+    }
+
+    setOpeningPdfId(req.id)
     try {
       const token = localStorage.getItem("taslim-auth-token") || ""
-      const url = `${getBaseUrl()}/requests/${requestId}/bast-pdf?token=${token}`
+      const url = `${getBaseUrl()}/requests/${req.id}/bast-pdf?token=${token}`
       await openUrl(url)
     } catch {
       toast.error("Gagal membuka PDF BAST")
@@ -579,7 +615,7 @@ export default function PartnerRequestHistoryPage() {
                             className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
                             title="Buka PDF BAST"
                             disabled={isOpeningPdf}
-                            onClick={() => handleOpenBastPdf(req.id)}
+                            onClick={() => handleOpenBastPdf(req)}
                           >
                             {isOpeningPdf ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -732,7 +768,7 @@ export default function PartnerRequestHistoryPage() {
                         size="sm"
                         className="h-10 gap-2 text-[13px] font-semibold flex-1 rounded-xl shadow-sm cursor-pointer hover:bg-primary/5 hover:text-primary hover:border-primary/30"
                         disabled={isOpeningPdf}
-                        onClick={() => handleOpenBastPdf(req.id)}
+                        onClick={() => handleOpenBastPdf(req)}
                       >
                         {isOpeningPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                         Lihat BAST
@@ -824,6 +860,13 @@ export default function PartnerRequestHistoryPage() {
           }}
         />
       )}
+
+      {/* BAST Pengembalian / Retur Modal */}
+      <BastReturModal
+        isOpen={bastReturModalOpen}
+        onOpenChange={setBastReturModalOpen}
+        request={selectedReturForBast}
+      />
     </div>
   )
 }

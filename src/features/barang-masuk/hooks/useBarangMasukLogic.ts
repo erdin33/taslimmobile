@@ -32,6 +32,7 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
   const [ticketGangguan, setTicketGangguan] = useState<string>("");
   const [catatan, setCatatan] = useState<string>("");
   const [tipeBarang, setTipeBarang] = useState<string>("");
+  const [panjangKabel, setPanjangKabel] = useState<string>("150 Meter");
   const [brand, setBrand] = useState<string>("");
   const [kategori, setKategori] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
@@ -152,14 +153,16 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
       return { success: false, message: "Barang belum bisa diterima" };
     }
 
-    if (!existingItem && !tipeBarang) {
+    const isMitraUser = user?.role === "mitra";
+
+    if (!isMitraUser && !existingItem && !tipeBarang) {
       toast.error("Model wajib dipilih.", { description: "SN ini belum terdaftar di database. Pilih Model terlebih dahulu." });
       focusKodeBarangInput();
       return { success: false, message: "Model material wajib dipilih" };
     }
 
     if (itemCondition === "baru") {
-      if (existingItem) {
+      if (existingItem && !isMitraUser) {
         toast.error("Barang sudah ada di database.", { description: "SN ini sudah terdaftar. Silakan ubah kondisi ke 'dismantle' atau 'rusak'." });
         updateKodeBarang("");
         focusKodeBarangInput();
@@ -185,10 +188,9 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
       "";
 
     let recommendedLocation = getRecommendedLocation(itemBrand, dbLocations, session.kuota);
-    const isMitraUser = user?.role === "mitra";
 
     if (isMitraUser && !recommendedLocation && existingItem) {
-      recommendedLocation = getMitraDefaultLocation(user.displayName || "");
+      recommendedLocation = getMitraDefaultLocation(user?.displayName || "");
     }
 
     if (!isMitraUser && existingItem && normalizeStatus(existingItem.status) !== "keluar" && normalizeStatus(existingItem.status) !== "diluar") {
@@ -217,21 +219,24 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
 
     const isDismantleBad = itemCondition === "rusak";
     const isdismantle = itemCondition === "dismantle" || itemCondition === "rusak";
-    const dismantleEffectiveTipe = existingItem?.tipe || tipeBarang || "";
-    const dismantleEffectiveMerek = existingItem?.merek || itemBrand || "";
-    const dismantleEffectiveKategori = existingItem?.kategori || "ONT";
+    const dismantleEffectiveTipe = existingItem?.tipe || (existingItem as any)?.model || tipeBarang || "";
+    const dismantleEffectiveMerek = existingItem?.merek || (existingItem as any)?.brand || itemBrand || "";
+    const dismantleEffectiveKategori = existingItem?.kategori || (existingItem as any)?.category || "ONT";
+
+    const isCable = (kategori && (kategori.toLowerCase().includes("kabel") || kategori.toLowerCase().includes("dropcore") || kategori.toLowerCase().includes("cable"))) || false;
 
     const newItem: BarangMasukItem = {
       id: Date.now(),
       nomor: trimmedKode,
-      merek: isdismantle ? dismantleEffectiveMerek : (itemBrand || ""),
-      kategori: isdismantle ? dismantleEffectiveKategori : (kategori || "ONT"),
-      tipe: isdismantle ? dismantleEffectiveTipe : (itemCondition === "baru" ? tipeBarang : ""),
+      merek: isMitraUser ? (existingItem?.merek || (existingItem as any)?.brand || itemBrand || "") : (isdismantle ? dismantleEffectiveMerek : (itemBrand || "")),
+      kategori: isMitraUser ? (existingItem?.kategori || (existingItem as any)?.category || "ONT") : (isdismantle ? dismantleEffectiveKategori : (kategori || "ONT")),
+      tipe: isMitraUser ? (existingItem?.tipe || (existingItem as any)?.model || "") : (isdismantle ? dismantleEffectiveTipe : (itemCondition === "baru" ? tipeBarang : "")),
+      panjangKabel: isCable ? panjangKabel : undefined,
       lokasi: recommendedLocation,
       status: isDismantleBad ? "Rusak" : "Valid",
       existingItemId: existingItem?.id,
       source:
-        user?.role === "mitra" && existingItem && isValidMitraInboundSource(existingItem, user.displayName || "")
+        user?.role === "mitra" && existingItem && isValidMitraInboundSource(existingItem, user?.displayName || "")
           ? "KP"
           : normalizeOwner(existingItem?.mitra) === normalizeOwner("KP Tasikmalaya")
             ? "KP"
@@ -443,11 +448,22 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
           type: "RETUR",
           requesterName: user.displayName || user.username || "",
           status: "Menunggu",
-          notes: "Pengembalian barang (Dismantle/Rusak)",
+          notes: "Pengembalian barang ke Gudang KP",
           requestedAt: sessionDate,
           itemsCount: session.barangMasuk.length,
           returItems: session.barangMasuk
         };
+
+        try {
+          await fetch(`${getBaseUrl()}/requests`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify(newReturRequest),
+          });
+        } catch (apiErr) {
+          console.warn("Gagal kirim tiket retur ke API server, menyimpan di cache lokal:", apiErr);
+        }
+
         const existingReturs = JSON.parse(localStorage.getItem("mock_retur_requests") || "[]");
         existingReturs.push(newReturRequest);
         localStorage.setItem("mock_retur_requests", JSON.stringify(existingReturs));
@@ -489,6 +505,8 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
     setBrand,
     kategori,
     setKategori,
+    panjangKabel,
+    setPanjangKabel,
     paNumber,
     setPaNumber,
     ticketGangguan,

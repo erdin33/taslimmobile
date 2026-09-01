@@ -1,8 +1,10 @@
+import { useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Archive, PackageMinus, X, Loader2 } from "lucide-react";
+import { Archive, PackageMinus, X, Loader2, Copy, Check } from "lucide-react";
 import type { BarangKeluarItem } from "@/types/transaction";
 import { formatItemStatus } from "@/lib/status-helper";
 
@@ -43,6 +45,15 @@ export function ScannedItemsTableOutbound({
   handleValidateAll,
   handleDeleteItem,
 }: ScannedItemsTableOutboundProps) {
+  const [copiedSn, setCopiedSn] = useState<string | null>(null);
+
+  const handleCopy = (sn: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    navigator.clipboard.writeText(sn);
+    setCopiedSn(sn);
+    toast.success(`SN ${sn} disalin`);
+    setTimeout(() => setCopiedSn(null), 2000);
+  };
   return (
     <Card className="flex flex-1 flex-col overflow-hidden">
       <CardHeader className="shrink-0 flex-row items-center justify-between border-b pb-4">
@@ -81,7 +92,24 @@ export function ScannedItemsTableOutbound({
                 barangKeluar.map((item, index) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
-                    <TableCell className="font-mono">{item.nomor}</TableCell>
+                    <TableCell className="font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold">{item.nomor}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
+                          onClick={(e) => handleCopy(item.nomor, e)}
+                          title="Salin Serial Number"
+                        >
+                          {copiedSn === item.nomor ? (
+                            <Check className="size-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="size-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
                     <TableCell>{item.merek}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-normal px-2.5 py-0.5">
@@ -134,7 +162,22 @@ export function ScannedItemsTableOutbound({
                       {index + 1}
                     </span>
                     <div className="flex flex-col">
-                      <span className="font-mono text-sm font-bold tracking-tight text-foreground">{item.nomor}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-sm font-bold tracking-tight text-foreground">{item.nomor}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
+                          onClick={(e) => handleCopy(item.nomor, e)}
+                          title="Salin Serial Number"
+                        >
+                          {copiedSn === item.nomor ? (
+                            <Check className="size-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="size-3" />
+                          )}
+                        </Button>
+                      </div>
                       <span className="text-xs text-muted-foreground line-clamp-1">{item.merek} &bull; {item.kategori}</span>
                     </div>
                   </div>

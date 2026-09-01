@@ -96,6 +96,8 @@ export default function BarangMasukPage() {
           setTicketGangguan={logic.setTicketGangguan}
           tipeBarang={logic.tipeBarang}
           setTipeBarang={logic.setTipeBarang}
+          panjangKabel={logic.panjangKabel}
+          setPanjangKabel={logic.setPanjangKabel}
           brand={logic.brand}
           setBrand={logic.setBrand}
           kategori={logic.kategori}

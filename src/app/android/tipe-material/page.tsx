@@ -300,6 +300,34 @@ export default function TipeMaterialPage() {
                 </Select>
                 {categoryError && <p className="text-xs text-destructive">{categoryError}</p>}
               </div>
+
+              {/* Preset Panjang Kabel jika Kategori Kabel */}
+              {(() => {
+                const selectedCat = categories.find((c) => String(c.id) === String(materialCategoryId));
+                const isCable = selectedCat && (selectedCat.nama.toLowerCase().includes("kabel") || selectedCat.nama.toLowerCase().includes("dropcore") || selectedCat.nama.toLowerCase().includes("cable"));
+                if (!isCable) return null;
+                return (
+                  <div className="space-y-1.5 p-3 rounded-xl border border-primary/30 bg-primary/5">
+                    <Label className="text-xs font-semibold text-primary">Pilihan Cepat Panjang Kabel (Meter)</Label>
+                    <Select onValueChange={(val) => {
+                      setName(`Dropcore ${val}`);
+                      setCode(`DC-${val.replace(/[^0-9]/g, "")}M`);
+                      setNameError("");
+                    }}>
+                      <SelectTrigger className="bg-background border-primary/40 text-xs">
+                        <SelectValue placeholder="Pilih Panjang (100M, 150M, 250M...)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        <SelectItem value="100 Meter">100 Meter (Dropcore 100M)</SelectItem>
+                        <SelectItem value="150 Meter">150 Meter (Dropcore 150M)</SelectItem>
+                        <SelectItem value="250 Meter">250 Meter (Dropcore 250M)</SelectItem>
+                        <SelectItem value="300 Meter">300 Meter (Dropcore 300M)</SelectItem>
+                        <SelectItem value="1000 Meter">1000 Meter (Drum 1000M)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <DialogFooter className="p-4 border-t border-border/50 bg-muted/40 flex flex-row justify-end gap-2 shrink-0">

@@ -1,4 +1,4 @@
-export type StatusUnit = "Tersedia" | "Terdistribusi" | "Rusak" | "Hilang" | "Dismantle";
+export type StatusUnit = "Tersedia" | "Terdistribusi" | "Digunakan" | "Rusak" | "Hilang" | "Dismantle";
 
 export interface InventoryItem {
   id: string;
@@ -6,6 +6,7 @@ export interface InventoryItem {
   kategori: string;
   merek: string;
   tipe?: string;
+  panjangKabel?: string;
   status: string;
   kondisi?: string;
   paNumber?: string;
@@ -23,6 +24,7 @@ export interface BarangUnit {
   kategori: string;
   merek: string;
   tipe?: string;
+  panjangKabel?: string;
   status: StatusUnit;
   kondisi?: string;
   paNumber?: string;

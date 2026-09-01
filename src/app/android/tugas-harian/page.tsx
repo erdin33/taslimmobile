@@ -35,6 +35,14 @@ const dataURLtoFile = (dataurl: string, filename: string): File => {
   return new File([u8arr], filename, { type: mime })
 }
 
+const getTodayDateKey = (): string => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const getBaseUrl = () => {
   const baseUrl = (import.meta as any).env.URL || (import.meta as any).env.VITE_URL || "http://172.168.9.139:3000/";
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
@@ -78,21 +86,22 @@ export default function TugasHarianPage() {
   useEffect(() => {
     fetchItems()
 
-    // Load local cache first for instant UI
-    if (user) {
-      const today = new Date().toISOString().split('T')[0]
-      const storageKey = `taslim_recon_${user.id}_${today}`
+    const loadReconForDate = (dateKey: string) => {
+      if (!user) return
+      const storageKey = `taslim_recon_${user.id}_${dateKey}`
       try {
         const stored = localStorage.getItem(storageKey)
         if (stored) {
           setCompletedItems(JSON.parse(stored))
+        } else {
+          setCompletedItems({})
         }
       } catch (err) {
         console.error("Failed loading local recon cache", err)
       }
-      
+
       // Then sync from API
-      fetch(`${getBaseUrl()}/recon-progress?userId=${user.id}&date=${today}`, {
+      fetch(`${getBaseUrl()}/recon-progress?userId=${user.id}&date=${dateKey}`, {
         headers: getHeaders()
       })
         .then(res => res.json())
@@ -111,6 +120,40 @@ export default function TugasHarianPage() {
           }
         })
         .catch(err => console.error("Failed fetching recon progress from API", err));
+    }
+
+    if (user) {
+      loadReconForDate(getTodayDateKey())
+    }
+
+    // Auto-detect pergantian tanggal (jam 12 malam) agar tugas recon otomatis reset ke hari baru
+    let lastDate = getTodayDateKey()
+    const checkMidnightInterval = setInterval(() => {
+      const currentDate = getTodayDateKey()
+      if (currentDate !== lastDate) {
+        lastDate = currentDate
+        setCompletedItems({})
+        fetchItems()
+        loadReconForDate(currentDate)
+      }
+    }, 15000) // Cek setiap 15 detik
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const currentDate = getTodayDateKey()
+        if (currentDate !== lastDate) {
+          lastDate = currentDate
+          setCompletedItems({})
+          fetchItems()
+          loadReconForDate(currentDate)
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(checkMidnightInterval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [user])
 
@@ -336,9 +379,9 @@ export default function TugasHarianPage() {
 
     try {
       const file = dataURLtoFile(rawImage, "recon.jpg")
-      let detectedText = ""
+      const detectedValues: string[] = []
 
-      // 1. Coba Native BarcodeDetector (lebih ringan & cepat jika didukung browser)
+      // 1. Coba Native BarcodeDetector (lebih cepat jika didukung browser/WebView)
       if ("BarcodeDetector" in window) {
         try {
           const imageUrl = URL.createObjectURL(file)
@@ -350,7 +393,11 @@ export default function TugasHarianPage() {
           URL.revokeObjectURL(imageUrl)
           
           if (barcodes && barcodes.length > 0) {
-            detectedText = barcodes.map((b: any) => b.rawValue).join(" ")
+            for (const b of barcodes) {
+              if (b?.rawValue && typeof b.rawValue === "string") {
+                detectedValues.push(b.rawValue.trim())
+              }
+            }
           }
         } catch (err) {
           console.warn("Native BarcodeDetector fail, fallback to html5-qrcode", err)
@@ -358,21 +405,53 @@ export default function TugasHarianPage() {
       }
 
       // 2. Fallback ke Html5Qrcode jika native gagal / kosong
-      if (!detectedText) {
+      if (detectedValues.length === 0) {
         try {
           const scanner = new Html5Qrcode("hidden-recon-scanner", { verbose: false })
-          detectedText = await scanner.scanFile(file, false)
+          const scanned = await scanner.scanFile(file, false)
+          if (scanned && typeof scanned === "string") {
+            detectedValues.push(scanned.trim())
+          }
         } catch (err) {
           console.log("html5-qrcode tidak menemukan barcode", err)
         }
       }
 
-      const text = detectedText.replace(/[\s-]/g, "").toLowerCase()
-      const sn = currentItem.serialNumber.replace(/[\s-]/g, "").toLowerCase()
-      
-      // Jika hasil bacaan scanner tidak mengandung SN (atau minimal 4 digit terakhir SN)
-      if (!text || (!text.includes(sn) && !text.includes(sn.slice(-4)))) {
-        toast.error("Barcode tidak terdeteksi. Pastikan Anda memotret gambar barcode dengan jelas.", { id: toastId, duration: 5000 })
+      // Validasi 1: Pastikan ada barcode yang terbaca
+      if (detectedValues.length === 0) {
+        toast.error("Barcode tidak terdeteksi. Pastikan Anda memotret gambar barcode dengan jelas dan fokus.", { id: toastId, duration: 5000 })
+        setIsProcessing(false)
+        return
+      }
+
+      // Normalisasi karakter untuk perbandingan yang presisi dan adil
+      const cleanString = (val: string) => val.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+      const targetSn = cleanString(currentItem.serialNumber)
+      const targetWithoutPrefix = targetSn.replace(/^(sn|ser|no|snno)/i, "")
+
+      const isMatch = detectedValues.some((val) => {
+        const raw = cleanString(val)
+        const rawWithoutPrefix = raw.replace(/^(sn|ser|no|snno)/i, "")
+
+        // 1. Cocok persis (exact match setelah dibersihkan dari simbol)
+        if (raw === targetSn) return true
+
+        // 2. Cocok tanpa prefix 'SN' / 'SER' / 'NO' (misal database "SN123456" tapi barcode tercetak "123456" atau sebaliknya)
+        if (targetWithoutPrefix && rawWithoutPrefix === targetWithoutPrefix) return true
+
+        // 3. Barcode pabrik mengandung full SN (misal "MODEL-SN123456-VER1")
+        if (targetSn.length >= 5 && raw.includes(targetSn)) return true
+        if (targetWithoutPrefix.length >= 5 && rawWithoutPrefix.includes(targetWithoutPrefix)) return true
+
+        return false
+      })
+
+      // Validasi 2: Pastikan SN benar-benar cocok dengan item yang sedang diperiksa
+      if (!isMatch) {
+        toast.error(
+          `Nomor Seri (SN) tidak cocok! Diharapkan: ${currentItem.serialNumber}, Terdeteksi: ${detectedValues.join(", ")}`,
+          { id: toastId, duration: 6000 }
+        )
         setIsProcessing(false)
         return
       }
@@ -388,7 +467,7 @@ export default function TugasHarianPage() {
         }
 
         if (user) {
-          const today = new Date().toISOString().split('T')[0]
+          const today = getTodayDateKey()
           const storageKey = `taslim_recon_${user.id}_${today}`
           localStorage.setItem(storageKey, JSON.stringify(newItems))
           
@@ -426,7 +505,7 @@ export default function TugasHarianPage() {
   const submitReport = async () => {
     const toastId = toast.loading("Mengirim laporan recon harian...")
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = getTodayDateKey()
       const reportData = {
         userId: user?.id,
         mitra: user?.displayName,
@@ -455,7 +534,7 @@ export default function TugasHarianPage() {
 
   const handleResetRecon = () => {
     if (user) {
-      const today = new Date().toISOString().split('T')[0]
+      const today = getTodayDateKey()
       const storageKey = `taslim_recon_${user.id}_${today}`
       localStorage.removeItem(storageKey)
       setCompletedItems({})
@@ -491,7 +570,7 @@ export default function TugasHarianPage() {
         <div className="fixed inset-0 z-[999] bg-black flex flex-col">
           <div className="flex items-center justify-between p-4 pt-[max(env(safe-area-inset-top),32px)] text-white shrink-0">
             <div>
-              <p className="text-sm text-white/70">Foto & Scan</p>
+              <p className="text-sm text-white/70">Foto</p>
               <p className="font-mono font-bold">{activeItem?.serialNumber}</p>
             </div>
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={handleCloseCamera}>
@@ -627,7 +706,7 @@ export default function TugasHarianPage() {
                   className="w-full sm:w-auto shadow-sm"
                 >
                   <Camera className="size-4 mr-2" />
-                  Foto & Scan
+                  Foto
                 </Button>
               </Card>
             ))

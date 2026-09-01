@@ -300,40 +300,35 @@ export function useDashboard() {
                     const st = item.status.trim().toLowerCase();
                     const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
                     const trxs = trxBySN.get(item.serialNumber) || [];
-                    const keluarCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "KELUAR").length;
                     const returCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "RETUR").length;
 
                     if (isMitra) {
-                        // Jika sudah diretur, barang tidak lagi di Mitra
                         if (returCount > 0) return false;
-                        // Jika transaksi KELUAR baru 1 (Artinya dari Gudang ke Mitra) -> Tersedia di Mitra
-                        if (keluarCount === 1) return true;
-                        // Jika transaksi KELUAR >= 2 (Artinya Mitra sudah keluarin ke Pelanggan) -> Bukan Tersedia
-                        if (keluarCount >= 2) return false;
-                        // Fallback (misal status bypass)
-                        return st === "tersedia" || st === "terdistribusi";
+                        if (st === "digunakan" || loc === "digunakan") return false;
+                        if (st === "rusak" || st === "hilang") return false;
+                        return true;
                     }
-                    if (loc === "keluar" || loc === "diluar") return false;
+                    if (loc === "keluar" || loc === "diluar" || loc === "digunakan") return false;
+                    const normMitra = (item.mitra || "").trim().toLowerCase();
+                    const isAtMitra = normMitra !== "" && normMitra !== "kp tasikmalaya" && normMitra !== "kp";
+                    if (isAtMitra || st === "terdistribusi" || st === "diluar" || st === "keluar" || st === "digunakan") return false;
                     return st === "tersedia";
                 }).length,
                 diluar: visibleItems.filter((item: any) => {
                     const st = item.status.trim().toLowerCase();
                     const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
                     const trxs = trxBySN.get(item.serialNumber) || [];
-                    const keluarCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "KELUAR").length;
                     const returCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "RETUR").length;
 
                     if (isMitra) {
                         if (returCount > 0) return false; 
-                        // Jika Mitra sudah mengeluarkan ke pelanggan (KELUAR ke-2)
-                        if (keluarCount >= 2) return true;
-                        // Jika baru di Mitra (Tersedia), maka belum Di Luar
-                        if (keluarCount === 1) return false;
-                        // Fallback
+                        if (st === "digunakan" || loc === "digunakan") return true;
                         return st === "diluar" || st === "keluar"; 
                     }
                     if (loc === "keluar" || loc === "diluar") return true;
-                    return st === "diluar" || st === "keluar" || st === "terdistribusi"; 
+                    const normMitra = (item.mitra || "").trim().toLowerCase();
+                    const isAtMitra = normMitra !== "" && normMitra !== "kp tasikmalaya" && normMitra !== "kp";
+                    return st === "diluar" || st === "keluar" || st === "terdistribusi" || isAtMitra; 
                 }).length,
                 rusak: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "rusak").length,
                 hilang: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "hilang").length,

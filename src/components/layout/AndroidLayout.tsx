@@ -240,7 +240,7 @@ export default function AndroidLayout() {
 							)
 						}>
 						<ClipboardCheck className="w-5 h-5" />
-						<span className="text-[10px] whitespace-nowrap">Tugas</span>
+						<span className="text-[10px] whitespace-nowrap">Recon</span>
 					</NavLink>
 				)}
 
@@ -327,12 +327,18 @@ export default function AndroidLayout() {
 												badgeCount={pendingRequestCount}
 												onClick={closeSheet}
 											/>
+											<MenuButton
+												to="/laporan-recon"
+												icon={<ClipboardCheck />}
+												label="Lap. Recon"
+												onClick={closeSheet}
+											/>
 										</>
 									) : (
 										<>
 											<MenuButton to="/barang-masuk" icon={<PackagePlus />} label="Pengembalian" onClick={closeSheet} />
 											<MenuButton to="/barang-keluar" icon={<PackageMinus />} label="Brg Keluar" onClick={closeSheet} />
-											<MenuButton to="/tugas-harian" icon={<ClipboardCheck />} label="Tugas Recon" onClick={closeSheet} />
+											<MenuButton to="/tugas-harian" icon={<ClipboardCheck />} label="Recon" onClick={closeSheet} />
 											<MenuButton to="/partner-request/new" icon={<ClipboardPlus />} label="Ajukan Req" onClick={closeSheet} />
 											<MenuButton
 												to="/partner-request/history"

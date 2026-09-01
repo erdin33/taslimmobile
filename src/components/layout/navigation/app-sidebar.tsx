@@ -16,6 +16,7 @@ import {
 import {
   Box,
   CircleStar,
+  ClipboardCheck,
   ClipboardList,
   ClipboardPlus,
   Database,
@@ -58,6 +59,14 @@ const data = {
           url: "/request",
           icon: (
             <HistoryIcon />
+          ),
+          isActive: false,
+        },
+        {
+          title: "Laporan Recon",
+          url: "/laporan-recon",
+          icon: (
+            <ClipboardCheck />
           ),
           isActive: false,
         },

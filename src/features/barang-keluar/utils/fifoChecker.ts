@@ -13,12 +13,12 @@ export const isOutsideStatus = (status: string, role?: string) => {
   
   if (role === "mitra" || role === "Mitra") {
     // Bagi mitra, barang berstatus "terdistribusi" atau "diluar" adalah barang "Tersedia" untuk dipakai.
-    // Yang tidak boleh dipakai adalah jika sudah "keluar" (sudah dipasang ke pelanggan).
-    return normalizedStatus === "keluar";
+    // Yang tidak boleh dipakai adalah jika sudah "keluar" atau "digunakan" (sudah dipasang ke pelanggan).
+    return normalizedStatus === "keluar" || normalizedStatus === "digunakan";
   }
   
   // Untuk Admin Gudang, semua status pengiriman ke luar dilarang dikeluarkan dua kali
-  return normalizedStatus === "keluar" || normalizedStatus === "diluar" || normalizedStatus === "terdistribusi";
+  return normalizedStatus === "keluar" || normalizedStatus === "diluar" || normalizedStatus === "terdistribusi" || normalizedStatus === "digunakan";
 };
 
 export const getEntryDateTime = (item: InventoryItem) => {

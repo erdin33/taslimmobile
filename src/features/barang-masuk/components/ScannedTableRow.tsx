@@ -1,9 +1,10 @@
-import { memo } from "react";
+import { memo, useState } from "react";
+import { toast } from "sonner";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Lock, X } from "lucide-react";
+import { Lock, X, Copy, Check } from "lucide-react";
 import type { BarangMasukItem } from "@/types/transaction";
 import type { BrandDefinition, LocationDefinition, LokasiOption } from "@/types/inventory";
 
@@ -37,21 +38,45 @@ export const ScannedTableRow = memo(({
   focusKodeBarangInput,
   isMitra,
 }: ScannedTableRowProps) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(item.nomor);
+    setCopied(true);
+    toast.success(`SN ${item.nomor} berhasil disalin!`);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <TableRow>
       <TableCell className="font-medium">
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-sm text-foreground">{item.nomor}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-sm font-bold text-foreground">{item.nomor}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
+              onClick={handleCopy}
+              title="Salin Serial Number"
+            >
+              {copied ? (
+                <Check className="size-3 text-emerald-600" />
+              ) : (
+                <Copy className="size-3" />
+              )}
+            </Button>
+          </div>
           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
             {item.kondisi && (
-              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-semibold ${
+              <Badge variant="outline" className={`text-[10px] px-2 py-0.5 font-semibold ${
                 item.kondisi.toLowerCase() === "rusak"
-                  ? "bg-red-500/10 text-red-600 border-red-500/20"
-                  : item.kondisi.toLowerCase() === "dismantle"
-                  ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
-                  : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                  ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                  : item.kondisi.toLowerCase() === "baru"
+                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                  : "bg-violet-500/10 text-violet-600 border-violet-500/20"
               }`}>
-                {item.kondisi}
+                {item.kondisi.toUpperCase()}
               </Badge>
             )}
             {item.paNumber && (
@@ -92,20 +117,34 @@ export const ScannedTableRow = memo(({
       </TableCell>
       <TableCell>
         {item.source === "Baru" ? (
-          <Select value={item.tipe} onValueChange={(val) => handleUpdateInline(item.id, "tipe", val)}>
-            <SelectTrigger className={`w-35 h-8 text-xs ${!item.tipe ? "border-destructive text-destructive" : ""}`}><SelectValue placeholder="Pilih Model " /></SelectTrigger>
-            <SelectContent>
-              {dbModels.filter(m => (m.brand?.nama || m.brand?.name || "").toLowerCase() === item.merek.toLowerCase()).map(m => <SelectItem key={m.id} value={m.nama}>{m.nama}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1">
+            <Select value={item.tipe} onValueChange={(val) => handleUpdateInline(item.id, "tipe", val)}>
+              <SelectTrigger className={`w-35 h-8 text-xs ${!item.tipe ? "border-destructive text-destructive" : ""}`}><SelectValue placeholder="Pilih Model" /></SelectTrigger>
+              <SelectContent>
+                {dbModels.filter(m => (m.brand?.nama || m.brand?.name || "").toLowerCase() === item.merek.toLowerCase()).map(m => <SelectItem key={m.id} value={m.nama}>{m.nama}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {item.panjangKabel && (
+              <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded w-fit">
+                {item.panjangKabel}
+              </span>
+            )}
+          </div>
         ) : (
-          <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.tipe || "-"}</div>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5"><Lock className="size-3 text-muted-foreground" />{item.tipe || "-"}</div>
+            {item.panjangKabel && (
+              <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded w-fit">
+                {item.panjangKabel}
+              </span>
+            )}
+          </div>
         )}
       </TableCell>
       <TableCell>{item.asal || asalBarang}</TableCell>
       <TableCell>
         {isMitra ? (
-          <div className="font-medium text-sm text-foreground">SBU Regional Jawa Barat</div>
+          <div className="font-medium text-sm text-foreground">Gudang KP Tasikmalaya</div>
         ) : (
           <Select
             value={item.lokasi}

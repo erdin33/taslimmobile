@@ -25,6 +25,7 @@ import { useSearchParams } from "react-router-dom"
 import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
 import { useAuth } from "@/lib/auth"
+import { formatItemStatus } from "@/lib/status-helper"
 
 import { BarangFilterBar } from "@/components/data-barang/BarangFilterBar"
 import { BarangTable } from "@/components/data-barang/BarangTable"
@@ -36,7 +37,7 @@ import { ExportExcelModal } from "@/components/data-barang/ExportExcelModal"
 import type { StatusUnit, BarangUnit, StorageLocationOption } from "@/types/inventory"
 import type { DeleteDialogState } from "@/types/ui"
 
-const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Rusak", "Hilang"]
+const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Digunakan", "Rusak", "Hilang"]
 const ADMIN_LOCATION = "KP Tasikmalaya"
 
 const getBaseUrl = () => {
@@ -182,7 +183,9 @@ export default function DataBarangPage() {
       params.append("page", currentPage.toString())
       params.append("limit", pageSize.toString())
       if (searchTerm.trim()) params.append("search", searchTerm.trim())
-      if (filterStatus !== "all") params.append("status", filterStatus)
+      if (user?.role !== "mitra" && filterStatus !== "all") {
+        params.append("status", filterStatus)
+      }
       if (filterCategory !== "all") params.append("kategori", filterCategory)
       if (filterBrand !== "all") params.append("merek", filterBrand)
 
@@ -194,22 +197,32 @@ export default function DataBarangPage() {
       if (!res.ok) throw new Error("Gagal memuat data barang")
 
       const result = await res.json()
-      if (result && Array.isArray(result.data)) {
-        setBarangList(result.data)
-        setTotalItems(result.pagination?.totalItems || result.data.length)
-        setTotalPages(result.pagination?.totalPages || 1)
+      let fetchedItems: BarangUnit[] = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : [])
 
-        // Populate unique brands list
-        const extractedBrands = Array.from(
-          new Set(result.data.map((item: BarangUnit) => item.merek).filter(Boolean))
-        ) as string[]
-        if (extractedBrands.length > 0) {
-          setBrands((prev) => Array.from(new Set([...prev, ...extractedBrands])))
-        }
-      } else if (Array.isArray(result)) {
-        setBarangList(result)
-        setTotalItems(result.length)
-        setTotalPages(1)
+      if (filterStatus !== "all") {
+        const normFilter = filterStatus.trim().toLowerCase()
+        fetchedItems = fetchedItems.filter((item) => {
+          const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan, item.mitra)
+          return badge.text.toLowerCase() === normFilter
+        })
+      }
+      if (filterCategory !== "all") {
+        fetchedItems = fetchedItems.filter((item) => item.kategori?.toLowerCase() === filterCategory.toLowerCase())
+      }
+      if (filterBrand !== "all") {
+        fetchedItems = fetchedItems.filter((item) => item.merek?.toLowerCase() === filterBrand.toLowerCase())
+      }
+
+      setBarangList(fetchedItems)
+      setTotalItems(result.pagination?.totalItems && fetchedItems.length === result.data?.length ? result.pagination.totalItems : fetchedItems.length)
+      setTotalPages(Math.max(1, Math.ceil(fetchedItems.length / pageSize)))
+
+      // Populate unique brands list
+      const extractedBrands = Array.from(
+        new Set(fetchedItems.map((item: BarangUnit) => item.merek).filter(Boolean))
+      ) as string[]
+      if (extractedBrands.length > 0) {
+        setBrands((prev) => Array.from(new Set([...prev, ...extractedBrands])))
       }
     } catch (err) {
       console.error("Error loadItems:", err)
@@ -471,24 +484,23 @@ export default function DataBarangPage() {
     }
   }
 
-  const getStatusBadgeProps = (status: StatusUnit, lokasi?: string) => {
-    const loc = (lokasi || "").trim().toLowerCase();
-    if (loc === "keluar" || loc === "diluar") {
-      return { text: "Keluar", dotClass: "bg-sky-500", badgeClass: "bg-blue-500/10 text-blue-500" }
-    }
+  const getStatusBadgeProps = (status: StatusUnit | string, lokasi?: string, mitra?: string | null) => {
+    const text = formatItemStatus(status, user?.role, mitra, lokasi)
     
-    switch (status) {
+    switch (text) {
       case "Tersedia":
-        return { text: "Tersedia", dotClass: "bg-emerald-500" }
+        return { text: "Tersedia", dotClass: "bg-emerald-500", badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" }
       case "Terdistribusi":
-        return { text: "Terdistribusi", dotClass: "bg-sky-500" }
+        return { text: "Terdistribusi", dotClass: "bg-blue-500", badgeClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400" }
+      case "Digunakan":
+        return { text: "Digunakan", dotClass: "bg-indigo-500", badgeClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" }
       case "Dismantle":
-        return { text: "Dismantle", dotClass: "bg-purple-500" }
+        return { text: "Dismantle", dotClass: "bg-purple-500", badgeClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400" }
       case "Rusak":
-        return { text: "Rusak", dotClass: "bg-destructive" }
+        return { text: "Rusak", dotClass: "bg-destructive", badgeClass: "bg-destructive/10 text-destructive" }
       case "Hilang":
       default:
-        return { text: "Hilang", dotClass: "bg-amber-500" }
+        return { text: text || "Hilang", dotClass: "bg-amber-500", badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400" }
     }
   }
 
