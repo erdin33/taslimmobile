@@ -67,11 +67,13 @@ export function PengambilanMitraModal({
     );
 
     if (!matchedAllocation) {
-      return { success: false, message: "Barang bukan untuk request ini" };
+      // Abaikan barcode lain/tidak cocok tanpa notifikasi merah
+      return { success: false, ignored: true };
     }
 
     if (scannedIds.has(matchedAllocation.id)) {
-      return { success: false, message: "Sudah divalidasi" };
+      // Sudah divalidasi, abaikan tanpa notifikasi merah
+      return { success: false, ignored: true };
     }
 
     setScannedIds((prev) => {

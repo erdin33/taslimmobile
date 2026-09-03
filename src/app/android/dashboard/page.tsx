@@ -50,7 +50,7 @@ export default function DashboardPage() {
     }, [isLoading, user, inventoryStats.tersedia]);
 
     return (
-        <div className="@container/main flex flex-col gap-4 p-4 pb-28 md:gap-6 md:p-6 md:pb-32 lg:p-8 lg:pb-32 min-h-[100dvh] overflow-y-auto">
+        <div className="@container/main flex flex-col gap-4 p-4 pb-24 md:gap-6 md:p-6 md:pb-32 lg:p-8">
             
             <AlertDialog open={showStockAlert} onOpenChange={setShowStockAlert}>
                 <AlertDialogContent className="w-[90%] max-w-[400px] rounded-3xl p-6">

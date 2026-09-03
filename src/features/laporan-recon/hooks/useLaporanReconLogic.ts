@@ -13,7 +13,7 @@ const getHeaders = () => {
     "Content-Type": "application/json",
   };
   if (token) {
-    headers["Authorization"] = `${token}`;
+    headers["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
   }
   return headers;
 };
@@ -144,29 +144,59 @@ export const useLaporanReconLogic = () => {
   }, [loadData]);
 
   useEffect(() => {
+    // Bersihkan cache lokal lama agar tidak mencemari laporan admin
+    try {
+      localStorage.removeItem("recon_proofs_cache");
+    } catch (_) {}
+
     const fetchReconProgress = async () => {
       try {
-        const res = await fetch(`${getBaseUrl()}/recon-progress`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const progressList = Array.isArray(json.data) ? json.data : [];
-          const map: Record<string, Record<string, any>> = {};
-          
+        const [progressRes, reportsRes] = await Promise.all([
+          fetch(`${getBaseUrl()}/recon-progress`, {
+            method: "GET",
+            headers: getHeaders(),
+          }).catch(() => null),
+          fetch(`${getBaseUrl()}/recon-reports`, {
+            method: "GET",
+            headers: getHeaders(),
+          }).catch(() => null),
+        ]);
+
+        const map: Record<string, Record<string, any>> = {};
+
+        if (progressRes && progressRes.ok) {
+          const json = await progressRes.json();
+          const progressList = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
           progressList.forEach((p: any) => {
             if (p.itemId && p.date) {
               if (!map[p.date]) map[p.date] = {};
               map[p.date][p.itemId] = {
                 imageUrl: p.imageUrl,
-                timestamp: p.timestamp,
-                geotag: p.geotag
+                timestamp: p.capturedAt || p.timestamp || p.createdAt,
+                geotag: p.geotag,
               };
             }
           });
-          setServerReconProofs(map);
         }
+
+        if (reportsRes && reportsRes.ok) {
+          const json = await reportsRes.json();
+          const reportsList = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+          reportsList.forEach((p: any) => {
+            if (p.itemId && p.date) {
+              if (!map[p.date]) map[p.date] = {};
+              if (!map[p.date][p.itemId]) {
+                map[p.date][p.itemId] = {
+                  imageUrl: p.imageUrl,
+                  timestamp: p.capturedAt || p.timestamp || p.createdAt,
+                  geotag: p.geotag,
+                };
+              }
+            }
+          });
+        }
+
+        setServerReconProofs(map);
       } catch (err) {
         console.error("Failed fetching recon progress", err);
       }
@@ -174,7 +204,7 @@ export const useLaporanReconLogic = () => {
     fetchReconProgress();
   }, []);
 
-  // Aggregate server recon proofs
+  // Aggregate server recon proofs murni dari data server backend
   const reconProofsMap = useMemo(() => {
     return { ...serverReconProofs };
   }, [serverReconProofs]);

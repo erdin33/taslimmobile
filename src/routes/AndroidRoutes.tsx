@@ -1,42 +1,32 @@
-import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import AndroidLayout from "@/components/layout/AndroidLayout";
 
-const DashboardPage = lazy(() => import("@/app/android/dashboard/page"));
-const BarangMasukPage = lazy(() => import("@/app/android/barang-masuk/page"));
-const BarangKeluarPage = lazy(() => import("@/app/android/barang-keluar/page"));
-const DataBarangPage = lazy(() => import("@/app/android/data-barang/page"));
-const DataTransaksiPage = lazy(() => import("@/app/android/request/page"));
-const DataTransaksiDetailPage = lazy(() => import("@/app/android/request/detail/page"));
-const LokasiBarangPage = lazy(() => import("@/app/android/lokasi-barang/page"));
-const TipeMaterialPage = lazy(() => import("@/app/android/tipe-material/page"));
-const KategoriBarangPage = lazy(() => import("@/app/android/kategori-barang/page"));
-const MerekBarangPage = lazy(() => import("@/app/android/merek-barang/page"));
-const MitraPage = lazy(() => import("@/app/android/mitra/page"));
-const LoginPage = lazy(() => import("@/app/android/login/page"));
-const PengaturanPage = lazy(() => import("@/app/android/pengaturan/page"));
-const MobileSignPage = lazy(() => import("@/app/mobile-sign/page"));
-const PartnerRequestNewPage = lazy(() => import("@/app/partner-request/new/page"));
-const PartnerRequestHistoryPage = lazy(() => import("@/app/partner-request/history/page"));
-const RequestPreparePage = lazy(() => import("@/app/request/prepare/page"));
-const PenerimaanReturPage = lazy(() => import("@/app/desktop/penerimaan-retur/page"));
-const TugasHarianPage = lazy(() => import("@/app/android/tugas-harian/page"));
-const LaporanReconPage = lazy(() => import("@/app/android/laporan-recon/page"));
-const PeminjamanMitraPage = lazy(() => import("@/app/android/peminjaman-mitra/page"));
-
-function PageLoader() {
-	return (
-		<div className="flex h-[50vh] w-full items-center justify-center">
-			<div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-		</div>
-	);
-}
+import DashboardPage from "@/app/android/dashboard/page";
+import BarangMasukPage from "@/app/android/barang-masuk/page";
+import BarangKeluarPage from "@/app/android/barang-keluar/page";
+import DataBarangPage from "@/app/android/data-barang/page";
+import DataTransaksiPage from "@/app/android/request/page";
+import DataTransaksiDetailPage from "@/app/android/request/detail/page";
+import LokasiBarangPage from "@/app/android/lokasi-barang/page";
+import TipeMaterialPage from "@/app/android/tipe-material/page";
+import KategoriBarangPage from "@/app/android/kategori-barang/page";
+import MerekBarangPage from "@/app/android/merek-barang/page";
+import MitraPage from "@/app/android/mitra/page";
+import LoginPage from "@/app/android/login/page";
+import PengaturanPage from "@/app/android/pengaturan/page";
+import MobileSignPage from "@/app/mobile-sign/page";
+import PartnerRequestNewPage from "@/app/partner-request/new/page";
+import PartnerRequestHistoryPage from "@/app/partner-request/history/page";
+import RequestPreparePage from "@/app/request/prepare/page";
+import PenerimaanReturPage from "@/app/desktop/penerimaan-retur/page";
+import TugasHarianPage from "@/app/android/tugas-harian/page";
+import LaporanReconPage from "@/app/android/laporan-recon/page";
+import PeminjamanMitraPage from "@/app/android/peminjaman-mitra/page";
 
 export function AndroidRoutes() {
 	return (
-		<Suspense fallback={<PageLoader />}>
-			<Routes>
+		<Routes>
 				<Route path="/login" element={<LoginPage />} />
 				<Route path="/mobile-sign/:sessionId" element={<MobileSignPage />} />
 				<Route
@@ -111,6 +101,5 @@ export function AndroidRoutes() {
 				</Route>
 				<Route path="*" element={<Navigate to="/" replace />} />
 			</Routes>
-		</Suspense>
 	);
 }

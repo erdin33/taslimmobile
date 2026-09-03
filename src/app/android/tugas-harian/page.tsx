@@ -131,6 +131,7 @@ export default function TugasHarianPage() {
 
 	const [activeItem, setActiveItem] = useState<BarangUnit | null>(null);
 	const [isCameraOpen, setIsCameraOpen] = useState(false);
+	const [isCameraLoading, setIsCameraLoading] = useState(false);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [cameraError, setCameraError] = useState<string | null>(null);
 
@@ -160,6 +161,14 @@ export default function TugasHarianPage() {
 		fetchItems();
 
 		const loadReconForDate = (dateKey: string) => {
+			let localCompleted: Record<string, any> = {};
+			try {
+				if (user?.id) {
+					const saved = localStorage.getItem(`recon_completed_${user.id}_${dateKey}`);
+					if (saved) localCompleted = JSON.parse(saved);
+				}
+			} catch (_) {}
+
 			fetch(
 				`${getBaseUrl()}/recon-progress?date=${dateKey}`,
 				{
@@ -177,14 +186,15 @@ export default function TugasHarianPage() {
 							};
 						});
 
-						setCompletedItems(apiItems);
+						setCompletedItems({ ...localCompleted, ...apiItems });
 					} else {
-						setCompletedItems({});
+						setCompletedItems(localCompleted);
 					}
 				})
-				.catch((err) =>
-					console.error("Failed fetching recon progress from API", err),
-				);
+				.catch((err) => {
+					console.error("Failed fetching recon progress from API", err);
+					setCompletedItems(localCompleted);
+				});
 		};
 
 		loadReconForDate(getTodayDateKey());
@@ -312,15 +322,25 @@ export default function TugasHarianPage() {
 			streamRef.current.getTracks().forEach((track) => track.stop());
 			streamRef.current = null;
 		}
+		if (videoRef.current) {
+			videoRef.current.srcObject = null;
+			try {
+				videoRef.current.load();
+			} catch (_) {}
+		}
 	};
 
 	const handleStartScan = useCallback(async (item: BarangUnit) => {
 		setCameraError(null);
 		setPreviewImage(null);
+		setRawImage(null);
 		setActiveItem(item);
+		setIsCameraLoading(true);
 		setIsCameraOpen(true);
 
-		// Lokasi GPS tidak lagi dicari di sini, tapi di latar belakang halaman
+		if (videoRef.current) {
+			videoRef.current.srcObject = null;
+		}
 
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({
@@ -337,11 +357,21 @@ export default function TugasHarianPage() {
 			setTimeout(() => {
 				if (videoRef.current) {
 					videoRef.current.srcObject = stream;
-					videoRef.current.play().catch(() => {});
+					videoRef.current.onloadedmetadata = () => {
+						setIsCameraLoading(false);
+					};
+					videoRef.current.play().then(() => {
+						setIsCameraLoading(false);
+					}).catch(() => {
+						setIsCameraLoading(false);
+					});
+				} else {
+					setIsCameraLoading(false);
 				}
 			}, 50);
 		} catch (err: any) {
 			console.error("Gagal membuka kamera:", err);
+			setIsCameraLoading(false);
 			setCameraError(
 				err?.name === "NotAllowedError"
 					? "Izin kamera ditolak. Aktifkan izin kamera di pengaturan aplikasi."
@@ -353,6 +383,7 @@ export default function TugasHarianPage() {
 	const handleCloseCamera = useCallback(() => {
 		stopCameraStream();
 		setIsCameraOpen(false);
+		setIsCameraLoading(false);
 		setActiveItem(null);
 		setCameraError(null);
 		setPreviewImage(null);
@@ -517,11 +548,11 @@ export default function TugasHarianPage() {
 				}
 			}
 
-			// Validasi 1: Pastikan ada barcode yang terbaca
+			// Validasi 1: Pastikan ada barcode yang terbaca dari stiker perangkat
 			if (detectedValues.length === 0) {
 				toast.error(
-					"Barcode tidak terdeteksi. Pastikan Anda memotret gambar barcode dengan jelas dan fokus.",
-					{ id: toastId, duration: 5000 },
+					"Barcode tidak terdeteksi. Pastikan Anda memotret stiker barcode Serial Number (SN) perangkat dengan jelas dan fokus.",
+					{ id: toastId, duration: 6000 },
 				);
 				setIsProcessing(false);
 				return;
@@ -540,7 +571,7 @@ export default function TugasHarianPage() {
 				// 1. Cocok persis (exact match setelah dibersihkan dari simbol)
 				if (raw === targetSn) return true;
 
-				// 2. Cocok tanpa prefix 'SN' / 'SER' / 'NO' (misal database "SN123456" tapi barcode tercetak "123456" atau sebaliknya)
+				// 2. Cocok tanpa prefix 'SN' / 'SER' / 'NO'
 				if (targetWithoutPrefix && rawWithoutPrefix === targetWithoutPrefix)
 					return true;
 
@@ -555,7 +586,7 @@ export default function TugasHarianPage() {
 				return false;
 			});
 
-			// Validasi 2: Pastikan SN benar-benar cocok dengan item yang sedang diperiksa
+			// Validasi 2: Pastikan SN dari barcode perangkat sesuai dengan item tugas
 			if (!isMatch) {
 				toast.error(
 					`Nomor Seri (SN) tidak cocok! Diharapkan: ${currentItem.serialNumber}, Terdeteksi: ${detectedValues.join(", ")}`,
@@ -582,11 +613,19 @@ export default function TugasHarianPage() {
 			const timestamp = new Date().toISOString();
 			const today = getTodayDateKey();
 
-			// Update UI optimistik dulu
-			setCompletedItems((prev) => ({
-				...prev,
-				[currentItem.id]: { imageUrl: uploadImage, timestamp },
-			}));
+			// Simpan ke local state & localStorage user agar tidak tertukar antar akun
+			setCompletedItems((prev) => {
+				const next = {
+					...prev,
+					[currentItem.id]: { imageUrl: uploadImage, timestamp },
+				};
+				try {
+					if (user?.id) {
+						localStorage.setItem(`recon_completed_${user.id}_${today}`, JSON.stringify(next));
+					}
+				} catch (_) {}
+				return next;
+			});
 
 			// Kirim ke server
 			try {
@@ -595,37 +634,42 @@ export default function TugasHarianPage() {
 					method: "POST",
 					headers: getHeaders(),
 					body: JSON.stringify({
+						userId: user?.id,
 						date: today,
 						itemId: currentItem.id,
 						image: uploadImage,
+						imageUrl: uploadImage,
 						timestamp,
 					}),
 				});
 
-				if (!res.ok) {
-					const errData = await res.json().catch(() => ({}));
-					const errMsg = errData?.message || `Server error ${res.status}`;
-					console.error("Gagal sync recon:", res.status, errMsg);
-					// Rollback UI jika server gagal
-					setCompletedItems((prev) => {
-						const next = { ...prev };
-						delete next[currentItem.id];
-						return next;
-					});
-					toast.error(`Gagal kirim foto ke server: ${errMsg}`, { duration: 6000 });
+				// Sinkronkan juga ke /recon-reports
+				fetch(`${getBaseUrl()}/recon-reports`, {
+					method: "POST",
+					headers: getHeaders(),
+					body: JSON.stringify({
+						userId: user?.id,
+						mitra: user?.displayName || user?.username,
+						tanggal: today,
+						date: today,
+						itemsCount: 1,
+						items: [{
+							id: currentItem.id,
+							itemId: currentItem.id,
+							serialNumber: currentItem.serialNumber,
+							status: "Valid",
+							timestamp,
+						}],
+					}),
+				}).catch(() => {});
+
+				if (res.ok) {
+					console.info("Recon tersimpan di server");
 				} else {
-					const okData = await res.json().catch(() => ({}));
-					console.info("Recon tersimpan:", okData);
+					console.warn("Server recon-progress status:", res.status);
 				}
 			} catch (netErr) {
-				console.error("Network error saat kirim recon:", netErr);
-				// Rollback UI
-				setCompletedItems((prev) => {
-					const next = { ...prev };
-					delete next[currentItem.id];
-					return next;
-				});
-				toast.error("Gagal kirim foto: tidak ada koneksi internet.", { duration: 6000 });
+				console.warn("Network error saat kirim recon (tetap tersimpan lokal):", netErr);
 			}
 
 			stopCameraStream();
@@ -714,7 +758,7 @@ export default function TugasHarianPage() {
 									autoPlay
 									playsInline
 									muted
-									className={`absolute inset-0 w-full h-full object-contain ${previewImage ? "hidden" : ""}`}
+									className={`absolute inset-0 w-full h-full object-contain ${previewImage || isCameraLoading ? "hidden" : ""}`}
 								/>
 								{previewImage && (
 									<img
@@ -723,11 +767,17 @@ export default function TugasHarianPage() {
 										className="absolute inset-0 w-full h-full object-contain"
 									/>
 								)}
+								{isCameraLoading && (
+									<div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10 space-y-3">
+										<Loader2 className="size-10 animate-spin text-white" />
+										<p className="text-sm font-medium text-white/80">Menyiapkan kamera...</p>
+									</div>
+								)}
 							</>
 						)}
 
 						{/* Kontrol bawah: diposisikan overlay absolute di atas video agar tidak kelempar ke bawah */}
-						{!cameraError && (
+						{!cameraError && !isCameraLoading && (
 							<div className="absolute bottom-0 inset-x-0 p-6 pb-[calc(2rem+env(safe-area-inset-bottom,24px))] flex items-center justify-center gap-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20">
 								{previewImage ? (
 									<>
