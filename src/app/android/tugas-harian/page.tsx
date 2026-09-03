@@ -57,22 +57,35 @@ const dataUrlByteSize = (dataUrl: string): number => {
  */
 const compressImageToMaxSize = (
 	dataUrl: string,
-	maxBytes = 1024 * 1024,
+	maxBytes = 500 * 1024, // default 500KB
+	maxDimension = 800,    // resize ke max 800px
 ): Promise<string> => {
 	return new Promise((resolve, reject) => {
 		const img = new window.Image();
 		img.onload = () => {
-			let quality = 0.85;
+			// Hitung dimensi baru (scale down jika terlalu besar)
+			let { width, height } = img;
+			if (width > maxDimension || height > maxDimension) {
+				if (width > height) {
+					height = Math.round((height * maxDimension) / width);
+					width = maxDimension;
+				} else {
+					width = Math.round((width * maxDimension) / height);
+					height = maxDimension;
+				}
+			}
+
+			let quality = 0.80;
 			const compress = () => {
 				const canvas = document.createElement("canvas");
-				canvas.width = img.width;
-				canvas.height = img.height;
+				canvas.width = width;
+				canvas.height = height;
 				const ctx = canvas.getContext("2d");
 				if (!ctx) {
 					reject(new Error("Canvas not supported"));
 					return;
 				}
-				ctx.drawImage(img, 0, 0);
+				ctx.drawImage(img, 0, 0, width, height);
 				const out = canvas.toDataURL("image/jpeg", quality);
 				if (dataUrlByteSize(out) > maxBytes && quality > 0.2) {
 					quality -= 0.1;
@@ -103,7 +116,7 @@ const getHeaders = () => {
 		"Content-Type": "application/json",
 	};
 	if (token) {
-		headers["Authorization"] = `${token}`;
+		headers["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
 	}
 	return headers;
 };
@@ -137,25 +150,18 @@ export default function TugasHarianPage() {
 	const streamRef = useRef<MediaStream | null>(null);
 
 	useEffect(() => {
+		if (!user) {
+			// Reset state saat logout
+			setCompletedItems({});
+			setItems([]);
+			return;
+		}
+
 		fetchItems();
 
 		const loadReconForDate = (dateKey: string) => {
-			if (!user) return;
-			const storageKey = `taslim_recon_${user.id}_${dateKey}`;
-			try {
-				const stored = localStorage.getItem(storageKey);
-				if (stored) {
-					setCompletedItems(JSON.parse(stored));
-				} else {
-					setCompletedItems({});
-				}
-			} catch (err) {
-				console.error("Failed loading local recon cache", err);
-			}
-
-			// Then sync from API
 			fetch(
-				`${getBaseUrl()}/recon-progress?userId=${user.id}&date=${dateKey}`,
+				`${getBaseUrl()}/recon-progress?date=${dateKey}`,
 				{
 					headers: getHeaders(),
 				},
@@ -171,11 +177,9 @@ export default function TugasHarianPage() {
 							};
 						});
 
-						setCompletedItems((prev) => {
-							const merged = { ...prev, ...apiItems };
-							localStorage.setItem(storageKey, JSON.stringify(merged));
-							return merged;
-						});
+						setCompletedItems(apiItems);
+					} else {
+						setCompletedItems({});
 					}
 				})
 				.catch((err) =>
@@ -183,9 +187,7 @@ export default function TugasHarianPage() {
 				);
 		};
 
-		if (user) {
-			loadReconForDate(getTodayDateKey());
-		}
+		loadReconForDate(getTodayDateKey());
 
 		// Auto-detect pergantian tanggal (jam 12 malam) agar tugas recon otomatis reset ke hari baru
 		let lastDate = getTodayDateKey();
@@ -568,42 +570,63 @@ export default function TugasHarianPage() {
 			// Kompres gambar ≤1MB sebelum dikirim ke backend (upload MinIO).
 			let uploadImage = previewImage;
 			try {
-				uploadImage = await compressImageToMaxSize(previewImage);
+				uploadImage = await compressImageToMaxSize(previewImage, 500 * 1024); // max 500KB
 			} catch (err) {
 				console.warn("Kompresi gambar gagal, kirim asli:", err);
 			}
 
-			const timestamp = new Date().toLocaleString();
+			// Log ukuran gambar untuk debug
+			const sizeKB = Math.round(((uploadImage?.length ?? 0) * 3) / 4 / 1024);
+			console.info(`[Recon] Ukuran foto setelah kompres: ~${sizeKB}KB`);
 
-			setCompletedItems((prev) => {
-				const newItems = {
-					...prev,
-					[currentItem.id]: { imageUrl: uploadImage, timestamp },
-				};
+			const timestamp = new Date().toISOString();
+			const today = getTodayDateKey();
 
-				if (user) {
-					const today = getTodayDateKey();
-					const storageKey = `taslim_recon_${user.id}_${today}`;
-					localStorage.setItem(storageKey, JSON.stringify(newItems));
+			// Update UI optimistik dulu
+			setCompletedItems((prev) => ({
+				...prev,
+				[currentItem.id]: { imageUrl: uploadImage, timestamp },
+			}));
 
-					// Sync with API
-					fetch(`${getBaseUrl()}/recon-progress`, {
-						method: "POST",
-						headers: getHeaders(),
-						body: JSON.stringify({
-							userId: user.id,
-							date: today,
-							itemId: currentItem.id,
-							imageUrl: uploadImage,
-							timestamp,
-						}),
-					}).catch((err) =>
-						console.error("Gagal sync progress recon ke API", err),
-					);
+			// Kirim ke server
+			try {
+				console.info(`[Recon] Mengirim ke server: itemId=${currentItem.id}, date=${today}`);
+				const res = await fetch(`${getBaseUrl()}/recon-progress`, {
+					method: "POST",
+					headers: getHeaders(),
+					body: JSON.stringify({
+						date: today,
+						itemId: currentItem.id,
+						image: uploadImage,
+						timestamp,
+					}),
+				});
+
+				if (!res.ok) {
+					const errData = await res.json().catch(() => ({}));
+					const errMsg = errData?.message || `Server error ${res.status}`;
+					console.error("Gagal sync recon:", res.status, errMsg);
+					// Rollback UI jika server gagal
+					setCompletedItems((prev) => {
+						const next = { ...prev };
+						delete next[currentItem.id];
+						return next;
+					});
+					toast.error(`Gagal kirim foto ke server: ${errMsg}`, { duration: 6000 });
+				} else {
+					const okData = await res.json().catch(() => ({}));
+					console.info("Recon tersimpan:", okData);
 				}
-
-				return newItems;
-			});
+			} catch (netErr) {
+				console.error("Network error saat kirim recon:", netErr);
+				// Rollback UI
+				setCompletedItems((prev) => {
+					const next = { ...prev };
+					delete next[currentItem.id];
+					return next;
+				});
+				toast.error("Gagal kirim foto: tidak ada koneksi internet.", { duration: 6000 });
+			}
 
 			stopCameraStream();
 			setIsCameraOpen(false);
@@ -618,48 +641,15 @@ export default function TugasHarianPage() {
 		}
 	}, [activeItem, previewImage, rawImage, user]);
 
-	const submitReport = async () => {
-		const toastId = toast.loading("Mengirim laporan recon harian...");
-		try {
-			const today = getTodayDateKey();
-			const reportData = {
-				userId: user?.id,
-				mitra: user?.displayName,
-				tanggal: today,
-				itemsCount: Object.keys(completedItems).length,
-				items: Object.entries(completedItems).map(([id, data]) => ({
-					itemId: id,
-					...data,
-				})),
-			};
 
-			const res = await fetch(`${getBaseUrl()}/recon-reports`, {
-				method: "POST",
-				headers: getHeaders(),
-				body: JSON.stringify(reportData),
-			});
-
-			if (!res.ok) throw new Error("Gagal mengirim laporan");
-
-			toast.success("Laporan Recon Harian berhasil dikirim ke pusat!", {
-				id: toastId,
-				duration: 5000,
-			});
-		} catch (err) {
-			toast.error("Terjadi kesalahan saat mengirim laporan", { id: toastId });
-			console.error(err);
-		}
-	};
 
 	const handleResetRecon = () => {
 		if (user) {
 			const today = getTodayDateKey();
-			const storageKey = `taslim_recon_${user.id}_${today}`;
-			localStorage.removeItem(storageKey);
 			setCompletedItems({});
 
 			// Delete from API
-			fetch(`${getBaseUrl()}/recon-progress?userId=${user.id}&date=${today}`, {
+			fetch(`${getBaseUrl()}/recon-progress?date=${today}`, {
 				method: "DELETE",
 				headers: getHeaders(),
 			}).catch((err) => console.error("Gagal reset recon di API", err));
@@ -903,25 +893,7 @@ export default function TugasHarianPage() {
 				</TabsContent>
 			</Tabs>
 
-			{doneItems.length > 0 && doneItems.length === items.length && (
-				<Card className="p-4 mt-6 bg-primary/10 border-primary shadow-sm flex items-start gap-4">
-					<AlertCircle className="size-5 text-primary shrink-0 mt-0.5" />
-					<div className="space-y-1">
-						<h4 className="font-medium text-foreground">Sesi Selesai</h4>
-						<p className="text-xs text-muted-foreground">
-							Semua tugas recon harian Anda telah diselesaikan. Dalam versi
-							produksi, tombol "Kirim Laporan" akan muncul di sini untuk
-							menyinkronkan data dengan sistem pusat.
-						</p>
-						<Button
-							className="mt-3 w-full sm:w-auto"
-							size="sm"
-							onClick={submitReport}>
-							Kirim Laporan Recon
-						</Button>
-					</div>
-				</Card>
-			)}
+
 
 			{/* Lightbox / Image Viewer */}
 			{viewingImage && (
@@ -948,3 +920,4 @@ export default function TugasHarianPage() {
 		</div>
 	);
 }
+

@@ -23,6 +23,7 @@ const RequestPreparePage = lazy(() => import("@/app/request/prepare/page"));
 const PenerimaanReturPage = lazy(() => import("@/app/desktop/penerimaan-retur/page"));
 const TugasHarianPage = lazy(() => import("@/app/android/tugas-harian/page"));
 const LaporanReconPage = lazy(() => import("@/app/android/laporan-recon/page"));
+const PeminjamanMitraPage = lazy(() => import("@/app/android/peminjaman-mitra/page"));
 
 function PageLoader() {
 	return (
@@ -63,6 +64,7 @@ export function AndroidRoutes() {
 					<Route path="request/:id/prepare" element={<RequestPreparePage />} />
 					<Route path="partner-request/new" element={<PartnerRequestNewPage />} />
 					<Route path="partner-request/history" element={<PartnerRequestHistoryPage />} />
+					<Route path="peminjaman-mitra" element={<PeminjamanMitraPage />} />
 					<Route path="tugas-harian" element={<TugasHarianPage />} />
 					<Route path="data-barang" element={<DataBarangPage />} />
 					<Route

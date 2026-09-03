@@ -411,13 +411,13 @@ export default function PreparePage() {
   if (!request) return null
 
   return (
-    <div className="@container/main flex h-full select-none flex-col gap-4 py-4 pb-24 md:gap-6 md:py-6 md:pb-6">
+    <div className="@container/main flex min-h-full flex-col gap-4 p-4 pb-36 md:gap-6 md:p-6 md:pb-8">
 
       {/* Main Content Grid */}
-      <div className="grid h-full gap-4 px-4 lg:px-6 @5xl/main:grid-cols-[minmax(320px,380px)_1fr]">
+      <div className="grid gap-4 @5xl/main:grid-cols-[minmax(320px,380px)_1fr]">
 
         {/* Left Panel - Scanner Input */}
-        <Card className="@container/card flex flex-col @5xl/main:min-h-[calc(107svh-var(--header-height)-15rem)]">
+        <Card className="@container/card flex flex-col">
           <CardHeader className="flex flex-col gap-4 pb-2 border-b">
             <h3 className="text-lg font-semibold leading-none tracking-tight">Pindai / Input Manual</h3>
             <p className="text-sm text-muted-foreground">Masukkan kode atau serial number (SN) barang.</p>
@@ -471,7 +471,7 @@ export default function PreparePage() {
                   {scannedItems.length} / {request.requestItems.reduce((acc, ri) => acc + (ri.quantity || 1), 0)} Disiapkan
                 </span>
               </div>
-              <div className="flex flex-col gap-1.5 mt-1">
+              <div className="flex flex-col gap-1.5 mt-1 max-h-60 overflow-y-auto pr-1">
                 {request.requestItems.map((ri, idx) => {
                   const targetQty = ri.quantity || 1
                   return (
@@ -493,7 +493,7 @@ export default function PreparePage() {
 
         {/* Right Panel - Scanned Items List */}
         <div className="flex flex-col space-y-4 min-w-0">
-          <div className="flex-1 overflow-x-auto rounded-md border bg-card">
+          <div className="overflow-x-auto rounded-md border bg-card min-h-[140px]">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <Table className="whitespace-nowrap">
                 <TableHeader>

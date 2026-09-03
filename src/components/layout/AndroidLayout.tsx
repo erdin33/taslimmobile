@@ -5,7 +5,6 @@ import {
 	PackagePlus,
 	PackageMinus,
 	ClipboardPlus,
-	ScanBarcode,
 	Menu,
 	Database,
 	HistoryIcon,
@@ -20,7 +19,9 @@ import {
 	Moon,
 	User,
 	PackageCheck,
-	ClipboardCheck
+	ClipboardCheck,
+	ArrowRightLeft,
+	X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -105,7 +106,9 @@ export default function AndroidLayout() {
 
 	useEffect(() => {
 		fetchBadgeCounts();
-		const interval = setInterval(fetchBadgeCounts, 10000);
+		const interval = setInterval(() => {
+			if (!document.hidden) fetchBadgeCounts();
+		}, 30000);
 		window.addEventListener("focus", fetchBadgeCounts);
 		window.addEventListener("request-count-updated", fetchBadgeCounts);
 		return () => {
@@ -189,17 +192,7 @@ export default function AndroidLayout() {
 				<Outlet />
 			</main>
 
-			{/* Floating Action Button for Scan */}
-			{isAdmin && (
-				<div className="absolute bottom-[7.25rem] right-6 z-40">
-					<button
-						onClick={() => navigate('/barang-masuk', { state: { autoScan: true } })}
-						className="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all"
-					>
-						<ScanBarcode className="w-6 h-6" />
-					</button>
-				</div>
-			)}
+
 
 			{/* Bottom Navigation Bar */}
 			<nav className="h-[6.5rem] pb-11 w-full bg-card border-t flex items-center justify-around z-50 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] px-2">
@@ -300,9 +293,17 @@ export default function AndroidLayout() {
 							<span className="text-[10px]">Lainnya</span>
 						</button>
 					</SheetTrigger>
-					<SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl px-5 pb-12">
-						<SheetHeader className="mb-6 pt-3 text-left">
-							<SheetTitle className="text-xl font-bold tracking-tight">Menu Utama</SheetTitle>
+					<SheetContent side="bottom" showCloseButton={false} className="h-[80vh] overflow-y-auto rounded-t-3xl px-5 pb-12">
+						<SheetHeader className="mb-6 pt-3 flex flex-row items-center justify-between">
+							<SheetTitle className="text-xl font-bold tracking-tight text-foreground">Menu Utama</SheetTitle>
+							<button
+								type="button"
+								onClick={closeSheet}
+								className="size-9 rounded-full bg-muted/90 hover:bg-muted border border-border flex items-center justify-center text-foreground transition-all active:scale-95 cursor-pointer shadow-xs"
+								aria-label="Tutup menu"
+							>
+								<X className="size-5 text-foreground" />
+							</button>
 						</SheetHeader>
 
 						<div className="space-y-7">
@@ -344,6 +345,12 @@ export default function AndroidLayout() {
 												to="/partner-request/history"
 												icon={<HistoryIcon />}
 												label="Histori Req"
+												onClick={closeSheet}
+											/>
+											<MenuButton
+												to="/peminjaman-mitra"
+												icon={<ArrowRightLeft />}
+												label="Transfer Mitra"
 												onClick={closeSheet}
 											/>
 										</>

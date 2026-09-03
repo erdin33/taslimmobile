@@ -312,7 +312,17 @@ export default function DataTransaksiPage() {
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/requests`, {
+      // Kirim filter ke server berdasarkan ID user
+      const params = new URLSearchParams();
+      if (user?.partnerId) {
+        params.set("partnerId", user.partnerId);
+      } else if (user?.id) {
+        params.set("requesterId", user.id);
+      }
+      const queryString = params.toString();
+      const url = `${getBaseUrl()}/requests${queryString ? `?${queryString}` : ""}`;
+
+      const res = await fetch(url, {
         method: "GET",
         headers: getHeaders(),
       });
@@ -345,18 +355,27 @@ export default function DataTransaksiPage() {
         deliveryDocument: r.deliveryDocument,
       }));
 
-      setLocalRequests(
-        user?.role === "mitra"
-          ? data.filter((req) => {
-            const reqMitra = req.requesterName?.trim().toLowerCase() || "";
-            return (
-              reqMitra === user.displayName?.trim().toLowerCase() ||
-              reqMitra === user.username?.trim().toLowerCase() ||
-              (user.identityCode && reqMitra.includes(user.identityCode.trim().toLowerCase()))
-            )
-          })
-          : data
-      );
+      if (user?.role === "mitra") {
+        // Server tidak memfilter per user — kita filter sisi client
+        // Field yang reliable dari server hanya requesterName
+        const filtered = data.filter((req: any) => {
+          const reqName = (req.requesterName || "").trim().toLowerCase();
+          const uUsername = (user.username || "").trim().toLowerCase();
+          const uDisplay = (user.displayName || "").trim().toLowerCase();
+
+          // Match exact username (paling reliable)
+          if (uUsername && reqName === uUsername) return true;
+          // Match displayName sebagai fallback jika username berbeda format
+          if (uDisplay && uDisplay !== uUsername && reqName === uDisplay) return true;
+
+          return false;
+        });
+
+        setLocalRequests(filtered);
+      } else {
+        // Admin melihat semua request
+        setLocalRequests(data);
+      }
     } catch (error) {
       console.error("Gagal mengambil data permintaan:", error);
       toast.error("Gagal memuat data permintaan.");

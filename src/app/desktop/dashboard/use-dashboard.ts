@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth"
 import type { AuthUser } from "@/types/auth"
 
 const DASHBOARD_TRANSACTION_LIMIT = 6;
-const DASHBOARD_REFRESH_INTERVAL = 5000;
+const DASHBOARD_REFRESH_INTERVAL = 60000;
 
 const getRangeDays = (timeRange: string) => {
     if (timeRange === "30d") return 30;
@@ -62,30 +62,43 @@ const requestBelongsToUser = (rawValue: unknown, user: AuthUser | null) => {
     const partner = asRecord(raw.partner)
     const userProfile = asRecord(user.profile)
 
-    const userIds = [
-        user.id,
-        user.partnerId,
-        user.identityCode,
-        userProfile.id,
-        userProfile.identityCode,
-        userProfile.kode,
-    ].map(normalizeKey).filter(Boolean)
+    const userId = normalizeKey(user.id)
+    const userPartnerId = normalizeKey(user.partnerId)
+    const userIdentityCode = normalizeKey(user.identityCode || userProfile.identityCode || userProfile.kode)
+    const userUsername = normalizeKey(user.username)
+    const userDisplayName = normalizeKey(user.displayName)
 
-    const requestIds = [
+    const requestUserIds = [
         raw.requesterId,
         raw.userId,
-        raw.partnerId,
-        raw.mitraId,
         requester.id,
         requesterProfile.id,
+    ].map(normalizeKey).filter(Boolean)
+
+    const requestPartnerIds = [
+        raw.partnerId,
+        raw.mitraId,
+        partner.id,
+    ].map(normalizeKey).filter(Boolean)
+    
+    const requestIdentityCodes = [
         requesterProfile.identityCode,
         requesterProfile.kode,
-        partner.id,
         partner.identityCode,
         partner.kode,
     ].map(normalizeKey).filter(Boolean)
 
-    if (userIds.some((id) => requestIds.includes(id))) return true
+    if (userPartnerId && requestPartnerIds.includes(userPartnerId)) {
+        return true
+    }
+
+    if (userId && requestUserIds.includes(userId)) {
+        return true
+    }
+
+    if (userIdentityCode && requestIdentityCodes.includes(userIdentityCode)) {
+        return true
+    }
 
     const requesterName = normalizeKey(
         readFirstText(
@@ -95,13 +108,16 @@ const requestBelongsToUser = (rawValue: unknown, user: AuthUser | null) => {
             requester.username
         )
     )
-    const identityCode = normalizeKey(user.identityCode)
+    
+    if (requesterName && (requesterName === userDisplayName || requesterName === userUsername)) {
+        return true
+    }
+    
+    if (userIdentityCode && requesterName && requesterName.includes(userIdentityCode)) {
+        return true
+    }
 
-    return (
-        requesterName === normalizeKey(user.displayName) ||
-        requesterName === normalizeKey(user.username) ||
-        Boolean(identityCode && requesterName.includes(identityCode))
-    )
+    return false
 }
 
 const mapRequestSummary = (value: unknown): RequestSummary => {

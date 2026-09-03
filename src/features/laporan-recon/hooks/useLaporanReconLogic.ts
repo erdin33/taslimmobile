@@ -35,23 +35,41 @@ export interface ReconItemDetail extends BarangUnit {
   geotag?: { lat: number; lng: number };
 }
 
+export interface PartnerHistorySummary {
+  date: string;
+  totalAssigned: number;
+  verifiedCount: number;
+  pendingCount: number;
+  compliancePct: number;
+  status: "complete" | "partial" | "none";
+  items: ReconItemDetail[];
+}
+
+export interface PartnerWithHistory extends PartnerSummary {
+  history: PartnerHistorySummary[];
+}
+
 export const useLaporanReconLogic = () => {
   const [items, setItems] = useState<BarangUnit[]>([]);
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [serverReconProofs, setServerReconProofs] = useState<Record<string, Record<string, { imageUrl: string; timestamp: string; geotag?: { lat: number; lng: number } }>>>({});
+
+  // Generate last 7 dates
+  const recentDates = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    });
+  }, []);
 
   // Filters
   const [selectedPartner, setSelectedPartner] = useState<string>("all");
-  const [selectedStatus, setSelectedStatus] = useState<"all" | "verified" | "pending">("all");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  });
 
   // Modal Detail Bukti Foto
   const [viewingProof, setViewingProof] = useState<{
@@ -95,7 +113,11 @@ export const useLaporanReconLogic = () => {
         new Set(
           rawItems
             .map((i) => i.mitra)
-            .filter((m): m is string => Boolean(m && m.toLowerCase() !== "admin" && m.toLowerCase() !== "gudang kp"))
+            .filter((m): m is string => {
+              if (!m) return false;
+              const l = m.trim().toLowerCase();
+              return l !== "" && l !== "-" && !l.includes("admin") && !l.includes("gudang") && !l.includes("kp tasikmalaya") && l !== "kp";
+            })
         )
       ).map((name) => ({ id: name, name }));
 
@@ -121,124 +143,145 @@ export const useLaporanReconLogic = () => {
     loadData();
   }, [loadData]);
 
-  // Aggregate local & server recon proofs
-  const reconProofsMap = useMemo(() => {
-    const map: Record<string, { imageUrl: string; timestamp: string; geotag?: { lat: number; lng: number } }> = {};
-
-    // Check localStorage for all recon records matching selectedDate
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith("taslim_recon_") && key.endsWith(`_${selectedDate}`)) {
-          const stored = localStorage.getItem(key);
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            Object.assign(map, parsed);
-          }
+  useEffect(() => {
+    const fetchReconProgress = async () => {
+      try {
+        const res = await fetch(`${getBaseUrl()}/recon-progress`, {
+          method: "GET",
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const progressList = Array.isArray(json.data) ? json.data : [];
+          const map: Record<string, Record<string, any>> = {};
+          
+          progressList.forEach((p: any) => {
+            if (p.itemId && p.date) {
+              if (!map[p.date]) map[p.date] = {};
+              map[p.date][p.itemId] = {
+                imageUrl: p.imageUrl,
+                timestamp: p.timestamp,
+                geotag: p.geotag
+              };
+            }
+          });
+          setServerReconProofs(map);
         }
+      } catch (err) {
+        console.error("Failed fetching recon progress", err);
       }
-    } catch (e) {
-      console.warn("Could not read localStorage for recon proofs:", e);
-    }
+    };
+    fetchReconProgress();
+  }, []);
 
-    return map;
-  }, [selectedDate]);
+  // Aggregate server recon proofs
+  const reconProofsMap = useMemo(() => {
+    return { ...serverReconProofs };
+  }, [serverReconProofs]);
 
   // Items currently assigned to partners
   const partnerItems = useMemo(() => {
     return items.filter((item) => {
-      const isWithPartner =
-        item.mitra &&
-        item.mitra.toLowerCase() !== "admin" &&
-        item.mitra.toLowerCase() !== "gudang kp" &&
-        item.mitra.toLowerCase() !== "keluar" &&
-        String(item.status).toLowerCase() !== "keluar";
-      return Boolean(isWithPartner);
+      if (!item.mitra || String(item.status).toLowerCase() === "keluar") return false;
+      const mitraNameLower = item.mitra.trim().toLowerCase();
+      return partners.some((p) => p.name.toLowerCase() === mitraNameLower);
     });
-  }, [items]);
+  }, [items, partners]);
 
-  // Detailed items with recon status
-  const detailedItems: ReconItemDetail[] = useMemo(() => {
-    return partnerItems.map((item) => {
-      const proof = reconProofsMap[item.id] || reconProofsMap[item.serialNumber];
-      const isVerified = Boolean(proof || (item as any).isReconVerified);
+  const partnerHistoryData: PartnerWithHistory[] = useMemo(() => {
+    let filteredPartners = partners;
+    if (selectedPartner !== "all") {
+      filteredPartners = partners.filter((p) => p.name.toLowerCase() === selectedPartner.toLowerCase());
+    }
 
-      return {
-        ...item,
-        isVerified,
-        verifiedAt: proof?.timestamp,
-        proofImageUrl: proof?.imageUrl,
-        geotag: proof?.geotag,
-      };
-    });
-  }, [partnerItems, reconProofsMap]);
-
-  // Summary per partner
-  const partnerSummaries: PartnerSummary[] = useMemo(() => {
-    return partners.map((partner) => {
-      const assigned = detailedItems.filter(
+    return filteredPartners.map((partner) => {
+      // Base items for this partner
+      const assignedBase = partnerItems.filter(
         (i) => (i.mitra || "").toLowerCase() === partner.name.toLowerCase()
       );
-      const verified = assigned.filter((i) => i.isVerified).length;
-      const total = assigned.length;
-      const pending = Math.max(0, total - verified);
-      const compliancePct = total > 0 ? Math.round((verified / total) * 100) : 100;
 
-      let status: "complete" | "partial" | "none" = "none";
-      if (total > 0 && verified === total) status = "complete";
-      else if (verified > 0) status = "partial";
+      const history: PartnerHistorySummary[] = recentDates.map((date) => {
+        const proofsForDate = reconProofsMap[date] || {};
+        
+        // Detail items for this date
+        const dateItems: ReconItemDetail[] = assignedBase.map((item) => {
+          const proof = proofsForDate[item.id] || proofsForDate[item.serialNumber];
+          const isVerified = Boolean(proof); 
+          
+          return {
+            ...item,
+            isVerified,
+            verifiedAt: proof?.timestamp,
+            proofImageUrl: proof?.imageUrl,
+            geotag: proof?.geotag,
+          };
+        });
 
+        // Filter search query
+        const filteredDateItems = dateItems.filter((item) => {
+          if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            const matchSN = item.serialNumber.toLowerCase().includes(q);
+            const matchMerek = (item.merek || "").toLowerCase().includes(q);
+            const matchTipe = (item.tipe || "").toLowerCase().includes(q);
+            return matchSN || matchMerek || matchTipe;
+          }
+          return true;
+        });
+
+        const verifiedCount = filteredDateItems.filter((i) => i.isVerified).length;
+        const total = filteredDateItems.length;
+        const pendingCount = Math.max(0, total - verifiedCount);
+        const compliancePct = total > 0 ? Math.round((verifiedCount / total) * 100) : 100;
+        let status: "complete" | "partial" | "none" = "none";
+        if (total > 0 && verifiedCount === total) status = "complete";
+        else if (verifiedCount > 0) status = "partial";
+
+        return {
+          date,
+          totalAssigned: total,
+          verifiedCount,
+          pendingCount,
+          compliancePct,
+          status,
+          items: filteredDateItems,
+        };
+      });
+
+      // Top level summary from the most recent date (today)
+      const todaySummary = history[0];
+      
       return {
         id: partner.id,
         name: partner.name,
-        totalAssigned: total,
-        verifiedCount: verified,
-        pendingCount: pending,
-        compliancePct,
-        status,
+        totalAssigned: todaySummary.totalAssigned,
+        verifiedCount: todaySummary.verifiedCount,
+        pendingCount: todaySummary.pendingCount,
+        compliancePct: todaySummary.compliancePct,
+        status: todaySummary.status,
+        history,
       };
     });
-  }, [partners, detailedItems]);
+  }, [partners, partnerItems, recentDates, reconProofsMap, searchQuery, selectedPartner]);
 
-  // Filtered detailed items
-  const filteredItems = useMemo(() => {
-    return detailedItems.filter((item) => {
-      // Filter Partner
-      if (selectedPartner !== "all" && (item.mitra || "").toLowerCase() !== selectedPartner.toLowerCase()) {
-        return false;
-      }
-
-      // Filter Status
-      if (selectedStatus === "verified" && !item.isVerified) return false;
-      if (selectedStatus === "pending" && item.isVerified) return false;
-
-      // Filter Category
-      if (selectedCategory !== "all" && (item.kategori || "").toLowerCase() !== selectedCategory.toLowerCase()) {
-        return false;
-      }
-
-      // Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchSN = item.serialNumber.toLowerCase().includes(q);
-        const matchMerek = (item.merek || "").toLowerCase().includes(q);
-        const matchTipe = (item.tipe || "").toLowerCase().includes(q);
-        const matchMitra = (item.mitra || "").toLowerCase().includes(q);
-        if (!matchSN && !matchMerek && !matchTipe && !matchMitra) return false;
-      }
-
-      return true;
-    });
-  }, [detailedItems, selectedPartner, selectedStatus, selectedCategory, searchQuery]);
-
-  // Overall Statistics
+  // Overall Statistics for Today
   const overallStats = useMemo(() => {
-    const totalAssigned = detailedItems.length;
-    const totalVerified = detailedItems.filter((i) => i.isVerified).length;
+    let totalAssigned = 0;
+    let totalVerified = 0;
+    let completePartnersCount = 0;
+    let activePartnersCount = 0;
+
+    partnerHistoryData.forEach((p) => {
+      if (p.totalAssigned > 0) {
+        activePartnersCount++;
+        totalAssigned += p.totalAssigned;
+        totalVerified += p.verifiedCount;
+        if (p.status === "complete") completePartnersCount++;
+      }
+    });
+
     const totalPending = totalAssigned - totalVerified;
     const overallCompliance = totalAssigned > 0 ? Math.round((totalVerified / totalAssigned) * 100) : 100;
-    const completePartnersCount = partnerSummaries.filter((p) => p.totalAssigned > 0 && p.status === "complete").length;
-    const activePartnersCount = partnerSummaries.filter((p) => p.totalAssigned > 0).length;
 
     return {
       totalAssigned,
@@ -248,7 +291,7 @@ export const useLaporanReconLogic = () => {
       completePartnersCount,
       activePartnersCount,
     };
-  }, [detailedItems, partnerSummaries]);
+  }, [partnerHistoryData]);
 
   // Categories list
   const categories = useMemo(() => {
@@ -261,13 +304,17 @@ export const useLaporanReconLogic = () => {
 
   // Export to CSV
   const handleExportCSV = () => {
-    if (filteredItems.length === 0) {
+    const allItemsToExport = partnerHistoryData.flatMap(p => 
+      p.history[0].items // Export items for today by default, or all history? Let's just export today's status
+    );
+
+    if (allItemsToExport.length === 0) {
       toast.error("Tidak ada data untuk diekspor.");
       return;
     }
 
     const headers = ["No", "Serial Number", "Kategori", "Merek", "Tipe", "Mitra Penanggung Jawab", "Status Recon", "Waktu Verifikasi"];
-    const rows = filteredItems.map((item, idx) => [
+    const rows = allItemsToExport.map((item, idx) => [
       idx + 1,
       `"${item.serialNumber}"`,
       `"${item.kategori || "-"}"`,
@@ -282,7 +329,7 @@ export const useLaporanReconLogic = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Laporan_Recon_Mitra_${selectedDate}.csv`);
+    link.setAttribute("download", `Laporan_Recon_Mitra_${recentDates[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -295,20 +342,14 @@ export const useLaporanReconLogic = () => {
     isLoading,
     selectedPartner,
     setSelectedPartner,
-    selectedStatus,
-    setSelectedStatus,
-    selectedCategory,
-    setSelectedCategory,
     searchQuery,
     setSearchQuery,
-    selectedDate,
-    setSelectedDate,
     viewingProof,
     setViewingProof,
-    partnerSummaries,
-    filteredItems,
+    partnerHistoryData,
     overallStats,
     categories,
+    recentDates,
     loadData,
     handleExportCSV,
   };

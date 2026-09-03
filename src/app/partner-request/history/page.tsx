@@ -202,32 +202,58 @@ const requestBelongsToUser = (
   const requester = asRecord(raw.requester)
   const requesterProfile = asRecord(requester.profile)
   const partner = asRecord(raw.partner)
+  const userProfile = asRecord(user.profile)
 
-  const userIds = [user.id, user.partnerId, user.identityCode].map(normalizeKey).filter(Boolean)
-  const requestIds = [
+  const userId = normalizeKey(user.id)
+  const userPartnerId = normalizeKey(user.partnerId)
+  const rawCode = normalizeKey(user.identityCode || userProfile.identityCode || userProfile.kode)
+  const validIdentityCode = rawCode && rawCode !== "-" && rawCode !== "mtr" && rawCode !== "adm" && rawCode.length >= 3 ? rawCode : ""
+  const userUsername = normalizeKey(user.username)
+  const userDisplayName = normalizeKey(user.displayName)
+
+  const requestUserIds = [
     raw.requesterId,
     raw.userId,
-    raw.partnerId,
-    raw.mitraId,
     requester.id,
     requesterProfile.id,
+  ].map(normalizeKey).filter(Boolean)
+
+  const requestPartnerIds = [
+    raw.partnerId,
+    raw.mitraId,
+    partner.id,
+  ].map(normalizeKey).filter(Boolean)
+  
+  const requestIdentityCodes = [
     requesterProfile.identityCode,
     requesterProfile.kode,
-    partner.id,
-  ]
-    .map(normalizeKey)
-    .filter(Boolean)
+    partner.identityCode,
+    partner.kode,
+  ].map(normalizeKey).filter(Boolean)
 
-  if (userIds.some((id) => requestIds.includes(id))) return true
+  if (userPartnerId && requestPartnerIds.includes(userPartnerId)) {
+    return true
+  }
+
+  if (userId && requestUserIds.includes(userId)) {
+    return true
+  }
+
+  if (validIdentityCode && requestIdentityCodes.includes(validIdentityCode)) {
+    return true
+  }
 
   const requesterName = normalizeKey(request.requesterName)
-  const identityCode = normalizeKey(user.identityCode)
+  
+  if (requesterName && (requesterName === userDisplayName || requesterName === userUsername)) {
+    return true
+  }
+  
+  if (validIdentityCode && requesterName && requesterName.includes(validIdentityCode)) {
+    return true
+  }
 
-  return (
-    requesterName === normalizeKey(user.displayName) ||
-    requesterName === normalizeKey(user.username) ||
-    Boolean(identityCode && requesterName.includes(identityCode))
-  )
+  return false
 }
 
 const getItemsSummary = (request: DashboardRequest) => {
