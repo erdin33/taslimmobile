@@ -245,9 +245,9 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
               : "Baru",
       asal: asalBarang,
       kondisi: itemCondition === "rusak" ? "Rusak" : itemCondition === "dismantle" ? "Dismantle" : "Baru",
-      paNumber: itemCondition === "dismantle" && paNumber.trim() ? paNumber.trim() : undefined,
+      paNumber: (itemCondition === "dismantle" || itemCondition === "rusak") && paNumber.trim() ? paNumber.trim() : undefined,
       ticketGangguan: itemCondition === "rusak" && ticketGangguan.trim() ? ticketGangguan.trim() : undefined,
-      catatan: isDismantleBad ? catatan : undefined,
+      catatan: catatan ? catatan : undefined,
     };
 
     session.addItem(newItem);
@@ -375,7 +375,13 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
         }
 
         const isMitraRetur = user?.role === "mitra";
-        const itemStatus = isMitraRetur ? (existingItem?.status || "Terdistribusi") : (item.status === "Rusak" ? "Rusak" : "Tersedia");
+        const itemStatus = isMitraRetur 
+          ? (existingItem?.status || "Terdistribusi") 
+          : (item.kondisi === "Rusak" || item.status === "Rusak" 
+              ? "Rusak" 
+              : item.kondisi === "Dismantle" || item.kondisi === "dismantle" 
+                ? "Dismantle" 
+                : "Tersedia");
         const itemLocation = isMitraRetur ? "Dalam Perjalanan" : item.lokasi;
 
         if (existingItem) {
@@ -417,12 +423,13 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
           if (!resAdd.ok) throw new Error(`Gagal menambah item ${item.nomor}`);
         }
 
-        if (itemStatus !== "Rusak") {
+          const trxKategori = (isMitraRetur || item.kondisi === "Dismantle" || item.kondisi === "dismantle" || item.kondisi === "rusak" || item.kondisi === "Rusak" || (item.asal || asalBarang) !== "Pusat" && (item.asal || asalBarang) !== "SBU Regional Jawa Barat") ? "Retur" : "Masuk";
+          
           const newTransaction = {
             id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             tanggal: sessionDate,
             nomor: sessionNomor,
-            kategori: "Masuk",
+            kategori: trxKategori,
             status: "Selesai",
             sn: item.nomor,
             merek: item.merek,
@@ -437,11 +444,9 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
             body: JSON.stringify(newTransaction),
           });
           if (!resAddTrx.ok) throw new Error(`Gagal mencatat transaksi ${item.nomor}`);
-        }
       }
 
       if (user?.role === "mitra") {
-        // Create Request Retur Ticket
         const newReturRequest = {
           id: crypto.randomUUID(),
           requestNumber: `RTR-${Date.now()}`,
@@ -449,7 +454,7 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
           requesterName: user.displayName || user.username || "",
           status: "Menunggu",
           notes: "Pengembalian barang ke Gudang KP",
-          requestedAt: sessionDate,
+          requestedAt: new Date().toISOString(),
           itemsCount: session.barangMasuk.length,
           returItems: session.barangMasuk
         };
@@ -461,12 +466,8 @@ export function useBarangMasukLogic(options?: { autoFocusOnMount?: boolean }) {
             body: JSON.stringify(newReturRequest),
           });
         } catch (apiErr) {
-          console.warn("Gagal kirim tiket retur ke API server, menyimpan di cache lokal:", apiErr);
+          console.warn("Gagal kirim tiket retur ke API server:", apiErr);
         }
-
-        const existingReturs = JSON.parse(localStorage.getItem("mock_retur_requests") || "[]");
-        existingReturs.push(newReturRequest);
-        localStorage.setItem("mock_retur_requests", JSON.stringify(existingReturs));
         
         toast.success(`Tiket pengembalian berhasil dibuat. Menunggu konfirmasi Admin.`);
       } else {

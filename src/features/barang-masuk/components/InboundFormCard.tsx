@@ -9,7 +9,7 @@ import { ModelSelectPopover } from "./ModelSelectPopover";
 import type { Partner } from "@/types/partner";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface InboundFormCardProps {
@@ -102,9 +102,18 @@ export function InboundFormCard({
                 }}
                 placeholder="Scan barcode atau ketik manual di sini..."
               />
+              <Button 
+                onClick={() => handleSubmit(kodeBarangRef.current)} 
+                size="icon" 
+                variant="secondary" 
+                className="shrink-0"
+                type="button"
+              >
+                <Plus className="size-4" />
+              </Button>
               {cameraScannerSlot}
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="lg" className="w-9 h-9 p-0 text-muted-foreground cursor-pointer bg-muted">
+                <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground bg-muted">
                   <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                   <span className="sr-only">Toggle</span>
                 </Button>

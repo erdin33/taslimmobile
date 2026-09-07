@@ -101,8 +101,8 @@ export const useLokasiBarangLogic = () => {
 
       setLocations(
         data.filter(
-          (loc) => 
-            loc.name !== "Keluar" && 
+          (loc) =>
+            loc.name !== "Keluar" &&
             loc.name !== "Diluar" &&
             (loc as any).type !== "Partner" &&
             (loc as any).type !== "PARTNER" &&
@@ -144,9 +144,20 @@ export const useLokasiBarangLogic = () => {
     items.forEach((item) => {
       const status = (item.status || "").toLowerCase();
       const loc = (item.lokasiPenyimpanan || "").toLowerCase();
-      
-      // Hitung hanya barang yang berada di gudang KP (bukan keluar / di mitra)
-      if (status !== "keluar" && status !== "diluar" && loc !== "keluar" && loc !== "diluar") {
+
+      // Hitung hanya barang yang berada di gudang KP (bukan keluar / di mitra / digunakan)
+      if (
+        status !== "keluar" &&
+        status !== "diluar" &&
+        status !== "digunakan" &&
+        status !== "terdistribusi" &&
+        loc !== "keluar" &&
+        loc !== "diluar" &&
+        loc !== "digunakan" &&
+        !loc.startsWith("pa-") &&
+        !loc.startsWith("pa ") &&
+        !loc.startsWith("pa:")
+      ) {
         const rawCat = (item.kategori || item.category || "Lainnya").trim();
         const cat = rawCat ? rawCat.toUpperCase() : "LAINNYA";
         categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
@@ -190,7 +201,18 @@ export const useLokasiBarangLogic = () => {
     const map: Record<string, Record<string, number>> = {};
     items.forEach((item) => {
       const loc = (item.lokasiPenyimpanan || "").trim();
-      if (loc && loc.toLowerCase() !== "keluar" && loc.toLowerCase() !== "diluar") {
+      const status = (item.status || "").toLowerCase();
+      if (
+        loc &&
+        loc.toLowerCase() !== "keluar" &&
+        loc.toLowerCase() !== "diluar" &&
+        loc.toLowerCase() !== "digunakan" &&
+        status !== "digunakan" &&
+        status !== "terdistribusi" &&
+        !loc.toLowerCase().startsWith("pa-") &&
+        !loc.toLowerCase().startsWith("pa ") &&
+        !loc.toLowerCase().startsWith("pa:")
+      ) {
         if (!map[loc]) map[loc] = {};
         const cat = (item.kategori || "ONT").toUpperCase();
         map[loc][cat] = (map[loc][cat] || 0) + 1;
@@ -221,9 +243,9 @@ export const useLokasiBarangLogic = () => {
       const matchesSearch = loc.name.toLowerCase().includes(q) ||
         (loc.brandRule && loc.brandRule.toLowerCase().includes(q)) ||
         (loc.levels && loc.levels.some(l => l.name.toLowerCase().includes(q) || l.brandRule.toLowerCase().includes(q)));
-        
-      const matchesType =  loc.type.toLowerCase() === filterType;
-      
+
+      const matchesType = loc.type.toLowerCase() === filterType;
+
       return matchesSearch && matchesType;
     });
 
@@ -252,7 +274,7 @@ export const useLokasiBarangLogic = () => {
   const handleOpenSheet = (mode: SheetMode, item?: { parentId?: string; levelId?: string }) => {
     setSheetMode(mode);
     setActiveItem(item || null);
-    
+
     // Reset form states
     setLocName("");
     setLocCapacity("1");

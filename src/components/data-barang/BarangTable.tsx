@@ -30,7 +30,7 @@ interface BarangTableProps {
   userRole?: string
   currentPage: number
   pageSize: number
-  getStatusBadgeProps: (status: StatusUnit | string, lokasi?: string, mitra?: string | null) => { text: string; dotClass?: string; badgeClass?: string }
+  getStatusBadgeProps: (status: StatusUnit | string, lokasi?: string, mitra?: string | null, paNumber?: string | null) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
 }
@@ -82,7 +82,10 @@ export function BarangTable({
         <TableBody>
           {items.map((item, index) => {
             const isSelected = selectedIds.includes(item.id)
-            const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan, item.mitra)
+            const itemLoc = item.lokasiPenyimpanan || (item as any).storage_location || (item as any).lokasi || ""
+            const itemMitra = item.mitra || (item as any).partner || ""
+            const itemPa = item.paNumber || (item as any).pa_number || ""
+            const badge = getStatusBadgeProps(item.status, itemLoc, itemMitra, itemPa)
             const itemKondisi = (item as any).kondisi || (item.status === "Rusak" ? "Rusak" : item.status === "Dismantle" ? "Dismantle" : "Baru")
             const isRusak = itemKondisi.toLowerCase() === "rusak"
             const isDismantle = itemKondisi.toLowerCase() === "dismantle"
@@ -128,7 +131,7 @@ export function BarangTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
-                  {formatItemLocation(item.lokasiPenyimpanan, item.mitra)}
+                  {formatItemLocation(itemLoc, itemMitra, itemPa)}
                 </TableCell>
                 {userRole === "admin" && (
                   <TableCell>

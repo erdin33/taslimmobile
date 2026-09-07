@@ -78,13 +78,21 @@ export function ReturApprovalModal({ open, onOpenChange, request, onSuccess }: R
         for (const rItem of request.returItems) {
           const existing = allItems.find((i: any) => (i.serialNumber || "").toUpperCase() === (rItem.nomor || "").toUpperCase());
           if (existing) {
-            const isConditionRusak = (rItem.kondisi || "").toLowerCase() === "rusak" || (rItem.status || "").toLowerCase() === "rusak";
+            const kondisiLower = (rItem.kondisi || "").toLowerCase();
+            const statusLower = (rItem.status || "").toLowerCase();
+            const isConditionRusak = kondisiLower === "rusak" || statusLower === "rusak";
+            const isConditionDismantle = kondisiLower === "dismantle" || statusLower === "dismantle";
+            
+            const newStatus = isConditionRusak ? "Rusak" : (isConditionDismantle ? "Dismantle" : "Tersedia");
+
             const updatedItem = {
               ...existing,
-              status: isConditionRusak ? "Rusak" : "Tersedia", 
+              status: newStatus, 
               lokasiPenyimpanan: selectedLocation,
               mitra: "KP Tasikmalaya",
               tanggalMasuk: new Date().toISOString(),
+              ...(rItem.ticketGangguan ? { ticketGangguan: rItem.ticketGangguan } : {}),
+              ...(rItem.catatan ? { catatan: rItem.catatan } : {}),
             };
             
             const resUpdate = await fetch(`${getBaseUrl()}/items/${existing.id}`, {
@@ -95,18 +103,22 @@ export function ReturApprovalModal({ open, onOpenChange, request, onSuccess }: R
             if (!resUpdate.ok) throw new Error(`Gagal update item ${existing.serialNumber}`);
             
             // Catat ke transaksi masuk
+            let ketString = `Retur: ${rItem.kondisi === "rusak" ? "Rusak" : (rItem.kondisi === "baru" ? "Baru" : "Dismantle")}`;
+            if (rItem.ticketGangguan) ketString += ` | Tiket: ${rItem.ticketGangguan}`;
+            if (rItem.catatan) ketString += ` | Keterangan: ${rItem.catatan}`;
+
             const newTransaction = {
               id: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
               tanggal: new Date().toISOString(),
               nomor: request.requestNumber,
-              kategori: "Masuk",
+              kategori: "Retur",
               status: "Selesai",
               sn: rItem.nomor,
               merek: rItem.merek,
               asal: request.requesterName,
               tujuan: selectedLocation,
               mitra: "KP Tasikmalaya",
-              keterangan: `Retur: ${rItem.kondisi === "rusak" ? "Rusak" : (rItem.kondisi === "baru" ? "Baru" : "Dismantle")}`,
+              keterangan: ketString,
             };
             const resTrx = await fetch(`${getBaseUrl()}/transactions`, {
               method: "POST",

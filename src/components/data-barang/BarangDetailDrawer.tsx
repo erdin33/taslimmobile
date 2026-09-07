@@ -112,42 +112,135 @@ export function BarangDetailDrawer({
       ]
 
   // Reusable Timeline Chain Component
+  const getNormalizedHistory = (riw: RiwayatUnit) => {
+    const raw = riw as any
+    const rawTipe = riw.tipe || raw.kategori || raw.category || "Masuk"
+    const tipe = rawTipe.trim()
+    const tanggal = riw.tanggal || raw.transaction_date || raw.transactionDate || raw.created_at || raw.createdAt || ""
+    const nomor = riw.nomorSurat || raw.nomor || raw.transaction_number || raw.transactionNumber || raw.nomor_surat || "-"
+    const asal = (riw.dariStatus || raw.asal || raw.origin || "-").trim()
+    const rawTujuan = (riw.keStatus || raw.tujuan || raw.destination || "-").trim()
+    const partner = (raw.mitra || raw.partner || detailBarang.mitra || "").trim()
+    const rawNote = (riw.catatan || raw.keterangan || raw.note || raw.notes || raw.keterangan_kerusakan || "").trim()
+
+    // Ambil lokasi raw (dari API)
+    const rawLokasi = (riw.lokasi || raw.storage_location || raw.storageLocation || "").trim()
+    const isSystemText = (s: string) => /status barang/i.test(s) || /diubah menjadi/i.test(s)
+    const isTujuanSystemText = isSystemText(rawTujuan)
+    const isLokasiSystemText = isSystemText(rawLokasi)
+
+    // Bersihkan note dari teks tiket gangguan jika ada
+    const cleanNote = rawNote.includes("Tiket Gangguan:")
+      ? rawNote.split("Tiket Gangguan:")[0].replace(/[|\s]+$/, "").trim()
+      : rawNote
+
+    const normTipe = tipe.toLowerCase()
+    const normTujuan = rawTujuan.toLowerCase()
+    const isKeluar = normTipe === "keluar"
+    const isDigunakan = normTipe === "digunakan" || normTujuan === "digunakan" || isTujuanSystemText
+    const isRusak = normTipe === "rusak"
+
+    // 1. CARI PA NUMBER DARI SEMUA SUMBER
+    let pa: string | undefined = raw.paNumber || raw.pa_number || raw.pa || raw.noPa || raw.no_pa
+
+    if (!pa && rawTujuan && /^pa[\s\-_:]/i.test(rawTujuan) && !isTujuanSystemText) {
+      pa = rawTujuan
+    }
+    if (!pa && rawLokasi && /^pa[\s\-_:]/i.test(rawLokasi) && !isLokasiSystemText) {
+      pa = rawLokasi
+    }
+    // Coba dari keterangan (kadang mitra nulis nomor PA di keterangan)
+    if (!pa && cleanNote && !isSystemText(cleanNote)) {
+      if (/^pa[\s\-_:]/i.test(cleanNote)) {
+        pa = cleanNote
+      } else if (/^[A-Z0-9]{5,}/i.test(cleanNote) && !/\s/.test(cleanNote.split("|")[0].trim())) {
+        pa = cleanNote.split("|")[0].trim()
+      }
+    }
+    // Jika masih kosong dan ini barang digunakan/rusak, ambil paNumber dari item saat ini!
+    if (!pa && detailBarang.paNumber && (isDigunakan || isRusak)) {
+      pa = detailBarang.paNumber.trim()
+    }
+
+    // 2 & 3. TENTUKAN DISPLAY TUJUAN & LOKASI
+    let displayTujuan = rawTujuan
+    let displayLoc = rawLokasi || rawTujuan || asal || detailBarang.lokasiPenyimpanan
+
+    if (isKeluar) {
+      // Prioritize rawTujuan, which should contain the Mitra name from the backend.
+      // Only fallback to partner if rawTujuan is missing or is just a system text/Keluar.
+      displayTujuan = rawTujuan !== "Keluar" && !isSystemText(rawTujuan) ? rawTujuan : (partner || rawTujuan)
+      displayLoc = rawLokasi !== "Keluar" && !isSystemText(rawLokasi) ? rawLokasi : (partner || displayTujuan || "Mitra")
+      if (isSystemText(displayTujuan)) displayTujuan = "Keluar"
+      if (isSystemText(displayLoc)) displayLoc = "Keluar"
+    }
+    
+    if (isDigunakan || isRusak) {
+      if (pa) {
+        // Tujuan menampilkan PA number tanpa prefix "PA:"
+        const cleanPa = /^pa[\s\-_:]/i.test(pa) ? pa.replace(/^pa[\s\-_:]/i, "").trim() : pa
+        displayTujuan = cleanPa
+        // Loc menampilkan prefix "PA:"
+        displayLoc = /^pa[\s\-_:]/i.test(pa) ? pa : `PA: ${pa}`
+      } else {
+        displayTujuan = "Digunakan"
+        displayLoc = partner || "Digunakan"
+      }
+    } else {
+      if (isTujuanSystemText) displayTujuan = "-"
+      if (isLokasiSystemText) displayLoc = detailBarang.lokasiPenyimpanan
+    }
+
+    return {
+      tipe,
+      tanggal,
+      nomor,
+      asal,
+      displayTujuan,
+      displayLoc,
+      note: rawNote
+    }
+  }
+
   const renderHistoryChain = () => (
     <div className="space-y-0">
-      {displayHistory.map((riw, idx) => (
-        <div key={idx} className="flex gap-4">
-          <div className="flex flex-col items-center">
-            <div className="w-2.5 h-2.5 shrink-0 rounded-full bg-border border-2 border-muted-foreground mt-1.5" />
-            {idx < displayHistory.length - 1 && (
-              <div className="w-px h-full bg-border my-1" />
-            )}
-          </div>
-          <div className="flex-1 pb-6 last:pb-1">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
-              <span className="font-medium text-foreground text-sm">{riw.tipe || (riw as any).kategori || "Masuk"}</span>
-              <span className="text-xs text-muted-foreground">{formatTanggal(riw.tanggal)}</span>
+      {displayHistory.map((riw, idx) => {
+        const item = getNormalizedHistory(riw)
+        return (
+          <div key={idx} className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className="w-2.5 h-2.5 shrink-0 rounded-full bg-border border-2 border-muted-foreground mt-1.5" />
+              {idx < displayHistory.length - 1 && (
+                <div className="w-px h-full bg-border my-1" />
+              )}
             </div>
-            <div className="text-muted-foreground mb-2.5 text-xs">
-              {riw.nomorSurat || (riw as any).nomor || "-"}
-            </div>
-            <div className="bg-muted/40 rounded-lg p-3 text-xs border border-border/50">
-              <div className="flex items-center gap-2 mb-1.5 text-muted-foreground">
-                <span>{riw.dariStatus || (riw as any).asal || "-"}</span>
-                <span>&rarr;</span>
-                <span className="font-medium text-foreground">{riw.keStatus || (riw as any).tujuan || "-"}</span>
+            <div className="flex-1 pb-6 last:pb-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+                <span className="font-medium text-foreground text-sm">{item.tipe}</span>
+                <span className="text-xs text-muted-foreground">{formatTanggal(item.tanggal)}</span>
               </div>
-              <div className="text-muted-foreground">
-                Loc: <span className="font-medium text-foreground">{riw.lokasi || (riw as any).tujuan || (riw as any).asal || detailBarang.lokasiPenyimpanan}</span>
+              <div className="text-muted-foreground mb-2.5 text-xs">
+                {item.nomor}
               </div>
+              <div className="bg-muted/40 rounded-lg p-3 text-xs border border-border/50">
+                <div className="flex items-center gap-2 mb-1.5 text-muted-foreground">
+                  <span>{item.asal}</span>
+                  <span>&rarr;</span>
+                  <span className="font-medium text-foreground">{item.displayTujuan}</span>
+                </div>
+                <div className="text-muted-foreground">
+                  Loc: <span className="font-medium text-foreground">{item.displayLoc}</span>
+                </div>
+              </div>
+              {item.note && (
+                <p className="text-xs italic text-muted-foreground mt-2.5">
+                  {item.note}
+                </p>
+              )}
             </div>
-            {(riw.catatan || (riw as any).keterangan) && (
-              <p className="text-xs italic text-muted-foreground mt-2.5">
-                {riw.catatan || (riw as any).keterangan}
-              </p>
-            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 

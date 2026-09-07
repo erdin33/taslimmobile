@@ -60,6 +60,7 @@ export default function TipeMaterialPage() {
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [deskripsi, setDeskripsi] = useState("");
   const [brandId, setBrandId] = useState("");
   const [materialCategoryId, setMaterialCategoryId] = useState("");
 
@@ -72,7 +73,17 @@ export default function TipeMaterialPage() {
       const res = await fetch(`${getBaseUrl()}/material-models`, { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
-        setTypes(data);
+        let list: any[] = [];
+        if (Array.isArray(data)) {
+          list = data;
+        } else if (data && Array.isArray(data.data)) {
+          list = data.data;
+        } else if (data && Array.isArray(data.models)) {
+          list = data.models;
+        } else if (data && data.data && Array.isArray(data.data.data)) {
+          list = data.data.data;
+        }
+        setTypes(list);
       }
     } catch (e) {
       toast.error("Gagal mengambil data model material.");
@@ -109,12 +120,14 @@ export default function TipeMaterialPage() {
 
   const filteredTypes = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return types.filter(t =>
-      t.nama?.toLowerCase().includes(q) ||
-      t.code?.toLowerCase().includes(q) ||
-      t.brand?.nama?.toLowerCase().includes(q) ||
-      t.materialCategory?.nama?.toLowerCase().includes(q)
-    );
+    return types.filter(t => {
+      const nama = (t.nama || t.name || "").toLowerCase();
+      const code = (t.code || "").toLowerCase();
+      const brand = (t.brand?.nama || t.brand?.name || "").toLowerCase();
+      const category = (t.materialCategory?.nama || t.materialCategory?.name || "").toLowerCase();
+      
+      return nama.includes(q) || code.includes(q) || brand.includes(q) || category.includes(q);
+    });
   }, [types, searchQuery]);
 
   const handleOpenSheet = (id?: string) => {
@@ -127,6 +140,7 @@ export default function TipeMaterialPage() {
       if (t) {
         setName(t.nama || "");
         setCode(t.code || "");
+        setDeskripsi(t.deskripsi || "");
         setBrandId(t.brandId ? String(t.brandId) : "");
         setMaterialCategoryId(t.materialCategoryId ? String(t.materialCategoryId) : "");
         setEditId(id);
@@ -134,6 +148,7 @@ export default function TipeMaterialPage() {
     } else {
       setName("");
       setCode("");
+      setDeskripsi("");
       setBrandId("");
       setMaterialCategoryId("");
       setEditId(null);
@@ -176,6 +191,7 @@ export default function TipeMaterialPage() {
         body: JSON.stringify({
           nama: normalizedName,
           code: code.trim() || undefined,
+          deskripsi: deskripsi.trim() || undefined,
           brandId: parseInt(brandId),
           materialCategoryId: parseInt(materialCategoryId)
         })
@@ -281,9 +297,9 @@ export default function TipeMaterialPage() {
               <CardContent className="px-5 py-2 flex flex-col h-full justify-between gap-15">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium text-xs text-neutral-200 mb-1.5 leading-tight">{t.nama}</h3>
+                    <h3 className="font-medium text-xs text-neutral-200 mb-1.5 leading-tight">{t.nama || t.name || "-"}</h3>
                     <p className="text-xs text-neutral-400">
-                      {t.brand?.nama || '-'} <span className="text-neutral-600 mx-1">|</span> {t.materialCategory?.nama || '-'}
+                      {t.brand?.nama || t.brand?.name || '-'} <span className="text-neutral-600 mx-1">|</span> {t.materialCategory?.nama || t.materialCategory?.name || '-'}
                     </p>
                   </div>
                   <DropdownMenu>
@@ -334,6 +350,7 @@ export default function TipeMaterialPage() {
                 <TableHead className="text-neutral-400">No.</TableHead>
                 <TableHead className="text-neutral-400">Kode Model</TableHead>
                 <TableHead className="text-neutral-400">Nama Model</TableHead>
+                <TableHead className="text-neutral-400">Deskripsi</TableHead>
                 <TableHead className="text-neutral-400">Merek</TableHead>
                 <TableHead className="text-neutral-400">Kategori</TableHead>
                 <TableHead className="text-neutral-400">Total Unit</TableHead>
@@ -343,7 +360,7 @@ export default function TipeMaterialPage() {
             <TableBody>
               {filteredTypes.length === 0 ? (
                 <TableRow className="border-neutral-800 hover:bg-transparent">
-                  <TableCell colSpan={7} className="h-32 text-center text-neutral-500">
+                  <TableCell colSpan={8} className="h-32 text-center text-neutral-500">
                     <div className="flex flex-col items-center justify-center">
                       <Search className="w-8 h-8 text-neutral-600 mb-2" />
                       <p>Model Material Tidak Ditemukan</p>
@@ -361,14 +378,17 @@ export default function TipeMaterialPage() {
                     </TableCell>
                     <TableCell className="text-neutral-200">
                       <div className="flex items-center gap-3">
-                        {t.nama}
+                        {t.nama || t.name || '-'}
                       </div>
                     </TableCell>
-                    <TableCell className="text-neutral-400">
-                      {t.brand?.nama || '-'}
+                    <TableCell className="text-neutral-400 max-w-[12rem] truncate" title={t.deskripsi || undefined}>
+                      {t.deskripsi || '-'}
                     </TableCell>
                     <TableCell className="text-neutral-400">
-                      {t.materialCategory?.nama || '-'}
+                      {t.brand?.nama || t.brand?.name || '-'}
+                    </TableCell>
+                    <TableCell className="text-neutral-400">
+                      {t.materialCategory?.nama || t.materialCategory?.name || '-'}
                     </TableCell>
                     <TableCell className="text-neutral-300 font-medium">
                       {t._count?.items || 0} Unit
@@ -413,13 +433,36 @@ export default function TipeMaterialPage() {
                 <Input value={code} onChange={e => setCode(e.target.value)} placeholder="Masukkan Kode Material" className="bg-neutral-900 border-neutral-800" />
               </div>
 
-              <div className="space-y-2">
-                <Label>Nama Material</Label>
-                <Input value={name} onChange={e => { setName(e.target.value); setNameError(""); }} placeholder="Masukkan Nama Material" className={`bg-neutral-900 ${nameError ? "border-destructive" : "border-neutral-800"}`} />
-                {nameError && <p className="text-xs text-destructive">{nameError}</p>}
+              <div className="space-y-1.5">
+                <Label className="text-neutral-400 text-xs">Nama Material</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setNameError("");
+                  }}
+                  placeholder="Masukkan Nama Material"
+                  className={`bg-neutral-900 border-neutral-800 ${nameError ? "border-red-500" : ""}`}
+                />
+                {nameError && (
+                  <p className="text-xs text-red-500 mt-1">{nameError}</p>
+                )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
+                <Label className="text-neutral-400 text-xs">
+                  Deskripsi <span className="text-[10px] font-normal text-neutral-500">(opsional)</span>
+                </Label>
+                <textarea
+                  value={deskripsi}
+                  onChange={(e) => setDeskripsi(e.target.value)}
+                  placeholder="Keterangan singkat tentang model material ini"
+                  rows={3}
+                  className="flex w-full rounded-sm border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-ring"
+                />
+              </div>
+
+              <div className="space-y-1.5">
                 <Label>Brand</Label>
                 <Select value={brandId} onValueChange={(val) => { setBrandId(val); setBrandError(""); }}>
                   <SelectTrigger className={`bg-neutral-900 ${brandError ? "border-destructive" : "border-neutral-800"}`}>

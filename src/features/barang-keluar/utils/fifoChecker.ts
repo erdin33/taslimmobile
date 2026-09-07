@@ -8,17 +8,33 @@ const normalizeStatus = (status: string) => status.trim().toLocaleLowerCase("id-
 export const normalizeText = (text?: string | null) => (text || "").trim().toLocaleLowerCase("id-ID");
 export const normalizeOwner = (owner?: string | null) => normalizeText(owner || ADMIN_LOCATION);
 
-export const isOutsideStatus = (status: string, role?: string) => {
+export const isOutsideStatus = (
+  status: string,
+  role?: string,
+  lokasi?: string | null,
+  paNumber?: string | null
+) => {
   const normalizedStatus = normalizeStatus(status);
+  const normalizedLoc = normalizeStatus(lokasi || "");
+  const normRole = (role || "").toLowerCase();
   
-  if (role === "mitra" || role === "Mitra") {
-    // Bagi mitra, barang berstatus "terdistribusi" atau "diluar" adalah barang "Tersedia" untuk dipakai.
-    // Yang tidak boleh dipakai adalah jika sudah "keluar" atau "digunakan" (sudah dipasang ke pelanggan).
-    return normalizedStatus === "keluar" || normalizedStatus === "digunakan";
+  if (normRole === "mitra") {
+    // Bagi mitra: barang yang didistribusikan dari KP bisa berstatus "keluar", "terdistribusi", "tersedia", atau "diluar".
+    // Barang HANYA dianggap sudah keluar/terpakai jika sudah berstatus "digunakan", lokasi "digunakan", atau memiliki nomor PA!
+    const hasPa = Boolean(paNumber && paNumber.trim()) ||
+      normalizedLoc.startsWith("pa-") ||
+      normalizedLoc.startsWith("pa ") ||
+      normalizedLoc.startsWith("pa:");
+    return normalizedStatus === "digunakan" || normalizedLoc === "digunakan" || hasPa;
   }
   
   // Untuk Admin Gudang, semua status pengiriman ke luar dilarang dikeluarkan dua kali
-  return normalizedStatus === "keluar" || normalizedStatus === "diluar" || normalizedStatus === "terdistribusi" || normalizedStatus === "digunakan";
+  return (
+    normalizedStatus === "keluar" ||
+    normalizedStatus === "diluar" ||
+    normalizedStatus === "terdistribusi" ||
+    normalizedStatus === "digunakan"
+  );
 };
 
 export const getEntryDateTime = (item: InventoryItem) => {
@@ -57,7 +73,7 @@ export const findOlderFifoItem = (
         itemSerial &&
         itemSerial !== requestedSerial &&
         !queuedSerialNumbers.has(itemSerial) &&
-        !isOutsideStatus(item.status, role) &&
+        !isOutsideStatus(item.status, role, item.lokasiPenyimpanan, item.paNumber) &&
         isSameFifoGroup(item, requestedItem) &&
         getEntryDateTime(item) < requestedEntryTime
       );

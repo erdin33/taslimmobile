@@ -4,6 +4,7 @@ import type { Transaction, DashboardTransaction, RequestSummary, ActivityItem } 
 import type { InventoryStats, MitraPerformanceMetrics } from "@/types/dashboard"
 import { useAuth } from "@/lib/auth"
 import type { AuthUser } from "@/types/auth"
+import { formatItemStatus } from "@/lib/status-helper"
 
 const DASHBOARD_TRANSACTION_LIMIT = 6;
 const DASHBOARD_REFRESH_INTERVAL = 60000;
@@ -227,34 +228,19 @@ export function useDashboard() {
 
             itemData.forEach((item: any) => {
                 const mitra = (item.mitra || "Lainnya").trim();
-                const status = (item.status || "").trim().toLowerCase();
-
+                
                 if (!mitraMap.has(mitra)) {
                     mitraMap.set(mitra, { tersedia: 0, diluar: 0 });
                 }
                 const current = mitraMap.get(mitra)!;
-                const isMitraRole = user?.role === "mitra";
-                const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
-                const latestTrx = latestTrxBySN.get(item.serialNumber);
                 
-                if (isMitraRole) {
-                    if (latestTrx && (latestTrx.kategori?.toUpperCase() === "KELUAR" || latestTrx.kategori?.toUpperCase() === "RETUR")) {
-                        current.diluar += 1;
-                    } else if (latestTrx && latestTrx.kategori?.toUpperCase() === "MASUK") {
-                        current.tersedia += 1;
-                    } else if (loc === "keluar" || loc === "diluar" || status === "keluar" || status === "diluar") {
-                        current.diluar += 1;
-                    } else if (status === "tersedia" || status === "terdistribusi") {
-                        current.tersedia += 1;
-                    }
-                } else {
-                    if (latestTrx && (latestTrx.kategori?.toUpperCase() === "KELUAR" || latestTrx.kategori?.toUpperCase() === "RETUR")) {
-                        current.diluar += 1;
-                    } else if (loc === "keluar" || loc === "diluar" || status === "terdistribusi" || status === "keluar" || status === "diluar") {
-                        current.diluar += 1;
-                    } else if (status === "tersedia") {
-                        current.tersedia += 1;
-                    }
+                // For tracking Mitra distribution chart, calculate from Mitra perspective
+                const itemStatus = formatItemStatus(item.status, "mitra", item.mitra, item.lokasiPenyimpanan, item.paNumber);
+                
+                if (itemStatus === "Tersedia") {
+                    current.tersedia += 1;
+                } else if (itemStatus === "Digunakan") {
+                    current.diluar += 1;
                 }
             });
             const distribution = Array.from(mitraMap.entries())
@@ -310,44 +296,29 @@ export function useDashboard() {
             setChartTransactions(visibleTransactions);
 
             const isMitra = user?.role === "mitra";
+            const currentItems = isMitra 
+                ? visibleItems.filter((item: any) => {
+                    const normMitra = (item.mitra || "").trim().toLowerCase();
+                    const userMitra = (user?.displayName || "").trim().toLowerCase();
+                    return normMitra === userMitra;
+                })
+                : visibleItems;
+
             setInventoryStats({
-                totalItems: visibleItems.length,
-                tersedia: visibleItems.filter((item: any) => {
-                    const st = item.status.trim().toLowerCase();
-                    const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
-                    const trxs = trxBySN.get(item.serialNumber) || [];
-                    const returCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "RETUR").length;
-
-                    if (isMitra) {
-                        if (returCount > 0) return false;
-                        if (st === "digunakan" || loc === "digunakan") return false;
-                        if (st === "rusak" || st === "hilang") return false;
-                        return true;
-                    }
-                    if (loc === "keluar" || loc === "diluar" || loc === "digunakan") return false;
-                    const normMitra = (item.mitra || "").trim().toLowerCase();
-                    const isAtMitra = normMitra !== "" && normMitra !== "kp tasikmalaya" && normMitra !== "kp";
-                    if (isAtMitra || st === "terdistribusi" || st === "diluar" || st === "keluar" || st === "digunakan") return false;
-                    return st === "tersedia";
+                totalItems: currentItems.length,
+                tersedia: currentItems.filter((item: any) => {
+                    return formatItemStatus(item.status, user?.role, item.mitra, item.lokasiPenyimpanan, item.paNumber) === "Tersedia";
                 }).length,
-                diluar: visibleItems.filter((item: any) => {
-                    const st = item.status.trim().toLowerCase();
-                    const loc = (item.lokasiPenyimpanan || "").trim().toLowerCase();
-                    const trxs = trxBySN.get(item.serialNumber) || [];
-                    const returCount = trxs.filter((t: any) => t.kategori?.toUpperCase() === "RETUR").length;
-
-                    if (isMitra) {
-                        if (returCount > 0) return false; 
-                        if (st === "digunakan" || loc === "digunakan") return true;
-                        return st === "diluar" || st === "keluar"; 
-                    }
-                    if (loc === "keluar" || loc === "diluar") return true;
-                    const normMitra = (item.mitra || "").trim().toLowerCase();
-                    const isAtMitra = normMitra !== "" && normMitra !== "kp tasikmalaya" && normMitra !== "kp";
-                    return st === "diluar" || st === "keluar" || st === "terdistribusi" || isAtMitra; 
+                diluar: currentItems.filter((item: any) => {
+                    const status = formatItemStatus(item.status, user?.role, item.mitra, item.lokasiPenyimpanan, item.paNumber);
+                    return status === "Digunakan" || (!isMitra && status === "Terdistribusi");
                 }).length,
-                rusak: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "rusak").length,
-                hilang: visibleItems.filter((item: any) => item.status.trim().toLowerCase() === "hilang").length,
+                rusak: currentItems.filter((item: any) => {
+                    return formatItemStatus(item.status, user?.role, item.mitra, item.lokasiPenyimpanan, item.paNumber) === "Rusak";
+                }).length,
+                hilang: currentItems.filter((item: any) => {
+                    return formatItemStatus(item.status, user?.role, item.mitra, item.lokasiPenyimpanan, item.paNumber) === "Hilang";
+                }).length,
             });
             
             setMitraPerformanceMetrics(performanceData);

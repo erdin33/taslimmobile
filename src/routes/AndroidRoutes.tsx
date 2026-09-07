@@ -24,6 +24,16 @@ import TugasHarianPage from "@/app/android/tugas-harian/page";
 import LaporanReconPage from "@/app/android/laporan-recon/page";
 import PeminjamanMitraPage from "@/app/android/peminjaman-mitra/page";
 
+import { useAuth } from "@/lib/auth";
+
+function RootIndexRoute() {
+	const { user } = useAuth();
+	if (user?.role?.toLowerCase() === "mitra") {
+		return <Navigate to="/tugas-harian" replace />;
+	}
+	return <DashboardPage />;
+}
+
 export function AndroidRoutes() {
 	return (
 		<Routes>
@@ -36,7 +46,7 @@ export function AndroidRoutes() {
 							<AndroidLayout />
 						</ProtectedRoute>
 					}>
-					<Route index element={<DashboardPage />} />
+					<Route index element={<RootIndexRoute />} />
 					<Route path="barang-masuk" element={<BarangMasukPage />} />
 					<Route path="penerimaan-retur" element={
 						<ProtectedRoute adminOnly>

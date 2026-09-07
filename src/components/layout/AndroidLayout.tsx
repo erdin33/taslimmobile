@@ -196,34 +196,37 @@ export default function AndroidLayout() {
 
 			{/* Bottom Navigation Bar */}
 			<nav className="h-[6.5rem] pb-11 w-full bg-card border-t flex items-center justify-around z-50 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] px-2">
-				{/* 1. Home */}
-				<NavLink
-					to="/"
-					end
-					className={({ isActive }) =>
-						cn(
-							"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
-							isActive && "text-primary font-medium"
-						)
-					}>
-					<Home className="w-5 h-5" />
-					<span className="text-[10px]">Dashboard</span>
-				</NavLink>
-
-				{/* 2. Admin: Masuk | Mitra: Tugas Harian */}
-				{isAdmin ? (
+				{/* 1. Dashboard (Hanya Admin) */}
+				{isAdmin && (
 					<NavLink
-						to="/barang-masuk"
+						to="/"
+						end
 						className={({ isActive }) =>
 							cn(
 								"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
 								isActive && "text-primary font-medium"
 							)
 						}>
-						<PackagePlus className="w-5 h-5" />
-						<span className="text-[10px]">Masuk</span>
+						<Home className="w-5 h-5" />
+						<span className="text-[10px]">Dashboard</span>
 					</NavLink>
-				) : (
+				)}
+
+				{/* 2. Masuk */}
+				<NavLink
+					to="/barang-masuk"
+					className={({ isActive }) =>
+						cn(
+							"flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground transition-colors",
+							isActive && "text-primary font-medium"
+						)
+					}>
+					<PackagePlus className="w-5 h-5" />
+					<span className="text-[10px] whitespace-nowrap">{isAdmin ? "Masuk" : "Pengembalian"}</span>
+				</NavLink>
+
+				{/* 3. Mitra: Tugas Harian (Recon) */}
+				{!isAdmin && (
 					<NavLink
 						to="/tugas-harian"
 						className={({ isActive }) =>

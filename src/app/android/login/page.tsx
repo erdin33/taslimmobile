@@ -32,6 +32,9 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (user) {
+    if (user.role?.toLowerCase() === "mitra") {
+      return <Navigate to="/tugas-harian" replace />
+    }
     return <Navigate to="/" replace />
   }
 
@@ -54,10 +57,14 @@ export default function LoginPage() {
     setIsSubmitting(true)
     try {
       // Memanggil fungsi login dari AuthContext (API Call)
-      await login(username.trim(), password)
+      const loggedUser = await login(username.trim(), password)
 
-      // Jika berhasil, arahkan pengguna kembali ke halaman utama (dashboard)
-      navigate("/", { replace: true })
+      // Jika mitra, arahkan langsung ke tugas-harian (agar tidak membebani HP dengan dashboard)
+      if (loggedUser?.role?.toLowerCase() === "mitra") {
+        navigate("/tugas-harian", { replace: true })
+      } else {
+        navigate("/", { replace: true })
+      }
     } catch (error) {
       // Tangkap dan tampilkan error kembalian dari API ke pengguna
       setErrorMessage(

@@ -205,7 +205,7 @@ export const useBarangKeluarLogic = () => {
       return { success: false, message: "Serial number tidak ditemukan" };
     }
 
-    if (isOutsideStatus(matchedItem.status, user?.role)) {
+    if (isOutsideStatus(matchedItem.status, user?.role, matchedItem.lokasiPenyimpanan, matchedItem.paNumber)) {
       toast.error("Barang ini sudah berada di luar dan tidak dapat dikeluarkan kembali.", {
         description: `Status saat ini: ${matchedItem.status}`,
       });
@@ -346,7 +346,7 @@ export const useBarangKeluarLogic = () => {
 
       const invalidItem = session.barangKeluar.find((item) => {
         const latestItem = findLatestSessionItem(item.nomor);
-        return !latestItem || isOutsideStatus(latestItem.status, user?.role);
+        return !latestItem || isOutsideStatus(latestItem.status, user?.role, latestItem.lokasiPenyimpanan, latestItem.paNumber);
       });
 
       if (invalidItem) {
@@ -392,13 +392,15 @@ export const useBarangKeluarLogic = () => {
         const originalItem = findLatestSessionItem(item.nomor)!;
         const originalLoc = originalItem.lokasiPenyimpanan || "-";
         const isMitraRole = user?.role === "mitra";
+        const paNum = isMitraRole && item.keterangan ? item.keterangan.trim() : undefined;
         const newStatus = isMitraRole ? "Digunakan" : "Terdistribusi";
-        const newLocation = isMitraRole ? "Digunakan" : (item.mitra || "Terdistribusi");
+        const newLocation = isMitraRole ? (paNum || "Digunakan") : (item.mitra || "Terdistribusi");
 
         const updatedItem: InventoryItem = {
           ...originalItem,
           status: newStatus,
           lokasiPenyimpanan: newLocation,
+          paNumber: paNum || originalItem.paNumber,
           tanggalKeluar: sessionDate,
           mitra: item.mitra || originalItem.mitra,
         };
@@ -418,8 +420,10 @@ export const useBarangKeluarLogic = () => {
           sn: item.nomor,
           merek: item.merek,
           asal: originalLoc,
-          tujuan: item.mitra,
+          tujuan: isMitraRole ? (paNum || "Digunakan") : item.mitra,
           mitra: item.mitra,
+          paNumber: paNum,
+          lokasi: isMitraRole ? (paNum || "Digunakan") : undefined,
           keterangan: item.ticketGangguan
             ? `${item.keterangan ? item.keterangan + " | " : ""}Tiket Gangguan: ${item.ticketGangguan}`
             : (item.keterangan || null),
@@ -460,10 +464,19 @@ export const useBarangKeluarLogic = () => {
       // Update local dbItems to match changes
       const isMitraRole = user?.role === "mitra";
       const newStatus = isMitraRole ? "Digunakan" : "Terdistribusi";
-      const newLocation = isMitraRole ? "Digunakan" : "Terdistribusi";
       const updatedVisibleItems = latestVisibleItems.map(item => {
         if (queuedSerialNumbers.has(normalizeKodeBarang(item.serialNumber))) {
-          return { ...item, status: newStatus, lokasiPenyimpanan: newLocation };
+          const sessionItem = session.barangKeluar.find(
+            si => normalizeKodeBarang(si.nomor) === normalizeKodeBarang(item.serialNumber)
+          );
+          const paNum = isMitraRole && sessionItem?.keterangan ? sessionItem.keterangan.trim() : undefined;
+          const newLocation = isMitraRole ? (paNum || "Digunakan") : "Terdistribusi";
+          return {
+            ...item,
+            status: newStatus,
+            lokasiPenyimpanan: newLocation,
+            paNumber: paNum || item.paNumber,
+          };
         }
         return item;
       });

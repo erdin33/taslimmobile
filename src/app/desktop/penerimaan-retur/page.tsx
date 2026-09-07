@@ -5,7 +5,6 @@ import {
   Clock,
   CheckCircle2,
   FileText,
-  Printer,
   Search,
   Copy,
   Check,
@@ -24,7 +23,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import type { DashboardRequest } from "@/types/transaction";
 import { ReturApprovalModal } from "@/features/barang-masuk/components/ReturApprovalModal";
-import { BastReturModal } from "@/features/barang-masuk/components/BastReturModal";
 import { getBaseUrl, getHeaders } from "@/features/barang-masuk/api/barangMasukApi";
 
 export default function PenerimaanReturPage() {
@@ -33,9 +31,7 @@ export default function PenerimaanReturPage() {
   const [pendingReturs, setPendingReturs] = useState<DashboardRequest[]>([]);
   const [completedReturs, setCompletedReturs] = useState<DashboardRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<DashboardRequest | null>(null);
-  const [bastRequest, setBastRequest] = useState<DashboardRequest | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBastModalOpen, setIsBastModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -98,10 +94,7 @@ export default function PenerimaanReturPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenBast = (req: DashboardRequest) => {
-    setBastRequest(req);
-    setIsBastModalOpen(true);
-  };
+
 
   const handleOpenDirectPdf = async (req: DashboardRequest, isFinal = false, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -111,25 +104,19 @@ export default function PenerimaanReturPage() {
       const url = `${getBaseUrl()}/requests/${req.id || req.requestNumber}/${endpoint}?token=${token}`;
       try {
         await openUrl(url);
-        toast.success("Membuka PDF BAST...");
+        toast.success("Membuka PDF BAST dari server...");
       } catch {
         window.open(url, "_blank");
       }
     } catch {
-      handleOpenBast(req);
+      toast.error("Endpoint server BAST retur belum tersedia.");
     }
   };
 
   const handleApproveSuccess = () => {
     setIsModalOpen(false);
-    const approved = selectedRequest;
     setSelectedRequest(null);
     fetchReturRequests();
-
-    if (approved) {
-      setBastRequest({ ...approved, status: "SELESAI" });
-      setIsBastModalOpen(true);
-    }
   };
 
   const filterList = (list: DashboardRequest[]) => {
@@ -368,7 +355,7 @@ export default function PenerimaanReturPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleOpenBast(req)}
+                              onClick={(e) => handleOpenDirectPdf(req, false, e)}
                               className="gap-1 text-xs h-8 cursor-pointer"
                             >
                               <FileText className="size-3.5" />
@@ -398,11 +385,11 @@ export default function PenerimaanReturPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleOpenBast(req)}
+                              onClick={(e) => handleOpenDirectPdf(req, true, e)}
                               className="gap-1.5 text-xs h-8 text-primary border-primary/30 hover:bg-primary/10 font-semibold cursor-pointer"
                             >
-                              <Printer className="size-3.5" />
-                              Cetak BAST
+                              <FileText className="size-3.5" />
+                              BAST Final
                             </Button>
                           </div>
                         )}
@@ -525,7 +512,7 @@ export default function PenerimaanReturPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleOpenBast(req)}
+                            onClick={(e) => handleOpenDirectPdf(req, false, e)}
                             className="w-full text-xs h-9 font-medium cursor-pointer"
                           >
                             <FileText className="size-3.5 mr-1" />
@@ -554,11 +541,11 @@ export default function PenerimaanReturPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleOpenBast(req)}
-                            className="w-full text-xs h-9 text-primary border-primary/30 hover:bg-primary/10 font-semibold shadow-2xs cursor-pointer"
+                            onClick={(e) => handleOpenDirectPdf(req, true, e)}
+                            className="w-full text-xs h-9 text-emerald-600 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 font-semibold shadow-2xs cursor-pointer"
                           >
-                            <Printer className="size-3.5 mr-1" />
-                            Cetak BAST
+                            <FileText className="size-3.5 mr-1" />
+                            BAST Final
                           </Button>
                         </div>
                       )}
@@ -577,14 +564,6 @@ export default function PenerimaanReturPage() {
           onOpenChange={setIsModalOpen}
           request={selectedRequest}
           onSuccess={handleApproveSuccess}
-        />
-      )}
-
-      {bastRequest && (
-        <BastReturModal
-          isOpen={isBastModalOpen}
-          onOpenChange={setIsBastModalOpen}
-          request={bastRequest}
         />
       )}
     </div>

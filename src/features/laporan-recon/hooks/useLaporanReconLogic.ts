@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import type { BarangUnit } from "@/types/inventory";
+import { formatItemStatus } from "@/lib/status-helper";
 
 const getBaseUrl = () => {
   const baseUrl = (import.meta as any).env.URL || (import.meta as any).env.VITE_URL || "http://172.168.9.139:3000/";
@@ -212,7 +213,19 @@ export const useLaporanReconLogic = () => {
   // Items currently assigned to partners
   const partnerItems = useMemo(() => {
     return items.filter((item) => {
-      if (!item.mitra || String(item.status).toLowerCase() === "keluar") return false;
+      if (!item.mitra) return false;
+
+      // Gunakan helper status yang sama dengan Dashboard/Filter
+      const effectiveStatus = formatItemStatus(
+        item.status,
+        "mitra", // paksa anggap sebagai mitra untuk mengecek apakah barang Tersedia di mitra
+        item.mitra,
+        item.lokasiPenyimpanan,
+        item.paNumber
+      );
+
+      if (effectiveStatus !== "Tersedia") return false;
+
       const mitraNameLower = item.mitra.trim().toLowerCase();
       return partners.some((p) => p.name.toLowerCase() === mitraNameLower);
     });

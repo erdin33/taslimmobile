@@ -52,7 +52,19 @@ export default function TipeMaterialPage() {
       const res = await fetch(`${getBaseUrl()}/material-types`, { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
-        setTypes(data);
+        let list: any[] = [];
+        if (Array.isArray(data)) {
+          list = data;
+        } else if (data && Array.isArray(data.data)) {
+          list = data.data;
+        } else if (data && Array.isArray(data.models)) {
+          list = data.models;
+        } else if (data && Array.isArray(data.types)) {
+          list = data.types;
+        } else if (data && data.data && Array.isArray(data.data.data)) {
+          list = data.data.data;
+        }
+        setTypes(list);
       }
     } catch (e) {
       toast.error("Gagal mengambil data tipe material.");
@@ -89,12 +101,14 @@ export default function TipeMaterialPage() {
 
   const filteredTypes = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return types.filter(t =>
-      t.nama?.toLowerCase().includes(q) ||
-      t.code?.toLowerCase().includes(q) ||
-      t.brand?.nama?.toLowerCase().includes(q) ||
-      t.materialCategory?.nama?.toLowerCase().includes(q)
-    );
+    return types.filter(t => {
+      const nama = (t.nama || t.name || "").toLowerCase();
+      const code = (t.code || "").toLowerCase();
+      const brand = (t.brand?.nama || t.brand?.name || "").toLowerCase();
+      const category = (t.materialCategory?.nama || t.materialCategory?.name || "").toLowerCase();
+      
+      return nama.includes(q) || code.includes(q) || brand.includes(q) || category.includes(q);
+    });
   }, [types, searchQuery]);
 
   const handleOpenSheet = (id?: string) => {
@@ -228,11 +242,11 @@ export default function TipeMaterialPage() {
                 </DropdownMenu>
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-foreground mb-1">{t.nama}</h3>
+                <h3 className="font-semibold text-lg text-foreground mb-1">{t.nama || t.name || "-"}</h3>
                 <div className="flex flex-col gap-1 mt-2">
                   <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Kode:</span> {t.code || '-'}</div>
-                  <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Merek:</span> {t.brand?.nama || '-'}</div>
-                  <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Kategori:</span> {t.materialCategory?.nama || '-'}</div>
+                  <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Merek:</span> {t.brand?.nama || t.brand?.name || '-'}</div>
+                  <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Kategori:</span> {t.materialCategory?.nama || t.materialCategory?.name || '-'}</div>
                 </div>
               </div>
               <div className="pt-3 border-t border-border/50 flex justify-between items-center">

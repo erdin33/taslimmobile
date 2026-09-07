@@ -32,7 +32,6 @@ import { useAuth } from "@/lib/auth"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { DigitalSignatureDialog } from "@/app/request/components/DigitalSignatureDialog"
 import { PengambilanMitraModal } from "@/features/transactions/components/PengambilanMitraModal"
-import { BastReturModal } from "@/features/barang-masuk/components/BastReturModal"
 import { PackageCheck } from "lucide-react"
 import type { AuthUser } from "@/types/auth"
 import type { DashboardRequest, RequestItem } from "@/types/transaction"
@@ -328,8 +327,6 @@ export default function PartnerRequestHistoryPage() {
   const [signDialogOpen, setSignDialogOpen] = useState(false)
   const [signingRequestId, setSigningRequestId] = useState<string | null>(null)
   const [openingPdfId, setOpeningPdfId] = useState<string | null>(null)
-  const [bastReturModalOpen, setBastReturModalOpen] = useState(false)
-  const [selectedReturForBast, setSelectedReturForBast] = useState<DashboardRequest | null>(null)
   
   // Validasi & Ambil (Scanner) state
   const [validasiMitraOpen, setValidasiMitraOpen] = useState(false)
@@ -402,20 +399,15 @@ export default function PartnerRequestHistoryPage() {
 
   // ── BAST handlers ─────────────────────────────────────────────────────────
 
-  const handleOpenBastPdf = useCallback(async (req: DashboardRequest) => {
-    if (req.type === "RETUR" || (req.requestNumber && req.requestNumber.startsWith("RTR-"))) {
-      setSelectedReturForBast(req)
-      setBastReturModalOpen(true)
-      return
-    }
-
+  const handleOpenBastPdf = useCallback(async (req: DashboardRequest, isFinal: boolean = false) => {
     setOpeningPdfId(req.id)
     try {
       const token = localStorage.getItem("taslim-auth-token") || ""
-      const url = `${getBaseUrl()}/requests/${req.id}/bast-pdf?token=${token}`
+      const endpoint = isFinal ? "pdf-signed" : "pdf-draft"
+      const url = `${getBaseUrl()}/requests/${req.id || req.requestNumber}/${endpoint}?token=${token}`
       await openUrl(url)
     } catch {
-      toast.error("Gagal membuka PDF BAST")
+      toast.error("Endpoint server BAST retur belum tersedia.")
     } finally {
       setOpeningPdfId(null)
     }
@@ -794,10 +786,10 @@ export default function PartnerRequestHistoryPage() {
                         size="sm"
                         className="h-10 gap-2 text-[13px] font-semibold flex-1 rounded-xl shadow-sm cursor-pointer hover:bg-primary/5 hover:text-primary hover:border-primary/30"
                         disabled={isOpeningPdf}
-                        onClick={() => handleOpenBastPdf(req)}
+                        onClick={() => handleOpenBastPdf(req, isSigned)}
                       >
                         {isOpeningPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                        Lihat BAST
+                        {isSigned ? "BAST Final" : "BAST Draft"}
                       </Button>
                       
                       {canSign && (
@@ -887,12 +879,6 @@ export default function PartnerRequestHistoryPage() {
         />
       )}
 
-      {/* BAST Pengembalian / Retur Modal */}
-      <BastReturModal
-        isOpen={bastReturModalOpen}
-        onOpenChange={setBastReturModalOpen}
-        request={selectedReturForBast}
-      />
     </div>
   )
 }

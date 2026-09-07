@@ -12,7 +12,7 @@ import {
 import { Link } from "react-router-dom"
 import type { StatusUnit } from "@/types/inventory"
 
-const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Digunakan", "Rusak", "Hilang"]
+const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Digunakan", "Rusak", "Dismantle"]
 
 interface BarangFilterBarProps {
   searchTerm: string
@@ -23,6 +23,9 @@ interface BarangFilterBarProps {
   onCategoryChange: (val: string) => void
   filterBrand: string
   onBrandChange: (val: string) => void
+  filterMitra?: string
+  onMitraChange?: (val: string) => void
+  partners?: { id: string; name: string }[]
   categories: string[]
   brands: string[]
   onResetFilter: () => void
@@ -42,6 +45,9 @@ export function BarangFilterBar({
   onCategoryChange,
   filterBrand,
   onBrandChange,
+  filterMitra,
+  onMitraChange,
+  partners = [],
   categories,
   brands,
   onResetFilter,
@@ -55,7 +61,8 @@ export function BarangFilterBar({
     searchTerm.trim().length > 0 ||
     filterStatus !== "all" ||
     filterCategory !== "all" ||
-    filterBrand !== "all"
+    filterBrand !== "all" ||
+    (Boolean(filterMitra) && filterMitra !== "all")
 
   return (
     <Card className="shrink-0 p-4 shadow-sm border-border/60 bg-card/50 backdrop-blur-sm">
@@ -79,16 +86,30 @@ export function BarangFilterBar({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua Status</SelectItem>
-              {(userRole === "mitra"
-                ? STATUS_OPTIONS.filter((s) => s !== "Terdistribusi")
-                : STATUS_OPTIONS
-              ).map((status) => (
+              {STATUS_OPTIONS.filter((status) => userRole?.toLowerCase() === "mitra" ? status !== "Terdistribusi" : true).map((status) => (
                 <SelectItem key={status} value={status}>
                   {status}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          {/* Mitra Filter (Hanya Admin) */}
+          {userRole !== "mitra" && onMitraChange && partners.length > 0 && (
+            <Select value={filterMitra || "all"} onValueChange={onMitraChange}>
+              <SelectTrigger className="w-36 h-9">
+                <SelectValue placeholder="Semua Mitra" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Mitra</SelectItem>
+                {partners.map((p) => (
+                  <SelectItem key={p.id} value={p.name}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           {/* Category Filter */}
           <Select value={filterCategory} onValueChange={onCategoryChange}>

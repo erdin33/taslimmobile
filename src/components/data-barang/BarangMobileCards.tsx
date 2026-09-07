@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { BarangUnit, StatusUnit } from "@/types/inventory"
 
+import { formatItemLocation } from "@/lib/status-helper"
+
 interface BarangMobileCardsProps {
   items: BarangUnit[]
   selectedIds: string[]
@@ -20,7 +22,7 @@ interface BarangMobileCardsProps {
   onOpenEdit: (item: BarangUnit) => void
   onDelete: (id: string) => void
   userRole?: string
-  getStatusBadgeProps: (status: StatusUnit | string, lokasi?: string, mitra?: string | null) => { text: string; dotClass?: string; badgeClass?: string }
+  getStatusBadgeProps: (status: StatusUnit | string, lokasi?: string, mitra?: string | null, paNumber?: string | null) => { text: string; dotClass?: string; badgeClass?: string }
   formatTanggal: (tgl: string) => string
   ADMIN_LOCATION: string
 }
@@ -40,7 +42,10 @@ export function BarangMobileCards({
   return (
     <div className="space-y-3 md:hidden overflow-y-auto pr-1">
       {items.map((item) => {
-        const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan, item.mitra)
+        const itemLoc = item.lokasiPenyimpanan || (item as any).storage_location || (item as any).lokasi || ""
+        const itemMitra = item.mitra || (item as any).partner || ""
+        const itemPa = item.paNumber || (item as any).pa_number || ""
+        const badge = getStatusBadgeProps(item.status, itemLoc, itemMitra, itemPa)
         const isSelected = selectedIds.includes(item.id)
         return (
           <Card
@@ -100,7 +105,7 @@ export function BarangMobileCards({
 
             <div className="grid grid-cols-2 text-xs pt-1 border-t border-border/40 text-muted-foreground gap-y-1">
               <div>
-                <span className="font-medium text-foreground">Lokasi:</span> {item.lokasiPenyimpanan}
+                <span className="font-medium text-foreground">Lokasi:</span> {formatItemLocation(itemLoc, itemMitra, itemPa)}
               </div>
               <div>
                 <span className="font-medium text-foreground">Pemilik:</span> {item.mitra || ADMIN_LOCATION}

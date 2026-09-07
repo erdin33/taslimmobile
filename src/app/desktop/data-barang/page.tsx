@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Boxes, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,7 +25,7 @@ import { useSearchParams } from "react-router-dom"
 import { saveExportFile } from "@/lib/export-file"
 import * as XLSX from "xlsx"
 import { useAuth } from "@/lib/auth"
-import { formatItemStatus } from "@/lib/status-helper"
+import { formatItemStatus, isItemMatchingStatus } from "@/lib/status-helper"
 
 import { BarangFilterBar } from "@/components/data-barang/BarangFilterBar"
 import { BarangTable } from "@/components/data-barang/BarangTable"
@@ -37,7 +37,7 @@ import { ExportExcelModal } from "@/components/data-barang/ExportExcelModal"
 import type { StatusUnit, BarangUnit, StorageLocationOption } from "@/types/inventory"
 import type { DeleteDialogState } from "@/types/ui"
 
-const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Digunakan", "Rusak", "Hilang"]
+const STATUS_OPTIONS: StatusUnit[] = ["Tersedia", "Terdistribusi", "Digunakan", "Rusak", "Dismantle"]
 const ADMIN_LOCATION = "KP Tasikmalaya"
 
 const getBaseUrl = () => {
@@ -87,10 +87,15 @@ export default function DataBarangPage() {
   const [totalItems, setTotalItems] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
+  // Cache semua item dari server — tidak perlu fetch ulang saat filter/search berubah
+  const allItemsCache = useRef<BarangUnit[]>([])
+
   const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "")
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterCategory, setFilterCategory] = useState("all")
   const [filterBrand, setFilterBrand] = useState("all")
+  const [filterMitra, setFilterMitra] = useState("all")
+  const [dbPartners, setDbPartners] = useState<{ id: string; name: string }[]>([])
 
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -167,27 +172,72 @@ export default function DataBarangPage() {
             setDbLocations(locs)
           }
         }
+
+        // Ambil daftar mitra untuk filter admin
+        if (user?.role !== "mitra") {
+          const resUsers = await fetch(`${getBaseUrl()}/users`, { method: "GET", headers: getHeaders() }).catch(() => null)
+          if (resUsers && resUsers.ok) {
+            const uJson = await resUsers.json()
+            const uList = Array.isArray(uJson.data) ? uJson.data : (Array.isArray(uJson) ? uJson : [])
+            const partners = uList
+              .filter((u: any) => (u.role || "").toUpperCase() === "MITRA")
+              .map((u: any) => ({
+                id: String(u.id),
+                name: u.profile?.nama || u.profile?.name || u.displayName || u.name || u.username,
+              }))
+            setDbPartners(partners)
+          }
+        }
       } catch (err) {
-        console.error("Gagal memuat kategori/lokasi:", err)
+        console.error("Gagal memuat kategori/lokasi/mitra:", err)
       }
     }
 
     fetchAuxiliary()
-  }, [])
+  }, [user?.role])
 
-  // Load main paginated items list
-  const loadItems = async () => {
+  // Terapkan filter + search + pagination ke dalam cache (tidak fetch ulang ke server)
+  const applyFiltersAndPaginate = useCallback((page: number) => {
+    let filtered = [...allItemsCache.current]
+
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase()
+      filtered = filtered.filter(item =>
+        item.serialNumber?.toLowerCase().includes(q) ||
+        item.tipe?.toLowerCase().includes(q) ||
+        item.lokasiPenyimpanan?.toLowerCase().includes(q) ||
+        item.merek?.toLowerCase().includes(q) ||
+        item.kategori?.toLowerCase().includes(q) ||
+        (item.mitra || "").toLowerCase().includes(q)
+      )
+    }
+    if (filterStatus !== "all") {
+      filtered = filtered.filter(item => isItemMatchingStatus(item, filterStatus, user?.role))
+    }
+    if (filterMitra !== "all") {
+      const normMitra = filterMitra.trim().toLowerCase()
+      filtered = filtered.filter(item => (item.mitra || "").trim().toLowerCase() === normMitra)
+    }
+    if (filterCategory !== "all") {
+      filtered = filtered.filter(item => item.kategori?.toLowerCase() === filterCategory.toLowerCase())
+    }
+    if (filterBrand !== "all") {
+      filtered = filtered.filter(item => item.merek?.toLowerCase() === filterBrand.toLowerCase())
+    }
+
+    setTotalItems(filtered.length)
+    setTotalPages(Math.max(1, Math.ceil(filtered.length / pageSize)))
+
+    const startIndex = (page - 1) * pageSize
+    setBarangList(filtered.slice(startIndex, startIndex + pageSize))
+  }, [searchTerm, filterStatus, filterMitra, filterCategory, filterBrand, pageSize, user?.role])
+
+  // Load items dari server (hanya saat awal atau setelah mutasi data)
+  const loadItems = useCallback(async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
-      params.append("page", currentPage.toString())
-      params.append("limit", pageSize.toString())
-      if (searchTerm.trim()) params.append("search", searchTerm.trim())
-      if (user?.role !== "mitra" && filterStatus !== "all") {
-        params.append("status", filterStatus)
-      }
-      if (filterCategory !== "all") params.append("kategori", filterCategory)
-      if (filterBrand !== "all") params.append("merek", filterBrand)
+      params.append("limit", "9999")
 
       const res = await fetch(`${getBaseUrl()}/items?${params.toString()}`, {
         method: "GET",
@@ -197,32 +247,16 @@ export default function DataBarangPage() {
       if (!res.ok) throw new Error("Gagal memuat data barang")
 
       const result = await res.json()
-      let fetchedItems: BarangUnit[] = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : [])
+      const rawItems: BarangUnit[] = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : [])
 
-      if (filterStatus !== "all") {
-        const normFilter = filterStatus.trim().toLowerCase()
-        fetchedItems = fetchedItems.filter((item) => {
-          const badge = getStatusBadgeProps(item.status, item.lokasiPenyimpanan, item.mitra)
-          return badge.text.toLowerCase() === normFilter
-        })
-      }
-      if (filterCategory !== "all") {
-        fetchedItems = fetchedItems.filter((item) => item.kategori?.toLowerCase() === filterCategory.toLowerCase())
-      }
-      if (filterBrand !== "all") {
-        fetchedItems = fetchedItems.filter((item) => item.merek?.toLowerCase() === filterBrand.toLowerCase())
-      }
+      allItemsCache.current = rawItems
 
-      setBarangList(fetchedItems)
-      setTotalItems(result.pagination?.totalItems && fetchedItems.length === result.data?.length ? result.pagination.totalItems : fetchedItems.length)
-      setTotalPages(Math.max(1, Math.ceil(fetchedItems.length / pageSize)))
-
-      // Populate unique brands list
+      // Populate brands from full dataset
       const extractedBrands = Array.from(
-        new Set(fetchedItems.map((item: BarangUnit) => item.merek).filter(Boolean))
+        new Set(rawItems.map((item: BarangUnit) => item.merek).filter(Boolean))
       ) as string[]
       if (extractedBrands.length > 0) {
-        setBrands((prev) => Array.from(new Set([...prev, ...extractedBrands])))
+        setBrands(prev => Array.from(new Set([...prev, ...extractedBrands])))
       }
     } catch (err) {
       console.error("Error loadItems:", err)
@@ -230,22 +264,37 @@ export default function DataBarangPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user])
 
+  // Fetch data saat pertama kali atau setelah user berubah
   useEffect(() => {
     loadItems()
-  }, [user, currentPage, pageSize, searchTerm, filterStatus, filterCategory, filterBrand])
+  }, [user])
 
-  // Reset page to 1 when filters change
+  // Saat filter/search berubah: reset page ke 1 lalu terapkan filter
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filterStatus, filterCategory, filterBrand, pageSize])
+    applyFiltersAndPaginate(1)
+  }, [searchTerm, filterStatus, filterMitra, filterCategory, filterBrand])
+
+  // Saat page berubah: terapkan filter dengan page baru
+  useEffect(() => {
+    applyFiltersAndPaginate(currentPage)
+  }, [currentPage])
+
+  // Saat loading selesai (data baru dari server): terapkan filter
+  useEffect(() => {
+    if (!isLoading) {
+      applyFiltersAndPaginate(currentPage)
+    }
+  }, [isLoading])
 
   const handleResetFilter = () => {
     setSearchTerm("")
     setFilterStatus("all")
     setFilterCategory("all")
     setFilterBrand("all")
+    setFilterMitra("all")
     setCurrentPage(1)
   }
 
@@ -484,8 +533,13 @@ export default function DataBarangPage() {
     }
   }
 
-  const getStatusBadgeProps = (status: StatusUnit | string, lokasi?: string, mitra?: string | null) => {
-    const text = formatItemStatus(status, user?.role, mitra, lokasi)
+  const getStatusBadgeProps = (
+    status: StatusUnit | string,
+    lokasi?: string,
+    mitra?: string | null,
+    paNumber?: string | null
+  ) => {
+    const text = formatItemStatus(status, user?.role, mitra, lokasi, paNumber)
     
     switch (text) {
       case "Tersedia":
@@ -494,13 +548,13 @@ export default function DataBarangPage() {
         return { text: "Terdistribusi", dotClass: "bg-blue-500", badgeClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400" }
       case "Digunakan":
         return { text: "Digunakan", dotClass: "bg-indigo-500", badgeClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" }
-      case "Dismantle":
-        return { text: "Dismantle", dotClass: "bg-purple-500", badgeClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400" }
       case "Rusak":
         return { text: "Rusak", dotClass: "bg-destructive", badgeClass: "bg-destructive/10 text-destructive" }
       case "Hilang":
+      case "Dismantle":
+        return { text: text || "Dismantle", dotClass: "bg-purple-500", badgeClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400" }
       default:
-        return { text: text || "Hilang", dotClass: "bg-amber-500", badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400" }
+        return { text: text || String(status), dotClass: "bg-gray-500", badgeClass: "bg-gray-500/10 text-gray-600 dark:text-gray-400" }
     }
   }
 
@@ -544,7 +598,8 @@ export default function DataBarangPage() {
     searchTerm.trim().length > 0 ||
     filterStatus !== "all" ||
     filterCategory !== "all" ||
-    filterBrand !== "all"
+    filterBrand !== "all" ||
+    filterMitra !== "all"
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 md:p-6 overflow-hidden animate-fade-in">
@@ -558,6 +613,9 @@ export default function DataBarangPage() {
         onCategoryChange={setFilterCategory}
         filterBrand={filterBrand}
         onBrandChange={setFilterBrand}
+        filterMitra={filterMitra}
+        onMitraChange={setFilterMitra}
+        partners={dbPartners}
         categories={categories}
         brands={brands}
         onResetFilter={handleResetFilter}

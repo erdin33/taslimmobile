@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Html5Qrcode } from "html5-qrcode";
 
 import type { BarangUnit } from "@/types/inventory";
+import { formatItemStatus } from "@/lib/status-helper";
 
 const dataURLtoFile = (dataurl: string, filename: string): File => {
 	const arr = dataurl.split(",");
@@ -303,11 +304,21 @@ export default function TugasHarianPage() {
 			const data: BarangUnit[] = rawData.data || rawData;
 
 			const currentUserDisplayName = user.displayName || "";
-			const mitraItems = data.filter(
-				(item) =>
-					item.mitra?.trim().toLowerCase() ===
-					currentUserDisplayName.trim().toLowerCase(),
-			);
+			const mitraItems = data.filter((item) => {
+				const isMitra = item.mitra?.trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase();
+				if (!isMitra) return false;
+
+				// Samakan pembacaan status dengan Dashboard/Filter aplikasi
+				const effectiveStatus = formatItemStatus(
+					item.status, 
+					user.role, 
+					item.mitra, 
+					item.lokasiPenyimpanan, 
+					item.paNumber
+				);
+				
+				return effectiveStatus === "Tersedia";
+			});
 			setItems(mitraItems);
 		} catch (error) {
 			console.error(error);
